@@ -1,0 +1,36 @@
+{
+  "name": "app",
+  "version": "1.0.0",
+  "description": "Lightweight extendable virtual tabletop webapp that supports any token based game",
+  "main": "index.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "lint": "eslint src/**/*.js index.html",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/moscamj/TableTopTool.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/moscamj/TableTopTool/issues"
+  },
+  "homepage": "https://github.com/moscamj/TableTopTool#readme",
+  "devDependencies": {
+    "autoprefixer": "^10.4.21",
+    "eslint": "^8.57.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "vite": "^5.4.19"
+  },
+  "dependencies": {
+    "firebase": "^11.8.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
+  }
+}
