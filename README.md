@@ -1,37 +1,15 @@
 # TableTopTool - Offline MVP
 
-A web-based, generic, and extensible virtual tabletop (VTT) designed to support a wide array of tabletop games. This MVP version operates in an **offline-first, in-memory mode**, with all state managed locally and saved/loaded via JSON files. Firebase integration is stubbed for potential future use.
+A web-based, generic, and extensible virtual tabletop (VTT) designed to support a wide array of tabletop games. This MVP version operates in an **offline-first, in-memory mode**, with all state managed locally and saved/loaded via JSON files. Firebase integration is stubbed for potential future use. The codebase has been recently updated to use modern ES6+ JavaScript syntax and features, enhancing readability and maintainability.
 
 ## Prerequisites
 
 *   **Node.js**: LTS version (e.g., v20.x.x or newer recommended). Download from [nodejs.org](https://nodejs.org/).
 *   **npm**: Usually comes with Node.js.
 
-## Setup Instructions
+## Setup
 
-1.  **Clone the repository:**
-    ```bash
-    git clone https://github.com/moscamj/TableTopTool.git
-    # Example: git clone https://github.com/your-username/TableTopTool.git
-    ```
-2.  **Navigate to the project directory:**
-    ```bash
-    cd TableTopTool
-    ```
-3.  **Install dependencies:**
-    ```bash
-    npm install
-    ```
-4.  **Environment File (`.env`):**
-    This project uses Vite, which supports environment variables loaded from a `.env` file in the project root. For the current offline MVP, Firebase configuration is not actively used, but the structure is present for future development.
-    If you were to re-enable Firebase features, you would need to create a `.env` file with your Firebase project configuration:
-
-    ```plaintext
-    # .env (Example for future Firebase use - NOT REQUIRED FOR OFFLINE MVP)
-    VITE_FIREBASE_CONFIG='{"apiKey": "AIza...", "authDomain": "your-project.firebaseapp.com", "projectId": "your-project-id", ...}'
-    VITE_APP_ID='tabletoptool-v1'
-    ```
-    For now, you can proceed without creating a `.env` file, or create an empty one.
+For detailed setup instructions, including cloning, dependency installation, environment variables, and running the development server, please see the [Developer Setup Guide](./docs/developer_setup.md).
 
 ## Available Scripts
 
@@ -52,6 +30,29 @@ A web-based, generic, and extensible virtual tabletop (VTT) designed to support 
     npm run lint
     ```
     This will run ESLint to check for code quality and style issues in JavaScript files and `index.html`.
+
+## Project Structure
+
+*   `src/`: Contains all the JavaScript source code for the application.
+    *   `main.js`: Main entry point, event handling, and application initialization.
+    *   `api.js`: Defines the `VTT_API` for object scripting.
+    *   `canvas.js`: Handles all canvas rendering, pan/zoom, and object picking.
+    *   `firebase.js`: Firebase integration (currently in offline/stubbed mode).
+    *   `objects.js`: Manages VTT object creation, storage, and manipulation logic.
+    *   `ui.js`: Controls the user interface elements, inspector panel, modals, and messages.
+*   `docs/`: Contains documentation files.
+*   `index.html`: The main HTML file.
+*   `package.json`: Defines project dependencies and scripts.
+*   `vite.config.js`: Configuration for the Vite development server and build process.
+*   `.eslintrc.json`: Configuration for ESLint.
+*   `.prettierrc.json`: Configuration for Prettier.
+
+## Developer Guide
+
+This project includes resources to help developers get started and test the application:
+
+*   **[Developer Setup Guide](./docs/developer_setup.md):** Instructions on how to set up your local development environment.
+*   **[Testing Guide](./docs/testing_guide.md):** A checklist and guide for manually testing the application's features.
 
 ## Core Features (Offline MVP)
 

@@ -13,310 +13,385 @@ const loadedImages = new Map(); // url -> { img: Image, status: 'loading' | 'loa
 let onDrawNeededCallback = () => {}; // Callback to request a redraw from main.js
 
 // Debounce function
-function debounce(func, delay) {
-    let timeout;
-    return function(...args) {
-        const context = this;
-        clearTimeout(timeout);
-        timeout = setTimeout(() => func.apply(context, args), delay);
-    };
-}
+const debounce = (func, delay) => {
+  let timeout;
+  return (...args) => {
+    // Note: 'this' context might behave differently with arrow functions here
+    // depending on how debounce is called. If it's always method-style,
+    // it might be okay, or might need explicit binding if func expects a specific 'this'.
+    // For now, assuming current usage doesn't rely on 'this' from the caller of the debounced function.
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func(...args), delay); // Simplified apply
+  };
+};
 
+export const initCanvas = (canvasElement, drawNeededCallback) => {
+  if (!canvasElement) {
+    console.error('Canvas element not provided!');
+    return;
+  }
+  canvas = canvasElement;
+  ctx = canvas.getContext('2d');
+  onDrawNeededCallback =
+    drawNeededCallback || (() => console.warn('onDrawNeededCallback not set'));
 
-export function initCanvas(canvasElement, drawNeededCallback) {
-    if (!canvasElement) {
-        console.error("Canvas element not provided!");
-        return;
-    }
-    canvas = canvasElement;
-    ctx = canvas.getContext('2d');
-    onDrawNeededCallback = drawNeededCallback || (() => console.warn("onDrawNeededCallback not set"));
+  setCanvasSize(); // Set initial size
+  window.addEventListener('resize', debounce(setCanvasSize, 250));
+  console.log('Canvas initialized');
+};
 
-    setCanvasSize(); // Set initial size
-    window.addEventListener('resize', debounce(setCanvasSize, 250));
-    console.log("Canvas initialized");
-}
+export const setCanvasSize = () => {
+  if (!canvas || !canvas.parentElement) return;
+  const { clientWidth, clientHeight } = canvas.parentElement;
+  const dpr = window.devicePixelRatio || 1; // Device Pixel Ratio for HiDPI displays
 
-export function setCanvasSize() {
-    if (!canvas || !canvas.parentElement) return;
-    // Simple fill parent, adjust as needed for layout
-    const dpr = window.devicePixelRatio || 1;
-    const newWidth = canvas.parentElement.clientWidth;
-    const newHeight = canvas.parentElement.clientHeight;
-
-    if (canvas.width !== newWidth * dpr || canvas.height !== newHeight * dpr) {
-        canvas.width = newWidth * dpr;
-        canvas.height = newHeight * dpr;
-        canvas.style.width = `${newWidth}px`;
-        canvas.style.height = `${newHeight}px`;
-        ctx.scale(dpr, dpr); // Scale context once for HiDPI
-        console.log(`Canvas resized to ${newWidth}x${newHeight} (physical: ${canvas.width}x${canvas.height})`);
-    }
-    onDrawNeededCallback();
-}
+  if (
+    canvas.width !== clientWidth * dpr ||
+    canvas.height !== clientHeight * dpr
+  ) {
+    // Adjust canvas physical size for HiDPI
+    canvas.width = clientWidth * dpr;
+    canvas.height = clientHeight * dpr;
+    // Scale canvas logical size back down using CSS
+    canvas.style.width = `${clientWidth}px`;
+    canvas.style.height = `${clientHeight}px`;
+    // Scale canvas context to account for HiDPI, ensuring drawings are sharp
+    ctx.scale(dpr, dpr);
+    console.log(
+      `Canvas resized to ${clientWidth}x${clientHeight} (physical: ${canvas.width}x${canvas.height})`
+    );
+  }
+  onDrawNeededCallback();
+};
 
 // --- Getters and Setters ---
-export function getPanZoomState() {
-    return { ...panZoomState };
-}
+export const getPanZoomState = () => {
+  return { ...panZoomState };
+};
 
-export function setPanZoomState(newState) {
-    let changed = false;
-    if (newState.panX !== undefined && newState.panX !== panZoomState.panX) {
-        panZoomState.panX = newState.panX;
-        changed = true;
-    }
-    if (newState.panY !== undefined && newState.panY !== panZoomState.panY) {
-        panZoomState.panY = newState.panY;
-        changed = true;
-    }
-    if (newState.zoom !== undefined && newState.zoom !== panZoomState.zoom) {
-        // Add zoom limits
-        panZoomState.zoom = Math.max(0.1, Math.min(newState.zoom, 10));
-        changed = true;
-    }
-    if (changed) {
-        // console.log("PanZoom state updated:", panZoomState);
-        onDrawNeededCallback();
-    }
-}
+export const setPanZoomState = (newState) => {
+  const { panX: newPanX, panY: newPanY, zoom: newZoom } = newState;
+  let changed = false;
 
-export function getTableBackground() {
-    return { ...tableBackground };
-}
+  if (newPanX !== undefined && newPanX !== panZoomState.panX) {
+    panZoomState.panX = newPanX;
+    changed = true;
+  }
+  if (newPanY !== undefined && newPanY !== panZoomState.panY) {
+    panZoomState.panY = newPanY;
+    changed = true;
+  }
+  if (newZoom !== undefined && newZoom !== panZoomState.zoom) {
+    panZoomState.zoom = Math.max(0.1, Math.min(newZoom, 10));
+    changed = true;
+  }
 
-export function setTableBackground(newBackground) { // { type: 'color'|'image', value: string }
-    if (newBackground && typeof newBackground === 'object') {
-        let changed = tableBackground.type !== newBackground.type || tableBackground.value !== newBackground.value;
-        tableBackground = { ...newBackground };
-        if (tableBackground.type === 'image' && tableBackground.value) {
-            loadImage(tableBackground.value, tableBackground.value, onDrawNeededCallback);
-        } else if (changed) {
-            onDrawNeededCallback();
-        }
-        // console.log("Table background updated:", tableBackground);
+  if (changed) {
+    onDrawNeededCallback();
+  }
+};
+
+export const getTableBackground = () => {
+  return { ...tableBackground };
+};
+
+export const setTableBackground = (newBackground) => {
+  if (newBackground && typeof newBackground === 'object') {
+    const { type: newType, value: newValue } = newBackground;
+    let changed =
+      tableBackground.type !== newType || tableBackground.value !== newValue;
+    
+    // Update tableBackground directly with new properties
+    tableBackground.type = newType;
+    tableBackground.value = newValue;
+
+    if (newType === 'image' && newValue) {
+      loadImage(newValue, newValue, onDrawNeededCallback);
+    } else if (changed) {
+      // Ensure redraw if only color changed or image removed
+      onDrawNeededCallback();
     }
-}
+  }
+};
 
-export function getSelectedObjectId() {
-    return selectedObjectId;
-}
+export const getSelectedObjectId = () => {
+  return selectedObjectId;
+};
 
-export function setSelectedObjectId(id) {
-    if (selectedObjectId !== id) {
-        selectedObjectId = id;
-        // console.log("Selected object ID:", selectedObjectId);
-        onDrawNeededCallback();
-    }
-}
+export const setSelectedObjectId = (id) => {
+  if (selectedObjectId !== id) {
+    selectedObjectId = id;
+    onDrawNeededCallback();
+  }
+};
 
 // --- Image Loading ---
-function loadImage(url, cacheKey, callback) {
-    if (!url) {
-        if (loadedImages.has(cacheKey)) { // Image explicitly removed
-             loadedImages.delete(cacheKey);
-             if(callback) callback();
-        }
-        return;
+const loadImage = (url, cacheKey, callback) => {
+  if (!url) {
+    if (loadedImages.has(cacheKey)) {
+      // Image explicitly removed
+      loadedImages.delete(cacheKey);
+      if (callback) callback();
     }
-    const existingImage = loadedImages.get(cacheKey);
-    if (existingImage && existingImage.status === 'loaded') {
-        if (callback) callback(); // Already loaded
-        return;
-    }
-    if (existingImage && existingImage.status === 'loading') {
-        return; // Already loading
-    }
+    return;
+  }
+  const existingImage = loadedImages.get(cacheKey);
+  if (existingImage && existingImage.status === 'loaded') {
+    if (callback) callback(); // Already loaded
+    return;
+  }
+  if (existingImage && existingImage.status === 'loading') {
+    return; // Already loading
+  }
 
-    loadedImages.set(cacheKey, { img: null, status: 'loading' });
-    const image = new Image();
-    image.crossOrigin = "Anonymous"; // For images from other domains if canvas is tainted
-    image.onload = () => {
-        loadedImages.set(cacheKey, { img: image, status: 'loaded' });
-        console.log(`Image loaded: ${url}`);
-        if (callback) callback();
-    };
-    image.onerror = () => {
-        loadedImages.set(cacheKey, { img: null, status: 'error' });
-        console.error(`Error loading image: ${url}`);
-        if (callback) callback(); // Still call callback to redraw, maybe show placeholder
-    };
-    image.src = url;
-}
-
+  loadedImages.set(cacheKey, { img: null, status: 'loading' });
+  const image = new Image();
+  image.crossOrigin = 'Anonymous'; // For images from other domains if canvas is tainted
+  image.onload = () => {
+    loadedImages.set(cacheKey, { img: image, status: 'loaded' });
+    console.log(`Image loaded: ${url}`); // Kept template literal as it was already correct
+    if (callback) callback();
+  };
+  image.onerror = () => {
+    loadedImages.set(cacheKey, { img: null, status: 'error' });
+    console.error(`Error loading image: ${url}`); // Kept template literal
+    if (callback) callback(); // Still call callback to redraw, maybe show placeholder
+  };
+  image.src = url;
+};
 
 // --- Drawing Logic ---
-export function drawVTT(objectsMap, currentPZS, currentTblBg, currentSelectedId) {
-    if (!ctx || !canvas) return;
-    const dpr = window.devicePixelRatio || 1;
+export const drawVTT = (
+  objectsMap,
+  currentPZS,
+  currentTblBg,
+  currentSelectedId
+) => {
+  if (!ctx || !canvas) return;
 
-    // Save context state
+  const dpr = window.devicePixelRatio || 1;
+  const { panX, panY, zoom } = currentPZS;
+  // Destructure background type and value, providing a fallback if currentTblBg is undefined
+  const { type: bgType, value: bgValue } = currentTblBg || {};
+
+
+  // Save the current canvas context state (transformations, styles, etc.)
+  // This allows us to restore it later, isolating transformations to this draw call.
+  ctx.save();
+
+  // Clear canvas (physical pixels)
+  // This ensures the entire canvas area is cleared before drawing the new frame.
+  ctx.fillStyle = 'white'; // Fallback clear color
+  ctx.fillRect(0, 0, canvas.width, canvas.height); // Use physical width/height of the canvas
+
+  // Apply global pan and zoom transformations.
+  // These transformations are affected by the Device Pixel Ratio (dpr) to ensure
+  // panning and zooming feel consistent across different display densities.
+  // All subsequent drawing operations will be affected by this transformed coordinate system.
+  ctx.translate(panX * dpr, panY * dpr);
+  ctx.scale(zoom * dpr, zoom * dpr);
+
+  // 1. Draw Table Background
+  // Calculate the width and height of the viewport in "world" coordinates.
+  // This is done by taking the canvas's physical dimensions, converting to CSS pixels (dividing by dpr),
+  // and then accounting for the current zoom level.
+  const viewWidthWorld = canvas.width / dpr / zoom;
+  const viewHeightWorld = canvas.height / dpr / zoom;
+
+  if (bgType) {
+    if (bgType === 'color' && bgValue) {
+      ctx.fillStyle = bgValue;
+      ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
+    } else if (bgType === 'image' && bgValue) {
+      const bgImageEntry = loadedImages.get(bgValue);
+      if (
+        bgImageEntry &&
+        bgImageEntry.status === 'loaded' &&
+        bgImageEntry.img
+      ) {
+        ctx.drawImage(bgImageEntry.img, 0, 0, viewWidthWorld, viewHeightWorld);
+      } else if (!bgImageEntry || bgImageEntry.status === 'loading') {
+        ctx.fillStyle = '#e0e0e0'; // Loading placeholder
+        ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
+        if (!bgImageEntry)
+          loadImage(bgValue, bgValue, onDrawNeededCallback); // Use destructured bgValue
+      } else {
+        // Error or no image
+        ctx.fillStyle = '#c0c0c0'; // Error placeholder
+        ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
+      }
+    }
+  }
+
+  // 2. Draw Objects (sorted by zIndex)
+  const sortedObjects = Array.from(objectsMap.values()).sort(
+    (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
+  );
+
+  sortedObjects.forEach((obj) => {
+    // Destructure object properties for easier access.
+    // Default 'rotation' to 0 if not specified.
+    const {
+      x,
+      y,
+      width,
+      height,
+      rotation = 0, // Default rotation to 0 if undefined
+      shape,
+      id,
+      appearance, // Nested object, destructured further below
+    } = obj;
+
+    // Destructure appearance properties.
+    // Use '|| {}' to provide a fallback empty object if 'appearance' is undefined,
+    // preventing errors if trying to destructure 'undefined'.
+    // Default values are provided for most appearance properties.
+    const {
+      backgroundColor, // Will be undefined if not set, handled by 'baseFill'
+      borderColor,     // Will be undefined if not set
+      borderWidth = 0, // Default border width to 0
+      imageUrl,        // Will be undefined if not set
+      text,            // Will be undefined if not set
+      textColor = '#000000', // Default text color
+      fontSize = 14,         // Default font size
+      fontFamily = 'Arial',  // Default font family
+    } = appearance || {};
+
+    // Save the current state of the canvas context before drawing this object.
+    // This allows restoring the context after this object, so its transformations
+    // and style changes don't affect subsequent objects.
     ctx.save();
-    // Adjust for DPR if not already handled by ctx.scale in setCanvasSize
-    // If setCanvasSize already scales by DPR, this scale might be redundant or need adjustment.
-    // However, transformations like pan/zoom need to operate in the CSS pixel space.
-    // So, we clear based on physical pixels, then apply transformations.
 
-    // Clear canvas (physical pixels)
-    ctx.fillStyle = 'white'; // Fallback clear color
-    ctx.fillRect(0, 0, canvas.width, canvas.height); // Use physical width/height
+    // Calculate the center of the object for rotation.
+    const centerX = x + width / 2;
+    const centerY = y + height / 2;
 
-    // Apply pan and zoom (relative to CSS pixel space, but context is scaled by DPR)
-    ctx.translate(currentPZS.panX * dpr, currentPZS.panY * dpr);
-    ctx.scale(currentPZS.zoom * dpr, currentPZS.zoom * dpr);
-    // After this, all drawing coordinates are effectively in 'world' units
-    // but will be scaled by zoom * dpr.
+    // Apply object-specific transformations:
+    // 1. Translate to the object's center: makes rotation act around the center.
+    // 2. Rotate the canvas: applies the object's rotation.
+    // 3. Translate back from the object's center to its top-left corner:
+    //    This ensures that drawing at (0,0) now correctly draws the object at its intended x,y,
+    //    respecting its rotation around its own center.
+    ctx.translate(centerX, centerY);
+    ctx.rotate((rotation * Math.PI) / 180); // Convert degrees to radians
+    ctx.translate(-width / 2, -height / 2);
 
-    // 1. Draw Table Background
-    // Background should cover the viewport in world coordinates.
-    // The viewport, in world coordinates, is (canvas.width / dpr / zoom) wide.
-    const viewWidthWorld = canvas.width / dpr / currentPZS.zoom;
-    const viewHeightWorld = canvas.height / dpr / currentPZS.zoom;
+    let baseFill = backgroundColor || '#DDDDDD'; // Default fill if backgroundColor is not provided
 
-    if (currentTblBg) {
-        if (currentTblBg.type === 'color' && currentTblBg.value) {
-            ctx.fillStyle = currentTblBg.value;
-            ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
-        } else if (currentTblBg.type === 'image' && currentTblBg.value) {
-            const bgImageEntry = loadedImages.get(currentTblBg.value);
-            if (bgImageEntry && bgImageEntry.status === 'loaded' && bgImageEntry.img) {
-                ctx.drawImage(bgImageEntry.img, 0, 0, viewWidthWorld, viewHeightWorld);
-            } else if (!bgImageEntry || bgImageEntry.status === 'loading') {
-                ctx.fillStyle = '#e0e0e0'; // Loading placeholder
-                ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
-                if (!bgImageEntry) loadImage(currentTblBg.value, currentTblBg.value, onDrawNeededCallback);
-            } else { // Error or no image
-                ctx.fillStyle = '#c0c0c0'; // Error placeholder
-                ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
-            }
-        }
+    if (shape === 'rectangle') {
+      ctx.fillStyle = baseFill;
+      ctx.fillRect(0, 0, width, height);
+      if (borderColor && borderWidth > 0) {
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.strokeRect(0, 0, width, height);
+      }
+    } else if (shape === 'circle') {
+      const radius = width / 2;
+      ctx.fillStyle = baseFill;
+      ctx.beginPath();
+      ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+      ctx.fill();
+      if (borderColor && borderWidth > 0) {
+        ctx.strokeStyle = borderColor;
+        ctx.lineWidth = borderWidth;
+        ctx.beginPath();
+        ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+        ctx.stroke();
+      }
     }
 
-    // 2. Draw Objects (sorted by zIndex)
-    const sortedObjects = Array.from(objectsMap.values()).sort((a, b) => (a.zIndex || 0) - (b.zIndex || 0));
+    if (imageUrl) {
+      const imgEntry = loadedImages.get(imageUrl);
+      if (imgEntry && imgEntry.status === 'loaded' && imgEntry.img) {
+        ctx.drawImage(imgEntry.img, 0, 0, width, height);
+      } else if (!imgEntry || imgEntry.status === 'loading') {
+        if (!imgEntry)
+          loadImage(imageUrl, imageUrl, onDrawNeededCallback);
+      }
+    }
 
-    sortedObjects.forEach(obj => {
-        ctx.save();
+    if (text) {
+      ctx.fillStyle = textColor;
+      ctx.font = `${fontSize}px ${fontFamily}`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.fillText(text, width / 2, height / 2);
+    }
 
-        // Object's center for rotation
-        const centerX = obj.x + obj.width / 2;
-        const centerY = obj.y + obj.height / 2;
+    if (id === currentSelectedId) {
+      ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'; // Bright blue for selection
+      // Adjust line width of selection highlight based on zoom, ensuring it's visible but not too thick/thin.
+      // Max(0.5, ...) ensures a minimum line width even when zoomed out.
+      // Min(4, ...) caps the line width when zoomed in.
+      // '2 / zoom' makes the line thinner as you zoom in, thicker as you zoom out (world space thickness).
+      ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / zoom));
+      const offset = borderWidth / 2 + ctx.lineWidth / 2; // Position highlight slightly outside the object's border
+      ctx.strokeRect(
+        -offset, // Adjust x for offset
+        -offset,
+        width + 2 * offset,
+        height + 2 * offset
+      );
+    }
 
-        ctx.translate(centerX, centerY);
-        ctx.rotate((obj.rotation || 0) * Math.PI / 180);
-        ctx.translate(-obj.width / 2, -obj.height / 2); // Translate to object's top-left for drawing
+    ctx.restore(); // Restore context for next object
+  });
 
-        // Default fill if no image or color
-        let baseFill = obj.appearance?.backgroundColor || '#DDDDDD'; // A bit lighter default
-
-        // Draw object shape
-        if (obj.shape === 'rectangle') {
-            ctx.fillStyle = baseFill;
-            ctx.fillRect(0, 0, obj.width, obj.height);
-            if (obj.appearance?.borderColor && (obj.appearance?.borderWidth || 0) > 0) {
-                ctx.strokeStyle = obj.appearance.borderColor;
-                ctx.lineWidth = obj.appearance.borderWidth;
-                ctx.strokeRect(0, 0, obj.width, obj.height);
-            }
-        } else if (obj.shape === 'circle') {
-            const radius = obj.width / 2; // Assuming width is diameter
-            ctx.fillStyle = baseFill;
-            ctx.beginPath();
-            ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
-            ctx.fill();
-            if (obj.appearance?.borderColor && (obj.appearance?.borderWidth || 0) > 0) {
-                ctx.strokeStyle = obj.appearance.borderColor;
-                ctx.lineWidth = obj.appearance.borderWidth;
-                ctx.beginPath();
-                ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
-                ctx.stroke();
-            }
-        }
-
-        // Draw object image if URL is provided and loaded
-        if (obj.appearance?.imageUrl) {
-            const imgEntry = loadedImages.get(obj.appearance.imageUrl);
-            if (imgEntry && imgEntry.status === 'loaded' && imgEntry.img) {
-                ctx.drawImage(imgEntry.img, 0, 0, obj.width, obj.height);
-            } else if (!imgEntry || imgEntry.status === 'loading') {
-                if (!imgEntry) loadImage(obj.appearance.imageUrl, obj.appearance.imageUrl, onDrawNeededCallback);
-                // Optional: Draw loading placeholder on object
-            } else {
-                // Optional: Draw error indicator on object
-            }
-        }
-
-        // Draw text
-        if (obj.appearance?.text) {
-            ctx.fillStyle = obj.appearance.textColor || '#000000';
-            ctx.font = `${obj.appearance.fontSize || 14}px ${obj.appearance.fontFamily || 'Arial'}`;
-            ctx.textAlign = 'center';
-            ctx.textBaseline = 'middle';
-            ctx.fillText(obj.appearance.text, obj.width / 2, obj.height / 2);
-        }
-
-        // Draw selection highlight
-        if (obj.id === currentSelectedId) {
-            ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'; // More opaque
-             // Make highlight responsive to zoom but not overly thin/thick
-            ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / currentPZS.zoom));
-            const offset = (obj.appearance?.borderWidth || 0) / 2 + ctx.lineWidth / 2; // Position outside border
-            ctx.strokeRect(-offset, -offset, obj.width + 2 * offset, obj.height + 2 * offset);
-        }
-
-        ctx.restore(); // Restore context for next object
-    });
-
-    // Restore context state from initial save (removes pan/zoom/scale)
-    ctx.restore();
-}
-
+  // Restore context state from initial save (removes pan/zoom/scale)
+  ctx.restore();
+};
 
 // --- Coordinate Conversion & Object Picking ---
-export function getMousePositionOnCanvas(event, currentPZS) {
-    if (!canvas) return { x: 0, y: 0 };
-    const rect = canvas.getBoundingClientRect(); // Gives position/size in CSS pixels
-    const dpr = window.devicePixelRatio || 1;
+export const getMousePositionOnCanvas = (event, currentPZS) => {
+  if (!canvas) return { x: 0, y: 0 };
 
-    // Screen coordinates relative to canvas top-left (CSS pixels)
-    const screenX = event.clientX - rect.left;
-    const screenY = event.clientY - rect.top;
+  const { clientX, clientY } = event;
+  const rect = canvas.getBoundingClientRect(); // Get canvas position and size in CSS pixels
+  const { left: rectLeft, top: rectTop } = rect; // Destructure for clarity
+  const { panX, panY, zoom } = currentPZS; // Current pan and zoom state
 
-    // Convert to world coordinates
-    // currentPZS.panX and .panY are in CSS pixels space
-    // currentPZS.zoom is a multiplier
-    const worldX = (screenX - currentPZS.panX) / currentPZS.zoom;
-    const worldY = (screenY - currentPZS.panY) / currentPZS.zoom;
+  // Convert mouse click coordinates (relative to viewport) to canvas screen coordinates (CSS pixels)
+  const screenX = clientX - rectLeft;
+  const screenY = clientY - rectTop;
 
-    return { x: worldX, y: worldY };
-}
+  // Convert canvas screen coordinates to world coordinates
+  // 1. Subtract pan offset (panX, panY are in CSS pixels relative to canvas origin)
+  // 2. Divide by zoom factor to get world space coordinates
+  const worldX = (screenX - panX) / zoom;
+  const worldY = (screenY - panY) / zoom;
+
+  return { x: worldX, y: worldY };
+};
 
 // Basic AABB check for rectangles, point-in-circle for circles
 // Does not account for rotation for simplicity in this MVP stage for picking.
-export function getObjectAtPosition(worldX, worldY, objectsMap) {
-    // Iterate in reverse order of drawing (highest zIndex first)
-    const sortedObjects = Array.from(objectsMap.values()).sort((a, b) => (b.zIndex || 0) - (a.zIndex || 0));
+export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
+  const sortedObjects = Array.from(objectsMap.values()).sort(
+    (a, b) => (b.zIndex || 0) - (a.zIndex || 0)
+  );
 
-    for (const obj of sortedObjects) {
-        // --- Basic Hit Test (Rotation Ignored for Simplicity) ---
-        // Transform worldX, worldY into the object's local coordinate system if object was rotated
-        // For unrotated objects, object's local top-left is (obj.x, obj.y) in world space.
-        // So, point (worldX, worldY) relative to object's top-left is (worldX - obj.x, worldY - obj.y)
+  for (const obj of sortedObjects) {
+    const { x, y, width, height, shape, id } = obj;
 
-        if (obj.shape === 'rectangle') {
-            if (worldX >= obj.x && worldX <= obj.x + obj.width &&
-                worldY >= obj.y && worldY <= obj.y + obj.height) {
-                return obj.id;
-            }
-        } else if (obj.shape === 'circle') {
-            const radius = obj.width / 2; // Assuming width is diameter
-            const centerX = obj.x + radius;
-            const centerY = obj.y + radius;
-            const distanceSq = (worldX - centerX) ** 2 + (worldY - centerY) ** 2;
-            if (distanceSq <= radius ** 2) {
-                return obj.id;
-            }
-        }
+    if (shape === 'rectangle') {
+      if (
+        worldX >= x &&
+        worldX <= x + width &&
+        worldY >= y &&
+        worldY <= y + height
+      ) {
+        return id;
+      }
+    } else if (shape === 'circle') {
+      const radius = width / 2;
+      const centerX = x + radius;
+      const centerY = y + radius;
+      const distanceSq = (worldX - centerX) ** 2 + (worldY - centerY) ** 2;
+      if (distanceSq <= radius ** 2) {
+        return id;
+      }
     }
-    return null; // No object found
-}
+  }
+  return null; // No object found
+};
