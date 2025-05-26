@@ -5,7 +5,7 @@
 The TableTopTool MVP is designed as a modular, client-side web application. It operates entirely in-memory, meaning all data (objects, canvas state, etc.) is held within the browser and does not rely on a backend server for its core VTT functionalities. User interactions drive state changes, which then trigger UI updates and canvas re-renders.
 
 Key architectural principles:
-*   **Modularity**: Functionality is broken down into distinct JavaScript modules (`main.js`, `objects.js`, `canvas.js`, `ui.js`, `api.js`).
+*   **Modularity**: Functionality is broken down into distinct JavaScript modules (`main.js`, `objects.js`, `canvas.js`, `ui.js`, `api.js`, `firebase.js`).
 *   **Single Source of Truth (for objects)**: The `objects.js` module maintains the `currentObjects` Map, which acts as the canonical store for all items on the tabletop.
 *   **Event-Driven UI**: User interface interactions (button clicks, input changes, canvas events) are handled by `main.js` and `ui.js`, which then call functions in other modules to update state or perform actions.
 *   **Reactive Rendering**: Changes to the application state (e.g., moving an object, updating a property) trigger a redraw of the canvas to reflect the new state.

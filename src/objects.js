@@ -41,124 +41,140 @@
 let currentObjects = new Map();
 
 // Basic UUID generator
-function generateUUID() {
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-        var r = Math.random() * 16 | 0, v = c == 'x' ? r : (r & 0x3 | 0x8);
-        return v.toString(16);
-    });
-}
+const generateUUID = () => {
+  // Standard RFC4122 version 4 compliant UUID generator.
+  // 'x' characters are replaced with random hexadecimal digits.
+  // 'y' characters are replaced with '8', '9', 'a', or 'b' (to satisfy version 4 requirements).
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+    let r = (Math.random() * 16) | 0; // Generate a random number between 0 and 15.
+    // For 'y', ensure the bits are 10xx (as per RFC4122 section 4.4).
+    // For 'x', use the random number directly.
+    let v = c === 'x' ? r : (r & 0x3) | 0x8;
+    return v.toString(16); // Convert to hexadecimal.
+  });
+};
 
-export function createGenericObject(shape, initialProps = {}) {
-    const id = generateUUID();
-    const defaults = {
-        type: shape === 'rectangle' ? 'generic-rectangle' : 'generic-circle',
-        x: 50,
-        y: 50,
-        zIndex: 0,
-        width: shape === 'rectangle' ? 100 : 50, // Default width (radius for circle)
-        height: shape === 'rectangle' ? 100 : 50, // Default height (radius for circle)
-        rotation: 0,
-        shape: shape,
-        appearance: {
-            backgroundColor: '#CCCCCC',
-            borderColor: '#333333',
-            borderWidth: 1,
-            textColor: '#000000',
-            text: '',
-            fontFamily: 'Arial',
-            fontSize: 14,
-        },
-        isMovable: true,
-        data: {},
-        scripts: {},
-        name: `Object ${currentObjects.size + 1}`
-    };
+export const createGenericObject = (shape, initialProps = {}) => {
+  const id = generateUUID();
+  const defaults = {
+    type: shape === 'rectangle' ? 'generic-rectangle' : 'generic-circle',
+    x: 50,
+    y: 50,
+    zIndex: 0,
+    width: shape === 'rectangle' ? 100 : 50, // Default width (radius for circle)
+    height: shape === 'rectangle' ? 100 : 50, // Default height (radius for circle)
+    rotation: 0,
+    shape: shape,
+    appearance: {
+      backgroundColor: '#CCCCCC',
+      borderColor: '#333333',
+      borderWidth: 1,
+      textColor: '#000000',
+      text: '',
+      fontFamily: 'Arial',
+      fontSize: 14,
+    },
+    isMovable: true,
+    data: {},
+    scripts: {},
+    name: `Object ${currentObjects.size + 1}`,
+  };
 
-    // Deep merge for appearance, data, and scripts, shallow for others
-    const newObject = {
-        ...defaults,
-        ...initialProps,
-        id, // Ensure ID is not overwritten by initialProps
-        shape, // Ensure shape is correctly set from the argument
-        appearance: {
-            ...defaults.appearance,
-            ...(initialProps.appearance || {}),
-        },
-        data: {
-            ...defaults.data,
-            ...(initialProps.data || {}),
-        },
-        scripts: {
-            ...defaults.scripts,
-            ...(initialProps.scripts || {}),
-        },
-    };
+  // Merge strategy:
+  // - Top-level properties: initialProps override defaults (shallow merge).
+  // - Nested 'appearance', 'data', 'scripts': Properties from initialProps are merged into default nested objects.
+  //   The `|| {}` ensures that if e.g. `initialProps.appearance` is undefined, it doesn't break the spread.
+  const newObject = {
+    ...defaults, // Start with default values.
+    ...initialProps, // Override with any top-level initial properties.
+    id, // Ensure 'id' is always the generated one, not from initialProps.
+    shape, // Ensure 'shape' is from the function argument, not from initialProps.
+    appearance: {
+      ...defaults.appearance,
+      ...(initialProps.appearance || {}), // Merge appearance properties.
+    },
+    data: {
+      ...defaults.data,
+      ...(initialProps.data || {}), // Merge data properties.
+    },
+    scripts: {
+      ...defaults.scripts,
+      ...(initialProps.scripts || {}), // Merge scripts properties.
+    },
+  };
 
-    currentObjects.set(id, newObject);
-    console.log(`Object created: ${id}`, newObject);
-    return { ...newObject }; // Return a copy
-}
+  currentObjects.set(id, newObject);
+  console.log(`Object created: ${id}`, newObject);
+  // Return a shallow copy of the new object to prevent direct external modification.
+  return { ...newObject };
+};
 
-export function updateLocalObject(objectId, updatedProps) {
-    if (!currentObjects.has(objectId)) {
-        console.warn(`Object with ID ${objectId} not found for update.`);
-        return null;
-    }
+export const updateLocalObject = (objectId, updatedProps) => {
+  if (!currentObjects.has(objectId)) {
+    console.warn(`Object with ID ${objectId} not found for update.`);
+    return null;
+  }
 
-    const existingObject = currentObjects.get(objectId);
+  const existingObject = currentObjects.get(objectId);
 
-    // Deep merge for nested properties, shallow for others
-    const newObjectState = {
-        ...existingObject,
-        ...updatedProps,
-        id: objectId, // Ensure ID cannot be changed by updatedProps
-        appearance: {
-            ...existingObject.appearance,
-            ...(updatedProps.appearance || {}),
-        },
-        data: {
-            ...existingObject.data,
-            ...(updatedProps.data || {}),
-        },
-        scripts: {
-            ...existingObject.scripts,
-            ...(updatedProps.scripts || {}),
-        },
-    };
+  // Merge strategy (similar to createGenericObject):
+  // - Top-level properties: updatedProps override existingObject properties (shallow merge).
+  // - Nested 'appearance', 'data', 'scripts': Properties from updatedProps are merged into existing nested objects.
+  //   The `|| {}` ensures that if e.g. `updatedProps.appearance` is undefined, it doesn't break the spread.
+  const newObjectState = {
+    ...existingObject, // Start with the existing object's properties.
+    ...updatedProps, // Override with any top-level updated properties.
+    id: objectId, // Ensure the object's ID cannot be changed.
+    appearance: {
+      ...existingObject.appearance,
+      ...(updatedProps.appearance || {}), // Merge appearance properties.
+    },
+    data: {
+      ...existingObject.data,
+      ...(updatedProps.data || {}), // Merge data properties.
+    },
+    scripts: {
+      ...existingObject.scripts,
+      ...(updatedProps.scripts || {}), // Merge scripts properties.
+    },
+  };
 
-    currentObjects.set(objectId, newObjectState);
-    console.log(`Object updated: ${objectId}`, newObjectState);
-    return { ...newObjectState }; // Return a copy
-}
+  currentObjects.set(objectId, newObjectState);
+  console.log(`Object updated: ${objectId}`, newObjectState);
+  // Return a shallow copy of the updated object state.
+  return { ...newObjectState };
+};
 
-export function deleteLocalObject(objectId) {
-    if (currentObjects.has(objectId)) {
-        const deleted = currentObjects.delete(objectId);
-        console.log(`Object deleted: ${objectId}`);
-        return deleted; // Returns true if deletion was successful, false otherwise
-    }
-    console.warn(`Object with ID ${objectId} not found for deletion.`);
-    return false;
-}
+export const deleteLocalObject = (objectId) => {
+  if (currentObjects.has(objectId)) {
+    const deleted = currentObjects.delete(objectId);
+    console.log(`Object deleted: ${objectId}`); // This was already a template literal
+    return deleted; // Returns true if deletion was successful, false otherwise
+  }
+  console.warn(`Object with ID ${objectId} not found for deletion.`);
+  return false;
+};
 
-export function getLocalObject(objectId) {
-    if (!currentObjects.has(objectId)) {
-        // console.warn(`Object with ID ${objectId} not found.`); // Keep this quiet as per instruction
-        return undefined;
-    }
-    // Return a copy to prevent direct modification of the stored object outside of updateLocalObject
-    return { ...currentObjects.get(objectId) };
-}
+export const getLocalObject = (objectId) => {
+  if (!currentObjects.has(objectId)) {
+    // console.warn(`Object with ID ${objectId} not found.`);
+    return undefined;
+  }
+  // Return a shallow copy to prevent direct modification of the object in the store.
+  return { ...currentObjects.get(objectId) };
+};
 
-export function getAllLocalObjects() {
-    // Return an array of copies
-    return Array.from(currentObjects.values()).map(obj => ({ ...obj }));
-}
+export const getAllLocalObjects = () => {
+  // Returns an array of shallow copies of all objects.
+  // The .map call ensures that each object in the returned array is a copy,
+  // protecting the original objects in the `currentObjects` Map.
+  return Array.from(currentObjects.values()).map((obj) => ({ ...obj }));
+};
 
-export function clearLocalObjects() {
-    currentObjects.clear();
-    console.log('All local objects cleared.');
-}
+export const clearLocalObjects = () => {
+  currentObjects.clear();
+  console.log('All local objects cleared.'); // This is a simple string, no concatenation.
+};
 
 // Example usage (for testing in browser console if needed, or for main.js)
 // window.objectStore = {
