@@ -22,12 +22,15 @@
   "homepage": "https://github.com/moscamj/TableTopTool#readme",
   "devDependencies": {
     "autoprefixer": "^10.4.21",
-    "eslint": "^9.27.0",
+    "eslint": "^8.57.0",
     "postcss": "^8.5.3",
-    "tailwindcss": "^4.1.7",
-    "vite": "^6.3.5"
+    "tailwindcss": "^3.4.17",
+    "vite": "^5.4.19"
   },
   "dependencies": {
     "firebase": "^11.8.1"
+  },
+  "engines": {
+    "node": ">=22.0.0"
   }
 }
