@@ -61,6 +61,14 @@ function handleLoadTableState(fileContent) {
             // A more robust solution might involve objects.createGenericObject(obj.shape, obj)
             // if we want to re-validate or re-apply defaults, but this is direct restoration.
             objects.currentObjects.set(obj.id, obj); // Directly set into the map
+
+            // --- BEGIN ADDITION ---
+            // Trigger image loading for this object
+            if (obj.appearance && obj.appearance.imageUrl) {
+                // Ensure 'canvas' module is imported and 'requestRedraw' function is accessible in this scope
+                canvas.loadImage(obj.appearance.imageUrl, obj.appearance.imageUrl, requestRedraw);
+            }
+            // --- END ADDITION ---
         });
 
 
