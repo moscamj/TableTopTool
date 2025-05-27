@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "vite build",
     "lint": "eslint src/**/*.js index.html",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "jest"
   },
   "repository": {
     "type": "git",
@@ -16,13 +16,19 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
+  "type": "module",
   "bugs": {
     "url": "https://github.com/moscamj/TableTopTool/issues"
   },
   "homepage": "https://github.com/moscamj/TableTopTool#readme",
   "devDependencies": {
+    "@babel/core": "^7.27.1",
+    "@babel/preset-env": "^7.27.2",
     "autoprefixer": "^10.4.21",
+    "babel-jest": "^30.0.0-beta.3",
     "eslint": "^8.57.0",
+    "jest": "^30.0.0-beta.3",
+    "jest-environment-jsdom": "^30.0.0-beta.3",
     "postcss": "^8.5.3",
     "prettier": "^3.5.3",
     "tailwindcss": "^3.4.17",
