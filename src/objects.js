@@ -38,7 +38,7 @@
  * @property {boolean} [isSelected] - (Consider if this is a local UI state or part of object data)
  */
 
-let currentObjects = new Map();
+export const currentObjects = new Map();
 
 // Basic UUID generator
 const generateUUID = () => {
