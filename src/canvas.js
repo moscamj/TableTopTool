@@ -11,6 +11,7 @@ let selectedObjectId = null;
 const loadedImages = new Map(); // url -> { img: Image, status: 'loading' | 'loaded' | 'error' }
 
 let onDrawNeededCallback = () => {}; // Callback to request a redraw from main.js
+let displayMessageFn = () => {}; // Callback for displaying messages via UI
 
 // Debounce function
 const debounce = (func, delay) => {
@@ -25,7 +26,7 @@ const debounce = (func, delay) => {
   };
 };
 
-export const initCanvas = (canvasElement, drawNeededCallback) => {
+export const initCanvas = (canvasElement, drawNeededCallback, displayMessageCallback) => {
   if (!canvasElement) {
     console.error('Canvas element not provided!');
     return;
@@ -34,6 +35,7 @@ export const initCanvas = (canvasElement, drawNeededCallback) => {
   ctx = canvas.getContext('2d');
   onDrawNeededCallback =
     drawNeededCallback || (() => console.warn('onDrawNeededCallback not set'));
+  displayMessageFn = displayMessageCallback || ((msg, type) => console.warn('displayMessage not set:', msg, type));
 
   setCanvasSize(); // Set initial size
   window.addEventListener('resize', debounce(setCanvasSize, 250));
@@ -172,6 +174,9 @@ const loadImage = (url, cacheKey, callback) => {
       console.error(`Error loading image: ${url}`, err);
     }
     if (callback) callback(); // Still call callback to redraw, maybe show placeholder
+    // Display error message using the new callback
+    const errorMsg = `Failed to load image: ${url.substring(0, 100)}${url.length > 100 ? '...' : ''}`;
+    displayMessageFn(errorMsg, 'error');
   };
   // Comment out verbose pre-load log
   // if (url.startsWith('data:image/')) {
@@ -329,6 +334,22 @@ export const drawVTT = (
       } else if (!imgEntry || imgEntry.status === 'loading') {
         if (!imgEntry)
           loadImage(imageUrl, imageUrl, onDrawNeededCallback);
+      }
+      // ---> ADD ERROR DRAWING LOGIC HERE <---
+      const imgEntry = loadedImages.get(imageUrl); // Get it again or use existing reference
+      if (imgEntry && imgEntry.status === 'error') {
+          // Ensure base styles like fillStyle for text are set if not already
+          ctx.strokeStyle = 'red';
+          ctx.lineWidth = Math.max(1, Math.min(4, 2 / zoom)); // Adjust based on zoom, similar to selection highlight
+          ctx.beginPath();
+          // Draw X from top-left to bottom-right
+          ctx.moveTo(0, 0); // Using 0,0 because we are in object's transformed space
+          ctx.lineTo(width, height);
+          // Draw X from top-right to bottom-left
+          ctx.moveTo(width, 0);
+          ctx.lineTo(0, height);
+          ctx.stroke();
+          // console.log(`Drew error X for object ${obj.id} with image ${imageUrl}`); // For debugging
       }
     }
 
