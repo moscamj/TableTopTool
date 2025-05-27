@@ -58,6 +58,8 @@ describe('ui.js', () => {
             <div><label for="obj-rotation" class="block text-sm">Rotation: <input type="number" id="obj-rotation" class="w-full prop-input" step="1"></label></div>
             <div><label for="obj-bg-color" class="block text-sm">Background Color: <input type="color" id="obj-bg-color" class="w-full h-8 prop-input"></label></div>
             <div><label for="obj-image-url" class="block text-sm">Image URL: <input type="text" id="obj-image-url" class="w-full prop-input"></label></div>
+            <div><label for="obj-label-text">Label Text: <input type="text" id="obj-label-text" class="prop-input"></label></div>
+            <div><label for="obj-show-label">Show Label: <input type="checkbox" id="obj-show-label" class="prop-input"></label></div>
             <div><label for="obj-z-index" class="block text-sm">Z-Index: <input type="number" id="obj-z-index" class="w-full prop-input"></label></div>
             <div>
                 <label for="obj-is-movable" class="block text-sm">Is Movable:
@@ -141,15 +143,14 @@ describe('ui.js', () => {
     });
   });
 
-  // New tests for Inspector Fields Logic
   describe('Inspector Fields Logic', () => {
-    let objId, objName, objX, objY, objWidth, objHeight, objRotation, objBgColor, objImageUrl, objZIndex, objIsMovable, objShape, objData, objScriptOnClick;
+    let objId, objName, objX, objY, objWidth, objHeight, objRotation, 
+        objBgColor, objImageUrl, objLabelText, objShowLabel, 
+        objZIndex, objIsMovable, objShape, objData, objScriptOnClick;
 
     beforeEach(() => {
-      // Ensure the inspector DOM is fully set up for these tests
       document.body.innerHTML = `
         <div id="inspector-content">
-            <!-- The first div child is used to show/hide the "Select an object" message -->
             <div><p>Select an object to inspect.</p></div>
             <div><label class="block text-sm">ID: <span id="obj-id"></span></label></div>
             <div><label for="obj-name">Name: <input type="text" id="obj-name" class="prop-input"></label></div>
@@ -160,6 +161,8 @@ describe('ui.js', () => {
             <div><label for="obj-rotation">Rotation: <input type="number" id="obj-rotation" class="prop-input"></label></div>
             <div><label for="obj-bg-color">Background Color: <input type="color" id="obj-bg-color" class="prop-input"></label></div>
             <div><label for="obj-image-url">Image URL: <input type="text" id="obj-image-url" class="prop-input"></label></div>
+            <div><label for="obj-label-text">Label Text: <input type="text" id="obj-label-text" class="prop-input"></label></div>
+            <div><label for="obj-show-label">Show Label: <input type="checkbox" id="obj-show-label" class="prop-input"></label></div>
             <div><label for="obj-z-index">Z-Index: <input type="number" id="obj-z-index" class="prop-input"></label></div>
             <div><label for="obj-is-movable">Is Movable: <input type="checkbox" id="obj-is-movable" class="prop-input"></label></div>
             <div>
@@ -175,9 +178,8 @@ describe('ui.js', () => {
         </div>
         <div id="inspector-actions" class="hidden"></div>
       `;
-      cacheDOMElements(); // Cache the newly created DOM elements
+      cacheDOMElements();
 
-      // Assign references to the input elements for easier use in tests
       objId = document.getElementById('obj-id');
       objName = document.getElementById('obj-name');
       objX = document.getElementById('obj-x');
@@ -187,6 +189,8 @@ describe('ui.js', () => {
       objRotation = document.getElementById('obj-rotation');
       objBgColor = document.getElementById('obj-bg-color');
       objImageUrl = document.getElementById('obj-image-url');
+      objLabelText = document.getElementById('obj-label-text'); // Added
+      objShowLabel = document.getElementById('obj-show-label'); // Added
       objZIndex = document.getElementById('obj-z-index');
       objIsMovable = document.getElementById('obj-is-movable');
       objShape = document.getElementById('obj-shape');
@@ -195,104 +199,123 @@ describe('ui.js', () => {
     });
 
     describe('populateObjectInspector', () => {
+      const baseObjectData = {
+        id: 'obj1', name: 'Test Object', x: 10, y: 20, width: 100, height: 50, 
+        rotation: 0, zIndex: 1, isMovable: true, shape: 'rectangle', data: {}, scripts: { onClick: '' }
+      };
+
       test('should populate name, width, and height fields correctly', () => {
-        const objectData = {
-          id: 'obj1',
-          name: 'Test Object',
-          x: 10, y: 20, width: 100, height: 50, rotation: 0, zIndex: 1,
-          isMovable: true, shape: 'rectangle',
-          appearance: { backgroundColor: '#ff0000', imageUrl: '' },
-          data: {}, scripts: { onClick: '' }
-        };
+        const objectData = { ...baseObjectData, appearance: { backgroundColor: '#ff0000', imageUrl: '', text: 'Label', showLabel: true }};
         populateObjectInspector(objectData);
         expect(objName.value).toBe('Test Object');
         expect(objWidth.value).toBe("100");
         expect(objHeight.value).toBe("50");
       });
 
-      test('should set objName.value to empty string if objectData.name is null', () => {
-        const objectData = { name: null, width: 10, height: 10 };
+      test('should populate label text and showLabel checkbox', () => {
+        const objectData = { ...baseObjectData, appearance: { text: "Test Label", showLabel: true, backgroundColor: '#112233' } };
         populateObjectInspector(objectData);
-        expect(objName.value).toBe('');
+        expect(objLabelText.value).toBe("Test Label");
+        expect(objShowLabel.checked).toBe(true);
       });
 
-      test('should set objName.value to empty string if objectData.name is empty', () => {
-        const objectData = { name: '', width: 10, height: 10 };
+      test('should populate showLabel checkbox as false correctly', () => {
+        const objectData = { ...baseObjectData, appearance: { text: "Another Label", showLabel: false } };
         populateObjectInspector(objectData);
-        expect(objName.value).toBe('');
+        expect(objLabelText.value).toBe("Another Label");
+        expect(objShowLabel.checked).toBe(false);
+      });
+      
+      test('should default label text and showLabel if missing in appearance', () => {
+        const objectData = { ...baseObjectData, appearance: { backgroundColor: '#FF0000' } }; // text and showLabel missing
+        populateObjectInspector(objectData);
+        expect(objLabelText.value).toBe('');
+        expect(objShowLabel.checked).toBe(false);
       });
 
-      test('should clear fields when called with null', () => {
-        // First populate with some data
-        populateObjectInspector({ name: 'Test', width: 100, height: 50, id: '1' });
-        // Then clear
+      test('should default label text and showLabel if appearance object is missing', () => {
+        const objectData = { ...baseObjectData, appearance: undefined }; // appearance object itself is missing
+        populateObjectInspector(objectData);
+        expect(objLabelText.value).toBe('');
+        expect(objShowLabel.checked).toBe(false);
+      });
+
+      test('should clear fields, including label text and showLabel, when called with null', () => {
+        populateObjectInspector({ ...baseObjectData, appearance: { text: 'Old Label', showLabel: true } });
         populateObjectInspector(null);
         expect(objName.value).toBe('');
-        // Default values for numbers might be empty string or "0" depending on browser/input type handling
-        // For this test, we'll assume they become empty or 0. The readObjectInspector tests are more critical for default values.
         expect(objWidth.value === '' || objWidth.value === '0').toBeTruthy();
         expect(objHeight.value === '' || objHeight.value === '0').toBeTruthy();
-        expect(objId.textContent).toBe(''); // ID is usually cleared
+        expect(objLabelText.value).toBe('');
+        expect(objShowLabel.checked).toBe(false);
+        expect(objId.textContent).toBe('');
       });
     });
 
     describe('readObjectInspector', () => {
       beforeEach(() => {
-        // Set objId as it's required by readObjectInspector
         objId.textContent = 'test-id-123';
-        // Initialize all other fields read by readObjectInspector to prevent type errors on .value or .checked
-        objX.value = '0';
-        objY.value = '0';
-        objRotation.value = '0';
-        objBgColor.value = '#CCCCCC';
-        objImageUrl.value = '';
-        objZIndex.value = '0';
-        objIsMovable.checked = true;
-        objShape.value = 'rectangle';
-        objData.value = '{}';
-        objScriptOnClick.value = '';
+        objX.value = '0'; objY.value = '0'; objRotation.value = '0';
+        objBgColor.value = '#ABCDEF'; objImageUrl.value = 'http://example.com/image.png';
+        objZIndex.value = '0'; objIsMovable.checked = true; objShape.value = 'rectangle';
+        objData.value = '{}'; objScriptOnClick.value = '';
+        // Default values for new fields, can be overridden by specific tests
+        objLabelText.value = ''; 
+        objShowLabel.checked = false;
       });
 
       test('should correctly read name, width, and height', () => {
-        objName.value = 'My Object';
-        objWidth.value = '150';
-        objHeight.value = '75';
+        objName.value = 'My Object'; objWidth.value = '150'; objHeight.value = '75';
         const result = readObjectInspector();
         expect(result.name).toBe('My Object');
         expect(result.width).toBe(150);
         expect(result.height).toBe(75);
       });
 
+      test('should read label text and showLabel checkbox values', () => {
+        objLabelText.value = "Read Label";
+        objShowLabel.checked = true;
+        const result = readObjectInspector();
+        expect(result.appearance.text).toBe("Read Label");
+        expect(result.appearance.showLabel).toBe(true);
+        expect(result.appearance.backgroundColor).toBe('#ABCDEF'); // Ensure other appearance props are there
+        expect(result.appearance.imageUrl).toBe('http://example.com/image.png');
+      });
+
+      test('should read showLabel as false when checkbox is unchecked', () => {
+        objLabelText.value = "Label Present";
+        objShowLabel.checked = false;
+        const result = readObjectInspector();
+        expect(result.appearance.text).toBe("Label Present");
+        expect(result.appearance.showLabel).toBe(false);
+      });
+      
+      // ... (existing tests for name trimming, dimension clamping, etc.)
       test('should trim objName value', () => {
         objName.value = '  Spaced Name  ';
-        objWidth.value = '10'; objHeight.value = '10'; // Need valid dimensions
+        objWidth.value = '10'; objHeight.value = '10'; 
         const result = readObjectInspector();
         expect(result.name).toBe('Spaced Name');
       });
 
-      // Width clamping tests
       ['0', '-5', 'abc', NaN, null, undefined].forEach(invalidValue => {
         test(`should clamp width to 1 if objWidth.value is "${invalidValue}"`, () => {
-          objWidth.value = invalidValue;
-          objHeight.value = '10'; // Valid height
+          objWidth.value = invalidValue; objHeight.value = '10';
           const result = readObjectInspector();
           expect(result.width).toBe(1);
         });
       });
       
-      // Height clamping tests
       ['0', '-5', 'abc', NaN, null, undefined].forEach(invalidValue => {
         test(`should clamp height to 1 if objHeight.value is "${invalidValue}"`, () => {
-          objHeight.value = invalidValue;
-          objWidth.value = '10'; // Valid width
+          objHeight.value = invalidValue; objWidth.value = '10';
           const result = readObjectInspector();
           expect(result.height).toBe(1);
         });
       });
 
       test('should parse valid positive width and height correctly', () => {
-        objWidth.value = '200.5';
-        objHeight.value = '75.25';
+        objWidth.value = '200.5'; objHeight.value = '75.25';
         const result = readObjectInspector();
         expect(result.width).toBe(200.5);
         expect(result.height).toBe(75.25);

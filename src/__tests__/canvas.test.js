@@ -58,7 +58,7 @@ const mockCtx = {
   fill: jest.fn(),
   stroke: jest.fn(),
   drawImage: jest.fn(),
-  fillText: jest.fn(), // This will be enhanced in the specific describe block for name rendering
+  fillText: jest.fn(), 
   restore: jest.fn(),
   // Properties that might be set
   fillStyle: '',
@@ -79,13 +79,15 @@ const mockCanvasEl = {
   width: 800 * (window.devicePixelRatio || 1),
   height: 600 * (window.devicePixelRatio || 1),
   style: { width: '800px', height: '600px' },
-  parentElement: { // Mock parentElement directly
+  parentElement: { 
     clientWidth: 800,
     clientHeight: 600,
   },
 };
 
 describe('Canvas Rendering Logic', () => {
+  let fillTextCallsWithContext; // Declare here to be accessible in all nested describes
+
   beforeEach(() => {
     jest.clearAllMocks(); 
 
@@ -96,96 +98,161 @@ describe('Canvas Rendering Logic', () => {
     mockCtx.textAlign = '';
     mockCtx.textBaseline = '';
     
-    // Ensure parentElement has default clientWidth/Height for setCanvasSize
     mockCanvasEl.parentElement.clientWidth = 800;
     mockCanvasEl.parentElement.clientHeight = 600;
     
     initCanvas(mockCanvasEl, jest.fn());
     setSelectedObjectId(null);
     setPanZoomState({ panX:0, panY:0, zoom: 1.0});
-  });
 
-  const testObjRect = {
-    id: 'obj1', x: 50, y: 50, width: 100, height: 50, shape: 'rectangle',
-    appearance: { borderWidth: 1, borderColor: '#000000', backgroundColor: '#DDDDDD' },
-    rotation: 0, zIndex: 0,
-  };
-
-  // ... (other existing tests for highlight, non-selected, etc. are assumed to be here for brevity) ...
-
-  describe('drawVTT Object Name Rendering', () => {
-    let fillTextCallsWithContext;
-
-    beforeEach(() => {
-      // Enhance fillText mock for this specific describe block
-      fillTextCallsWithContext = []; // Reset for each test in this block
-      mockCtx.fillText = jest.fn((text, x, y) => {
-        fillTextCallsWithContext.push({
-          text, x, y,
-          font: mockCtx.font,
-          fillStyle: mockCtx.fillStyle,
-          textAlign: mockCtx.textAlign,
-          textBaseline: mockCtx.textBaseline,
-        });
+    // Enhance fillText mock for all tests within this describe block
+    fillTextCallsWithContext = []; 
+    mockCtx.fillText = jest.fn((text, x, y) => {
+      fillTextCallsWithContext.push({
+        text, x, y,
+        font: mockCtx.font,
+        fillStyle: mockCtx.fillStyle,
+        textAlign: mockCtx.textAlign,
+        textBaseline: mockCtx.textBaseline,
       });
     });
+  });
 
+  // ... (Existing tests for highlight, etc. would be here) ...
+
+  describe('drawVTT Object Name Rendering', () => {
+    // These tests use the fillTextCallsWithContext from the parent describe's beforeEach
     test('should render valid object names with correct style and position, and skip invalid/empty names', () => {
       const objectsMap = new Map();
       const objWithName = { id: 'objWName', name: 'TestName', x: 10, y: 10, width: 100, height: 50, shape: 'rectangle', appearance: {}, zIndex: 1, rotation: 0 };
-      const objWithoutNameProp = { id: 'objNoName', x: 10, y: 70, width: 60, height: 60, shape: 'circle', appearance: { text: 'InternalTextOnly' }, zIndex: 2, rotation: 0 }; // Has internal text
+      const objWithoutNameProp = { id: 'objNoName', x: 10, y: 70, width: 60, height: 60, shape: 'circle', appearance: { text: 'InternalTextOnly', showLabel: true }, zIndex: 2, rotation: 0 }; 
       const objWithEmptyName = { id: 'objEmptyName', name: '', x: 10, y: 130, width: 70, height: 70, shape: 'rectangle', appearance: {}, zIndex: 3, rotation: 0 };
       const objWithWhitespaceName = { id: 'objSpaceName', name: '   ', x: 10, y: 200, width: 80, height: 80, shape: 'circle', appearance: {}, zIndex: 4, rotation: 0 };
 
       objectsMap.set(objWithName.id, objWithName);
-      objectsMap.set(objWithoutNameProp.id, objWithoutNameProp);
+      objectsMap.set(objWithoutNameProp.id, objWithoutNameProp); // This object now also has internal text
       objectsMap.set(objWithEmptyName.id, objWithEmptyName);
       objectsMap.set(objWithWhitespaceName.id, objWithWhitespaceName);
       
-      const panZoom = getPanZoomState(); 
-      const tableBg = getTableBackground();
-      const selectedId = getSelectedObjectId();
+      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), getSelectedObjectId());
 
-      drawVTT(objectsMap, panZoom, tableBg, selectedId);
-
-      // 1. Check rendering of 'TestName'
       const nameRenderCall = fillTextCallsWithContext.find(call => call.text === 'TestName');
       expect(nameRenderCall).toBeDefined();
       if (nameRenderCall) {
-        expect(nameRenderCall.x).toBe(objWithName.width / 2); // Centered
-        expect(nameRenderCall.y).toBe(-5); // nameOffset = 5, above the object
+        expect(nameRenderCall.x).toBe(objWithName.width / 2);
+        expect(nameRenderCall.y).toBe(-5); 
         expect(nameRenderCall.font).toBe('12px Arial');
         expect(nameRenderCall.fillStyle).toBe('#000000');
         expect(nameRenderCall.textAlign).toBe('center');
         expect(nameRenderCall.textBaseline).toBe('bottom');
       }
-
-      // 2. Check rendering of internal text for 'objWithoutNameProp'
-      const internalTextRenderCall = fillTextCallsWithContext.find(call => call.text === 'InternalTextOnly');
-      expect(internalTextRenderCall).toBeDefined();
-      if (internalTextRenderCall) {
-        expect(internalTextRenderCall.x).toBe(objWithoutNameProp.width / 2); // Centered for internal text
-        expect(internalTextRenderCall.y).toBe(objWithoutNameProp.height / 2); // Centered for internal text
-        // Default font for internal text might be different, e.g., from obj.appearance.fontSize, etc.
-        // For this test, primarily confirming it's called.
-      }
       
-      // 3. Total calls to fillText should be 2 (one for TestName, one for InternalTextOnly)
-      expect(mockCtx.fillText).toHaveBeenCalledTimes(2);
+      const internalTextRenderCall = fillTextCallsWithContext.find(call => call.text === 'InternalTextOnly');
+      expect(internalTextRenderCall).toBeDefined(); // This should be rendered as showLabel is true
 
-      // 4. Ensure names that are undefined, empty, or whitespace-only are not rendered for the "name" property
+      expect(mockCtx.fillText).toHaveBeenCalledTimes(2); // TestName + InternalTextOnly
+
       fillTextCallsWithContext.forEach(call => {
-        // This check is now more specific to the context of the call
-        if (call.y === -5) { // This indicates it's an attempt to render a "name"
+        if (call.y === -5) { 
           expect(call.text).not.toBe('');
           expect(call.text.trim()).not.toBe(''); 
         }
       });
     });
   });
+
+  describe('drawVTT Internal Label (appearance.text) Rendering', () => {
+    // This block also uses the fillTextCallsWithContext from the parent describe's beforeEach
+    const defaultObjectProps = { id: 'testObj', x: 10, y: 10, width: 100, height: 50, shape: 'rectangle', zIndex: 0, rotation: 0 };
+
+    test('should NOT render internal label if showLabel is false', () => {
+      const objectsMap = new Map([[defaultObjectProps.id, { ...defaultObjectProps, appearance: { text: 'HiddenLabelText', showLabel: false } }]]);
+      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const labelCall = fillTextCallsWithContext.find(call => call.text === 'HiddenLabelText');
+      expect(labelCall).toBeUndefined();
+    });
+
+    test('should render internal label if showLabel is true and text is valid', () => {
+      const appearance = { text: 'VisibleLabelText', showLabel: true, textColor: '#00FF00', fontSize: 16, fontFamily: 'Verdana' };
+      const testObj = { ...defaultObjectProps, appearance };
+      const objectsMap = new Map([[testObj.id, testObj]]);
+      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+
+      const labelCall = fillTextCallsWithContext.find(call => call.text === 'VisibleLabelText');
+      expect(labelCall).toBeDefined();
+      if (labelCall) {
+        expect(labelCall.x).toBe(testObj.width / 2);
+        expect(labelCall.y).toBe(testObj.height / 2);
+        expect(labelCall.font).toBe(`${appearance.fontSize}px ${appearance.fontFamily}`);
+        expect(labelCall.fillStyle).toBe(appearance.textColor);
+        expect(labelCall.textAlign).toBe('center');
+        expect(labelCall.textBaseline).toBe('middle');
+      }
+    });
+
+    test('should NOT render internal label if text is empty, even if showLabel is true', () => {
+      const objectsMap = new Map([[defaultObjectProps.id, { ...defaultObjectProps, appearance: { text: '', showLabel: true } }]]);
+      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      // Check that no fillText call was made for the internal label (y position height/2)
+      const internalLabelCall = fillTextCallsWithContext.find(call => call.y === defaultObjectProps.height / 2);
+      expect(internalLabelCall).toBeUndefined();
+    });
+
+    test('should NOT render internal label if text is only whitespace, even if showLabel is true', () => {
+      const objectsMap = new Map([[defaultObjectProps.id, { ...defaultObjectProps, appearance: { text: '   ', showLabel: true } }]]);
+      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const internalLabelCall = fillTextCallsWithContext.find(call => call.text.trim() === '' && call.y === defaultObjectProps.height / 2);
+      expect(internalLabelCall).toBeUndefined(); // No call should have text that's only whitespace for internal label
+    });
+
+    test('should render both obj.name and internal label if showLabel is true', () => {
+      const objWithBoth = {
+        ...defaultObjectProps,
+        id: 'objBoth',
+        name: 'ObjectName',
+        appearance: { text: 'LabelText', showLabel: true, textColor: '#FF0000', fontSize: 10, fontFamily: 'Impact' }
+      };
+      const objectsMap = new Map([[objWithBoth.id, objWithBoth]]);
+      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+
+      const nameCall = fillTextCallsWithContext.find(call => call.text === 'ObjectName');
+      expect(nameCall).toBeDefined();
+      if (nameCall) {
+        expect(nameCall.y).toBe(-5); // Name position
+        expect(nameCall.font).toBe('12px Arial');
+        expect(nameCall.fillStyle).toBe('#000000');
+      }
+
+      const labelCall = fillTextCallsWithContext.find(call => call.text === 'LabelText');
+      expect(labelCall).toBeDefined();
+      if (labelCall) {
+        expect(labelCall.y).toBe(objWithBoth.height / 2); // Internal label position
+        expect(labelCall.font).toBe('10px Impact');
+        expect(labelCall.fillStyle).toBe('#FF0000');
+      }
+      expect(mockCtx.fillText).toHaveBeenCalledTimes(2);
+    });
+
+    test('should render only obj.name if showLabel is false for internal label', () => {
+      const objNameOnly = {
+        ...defaultObjectProps,
+        id: 'objNameOnly',
+        name: 'ObjectNameOnly',
+        appearance: { text: 'ShouldBeHidden', showLabel: false, textColor: '#FF0000' }
+      };
+      const objectsMap = new Map([[objNameOnly.id, objNameOnly]]);
+      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+
+      const nameCall = fillTextCallsWithContext.find(call => call.text === 'ObjectNameOnly');
+      expect(nameCall).toBeDefined();
+
+      const labelCall = fillTextCallsWithContext.find(call => call.text === 'ShouldBeHidden');
+      expect(labelCall).toBeUndefined();
+      
+      expect(mockCtx.fillText).toHaveBeenCalledTimes(1);
+    });
+  });
   
-  // Ensure other describe blocks like 'getObjectAtPosition Logic' are preserved
-  // For brevity, I'm omitting them but they should be part of the final file.
   describe('getObjectAtPosition Logic', () => {
     let consoleWarnSpy;
     let consoleErrorSpy;
@@ -213,6 +280,6 @@ describe('Canvas Rendering Logic', () => {
       expect(result).toBe('rect1');
     });
   
-    // ... (all other getObjectAtPosition tests from the provided original file) ...
+    // ... (other getObjectAtPosition tests) ...
   });
 });
