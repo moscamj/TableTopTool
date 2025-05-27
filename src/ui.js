@@ -134,7 +134,16 @@ const cacheDOMElements = () => {
   domElements.backgroundImageFileInput = document.createElement('input');
   domElements.backgroundImageFileInput.type = 'file';
   domElements.backgroundImageFileInput.accept = 'image/*'; // Accept all image types
-  domElements.backgroundImageFileInput.style.display = 'none';
+  // domElements.backgroundImageFileInput.style.display = 'none'; // Remove this line
+
+  // Add these lines:
+  domElements.backgroundImageFileInput.style.position = 'absolute';
+  domElements.backgroundImageFileInput.style.left = '-9999px';
+  domElements.backgroundImageFileInput.style.top = '-9999px'; // Optional, but good practice
+  domElements.backgroundImageFileInput.style.width = '1px';   // Make it minimally sized
+  domElements.backgroundImageFileInput.style.height = '1px';  // Make it minimally sized
+  domElements.backgroundImageFileInput.style.opacity = '0';   // Make it transparent
+  domElements.backgroundImageFileInput.style.overflow = 'hidden'; // Ensure no part of it is accidentally visible
   document.body.appendChild(domElements.backgroundImageFileInput);
   console.log('[ui.js] backgroundImageFileInput created:', domElements.backgroundImageFileInput ? 'Yes' : 'No');
 
