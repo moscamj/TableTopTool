@@ -145,6 +145,35 @@ const handleBackgroundImageFileSelected = (event) => {
   }
 };
 
+// --- Object Image File Handling ---
+// Should be placed before initializeApplication, for example,
+// near the definition of handleBackgroundImageFileSelected
+const handleObjectImageFileSelected = (event) => {
+  const file = event.target.files[0];
+  if (!file) {
+    return; // No file selected
+  }
+
+  if (!file.type.startsWith('image/')) {
+    ui.displayMessage('Please select an image file for the object.', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataURL = e.target.result;
+    setObjectImageUrlText(dataURL); // setObjectImageUrlText is already imported from ui.js
+    ui.displayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
+    // If live updates were desired, one might call handleInspectorChange() here
+    // or trigger an equivalent of onApplyObjectChanges for the selected object.
+  };
+  reader.onerror = () => {
+    ui.displayMessage('Error reading object image file.', 'error');
+    console.error('Error reading object image file:', reader.error);
+  };
+  reader.readAsDataURL(file);
+};
+
 // --- Application Initialization ---
 const initializeApplication = async () => {
   // Attempt to initialize Firebase (it will run in offline mode)
