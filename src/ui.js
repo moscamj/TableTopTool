@@ -1,5 +1,7 @@
 // src/ui.js
 
+let domElementsCached = false; // Guard flag for cacheDOMElements
+
 // Store DOM element references
 const domElements = {
   // Header
@@ -61,6 +63,13 @@ const domElements = {
  * Call this once at startup to cache all DOM element references.
  */
 const cacheDOMElements = () => {
+  if (domElementsCached) {
+    console.log('[ui.js] cacheDOMElements: Already cached. Skipping.');
+    return;
+  }
+  console.log('[ui.js] cacheDOMElements: Caching DOM elements now.');
+  domElementsCached = true;
+
   domElements.headerTitle = document.getElementById('header-title');
   domElements.userIdDisplay = document.getElementById('user-id-display');
   domElements.sessionIdDisplay = document.getElementById('session-id-display');
