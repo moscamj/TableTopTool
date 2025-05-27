@@ -59,6 +59,8 @@ const domElements = {
   // File input (hidden, triggered by button)
   fileInput: null,
   backgroundImageFileInput: null, // Added for background image selection
+  chooseObjectImageButton: null, // Added for "Choose Local Image" button for object
+  objectImageFileInput: null, // Added for object image selection
 };
 
 /**
@@ -160,6 +162,27 @@ const cacheDOMElements = () => {
   document.body.appendChild(domElements.backgroundImageFileInput);
   // console.log('[ui.js] backgroundImageFileInput created:', domElements.backgroundImageFileInput ? 'Yes' : 'No');
 
+  domElements.chooseObjectImageButton = document.getElementById('choose-object-image-button');
+  domElements.objectImageFileInput = document.getElementById('objectImageFileInput');
+
+  // Ensure objectImageFileInput is handled like backgroundImageFileInput (created if not directly in HTML, styled hidden)
+  // However, in this case, it IS in the HTML, so we just need to ensure it's correctly referenced.
+  // If it were to be created dynamically, the following would be used:
+  // if (!domElements.objectImageFileInput) { // If not found (e.g. not in HTML)
+  //   domElements.objectImageFileInput = document.createElement('input');
+  //   domElements.objectImageFileInput.type = 'file';
+  //   domElements.objectImageFileInput.accept = 'image/*';
+  //   domElements.objectImageFileInput.style.position = 'absolute';
+  //   domElements.objectImageFileInput.style.left = '-9999px';
+  //   domElements.objectImageFileInput.style.width = '1px';
+  //   domElements.objectImageFileInput.style.height = '1px';
+  //   domElements.objectImageFileInput.style.opacity = '0';
+  //   domElements.objectImageFileInput.style.overflow = 'hidden';
+  //   document.body.appendChild(domElements.objectImageFileInput);
+  // }
+  // Since it's already in index.html with style="display: none;", we don't need to recreate or restyle it here.
+  // We just need to ensure the reference is cached.
+
   // Update button texts and visibility for offline mode
   if (domElements.sessionSaveButton)
     domElements.sessionSaveButton.textContent = 'Save to File';
@@ -192,6 +215,7 @@ export const initUIEventListeners = (callbacks) => {
     onLoadFromFileInputChange,
     onCreateObjectRequested, // Added for the new "Create Object" modal
     onBackgroundImageFileSelected, // New callback for background image file selection
+    onObjectImageFileSelected, // New callback for object image file selection
   } = callbacks;
 
   // Ensure DOM elements are cached before attaching listeners.
@@ -281,6 +305,35 @@ export const initUIEventListeners = (callbacks) => {
     }
     if (!domElements.backgroundImageFileInput) {
       console.error('[ui.js] backgroundImageFileInput element not found. Cannot attach change listener.');
+    }
+  }
+
+  // Event listener for the "Choose Local Image" button for object image
+  if (domElements.chooseObjectImageButton) {
+    domElements.chooseObjectImageButton.addEventListener('click', (event) => {
+      event.preventDefault(); // Good practice, though for a button it might not be strictly necessary
+      if (domElements.objectImageFileInput) {
+        domElements.objectImageFileInput.value = null; // Clear previous selection
+        domElements.objectImageFileInput.click(); // Trigger hidden file input
+      } else {
+        console.error('[ui.js] objectImageFileInput not found on button click.');
+      }
+    });
+  } else {
+    console.error('[ui.js] chooseObjectImageButton not found, cannot attach click listener.');
+  }
+
+  // Event listener for the actual file input change (for object image)
+  if (onObjectImageFileSelected && domElements.objectImageFileInput) {
+    domElements.objectImageFileInput.addEventListener('change', (event) => {
+      onObjectImageFileSelected(event);
+    });
+  } else {
+    if (!onObjectImageFileSelected) {
+      console.error('[ui.js] "onObjectImageFileSelected" callback is NOT defined. Cannot attach change listener to objectImageFileInput.');
+    }
+    if (!domElements.objectImageFileInput) {
+      console.error('[ui.js] objectImageFileInput element not found. Cannot attach change listener.');
     }
   }
 };
@@ -602,5 +655,21 @@ document.addEventListener('DOMContentLoaded', () => {
 export const setBackgroundUrlInputText = (text) => {
   if (domElements.backgroundUrlInput) {
     domElements.backgroundUrlInput.value = text;
+  }
+};
+
+/**
+ * Sets the text content of the object image URL input field in the inspector.
+ * @param {string} text - The text to set (typically a Data URL or web URL).
+ */
+export const setObjectImageUrlText = (text) => {
+  if (domElements.objImageUrl) {
+    domElements.objImageUrl.value = text;
+    // Optionally, trigger a change event if live updates depend on it,
+    // though direct application via "Apply Changes" is the primary mechanism.
+    // const event = new Event('change', { bubbles: true });
+    // domElements.objImageUrl.dispatchEvent(event);
+  } else {
+    console.error('[ui.js] objImageUrl element not found. Cannot set text.');
   }
 };

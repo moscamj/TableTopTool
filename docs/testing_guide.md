@@ -100,3 +100,48 @@ If you encounter any bugs or unexpected behavior:
 4.  Report the issue with as much detail as possible.
 
 Happy Testing!
+
+## Running Automated Unit Tests (Jest)
+
+In addition to manual testing, this project uses Jest for automated unit tests. These tests help ensure individual components and functions are working correctly.
+
+### Prerequisites
+
+1.  **Node.js and npm:** Ensure you have Node.js installed, which includes npm (Node Package Manager). You can download it from [nodejs.org](https://nodejs.org/).
+2.  **Project Dependencies:** Open your terminal, navigate to the project's root directory, and run the following command to install all necessary dependencies (including Jest):
+    ```bash
+    npm install
+    ```
+
+### Running Tests
+
+*   **Run all tests:**
+    To execute all Jest unit tests, run the following command in your terminal from the project's root directory:
+    ```bash
+    npm test
+    ```
+    The test results will be displayed in your terminal.
+
+*   **Run tests in watch mode (recommended during development):**
+    To have Jest watch for file changes and re-run tests automatically, use:
+    ```bash
+    npm test -- --watch
+    ```
+    *(Note: The first `--` is to pass the `--watch` flag directly to the `jest` command executed by `npm test`.)*
+
+*   **Run tests for a specific file:**
+    To run tests only for a particular file, specify the path to the test file:
+    ```bash
+    npm test -- <path_to_your_test_file.js>
+    ```
+    For example:
+    ```bash
+    npm test -- src/__tests__/objects.test.js
+    ```
+
+*   **Run tests with coverage report:**
+    If Jest is configured to generate a coverage report (check `jest.config.js`), you can usually generate it by adding the `--coverage` flag:
+    ```bash
+    npm test -- --coverage
+    ```
+    This will create a `coverage/` directory with an HTML report you can open in your browser.
