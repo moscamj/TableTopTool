@@ -124,10 +124,13 @@ const handleBackgroundImageFileSelected = (event) => {
     const reader = new FileReader();
     reader.onload = (e) => {
       const dataURL = e.target.result;
+      console.log(`main.js: File '${file.name}' loaded as data URI. First 100 chars: ${dataURL.substring(0,100)}...`);
+      console.log(`main.js: Calling canvas.setTableBackground with type 'image' for file '${file.name}'.`);
       canvas.setTableBackground({
         type: 'image',
         value: dataURL,
       });
+      console.log(`main.js: canvas.setTableBackground called for '${file.name}'.`);
       // Update the backgroundUrlInput field with the file name
       setBackgroundUrlInputText(`Local file: ${file.name}`); // Use the imported function
       ui.displayMessage(`Background image set to: ${file.name}`, 'success');
