@@ -364,55 +364,97 @@ export const getMousePositionOnCanvas = (event, currentPZS) => {
   return { x: worldX, y: worldY };
 };
 
-// Basic AABB check for rectangles, point-in-circle for circles
-// Does not account for rotation for simplicity in this MVP stage for picking.
 export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
+  // Ensure inputs are valid numbers
+  if (typeof worldX !== 'number' || isNaN(worldX) || typeof worldY !== 'number' || isNaN(worldY)) {
+    console.error('getObjectAtPosition: Invalid worldX or worldY input', { worldX, worldY });
+    return null;
+  }
+
+  if (!(objectsMap instanceof Map)) {
+    console.error('getObjectAtPosition: objectsMap is not a Map', objectsMap);
+    return null;
+  }
+
   const sortedObjects = Array.from(objectsMap.values()).sort(
-    (a, b) => (b.zIndex || 0) - (a.zIndex || 0) // Highest zIndex first
+    (a, b) => (b.zIndex || 0) - (a.zIndex || 0)
   );
 
   for (const obj of sortedObjects) {
-    const { x, y, width, height, shape, id, rotation = 0 } = obj; // Default rotation to 0
+    if (!obj || typeof obj !== 'object') {
+      console.warn('getObjectAtPosition: Encountered invalid object in sortedObjects', obj);
+      continue; 
+    }
+
+    const { id, shape } = obj;
+    const x = parseFloat(obj.x);
+    const y = parseFloat(obj.y);
+    const width = parseFloat(obj.width);
+    const height = parseFloat(obj.height);
+    let rotation = parseFloat(obj.rotation);
+
+    if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height)) {
+      console.warn('getObjectAtPosition: Object with id', id, 'has invalid x,y,width,or height.', {x,y,width,height});
+      continue; 
+    }
+    if (width <= 0 || height <= 0) {
+        console.warn('getObjectAtPosition: Object with id', id, 'has non-positive width or height.', {width,height});
+        continue;
+    }
+    if (isNaN(rotation)) {
+        console.warn('getObjectAtPosition: Object with id', id, 'has NaN rotation. Defaulting to 0.', {rotation});
+        rotation = 0; 
+    }
 
     if (shape === 'rectangle') {
-      const centerX = x + width / 2;
-      const centerY = y + height / 2;
+      if (rotation === 0) {
+        // Simplified AABB check for non-rotated rectangles
+        if (
+          worldX >= x &&
+          worldX <= x + width &&
+          worldY >= y &&
+          worldY <= y + height
+        ) {
+          console.log('getObjectAtPosition: Found non-rotated rectangle', id);
+          return id;
+        }
+      } else {
+        // Rotated Rectangle Logic
+        const centerX = x + width / 2;
+        const centerY = y + height / 2;
+        let localX = worldX - centerX;
+        let localY = worldY - centerY;
 
-      // 1. Translate click coordinates so object's center is the origin
-      let localX = worldX - centerX;
-      let localY = worldY - centerY;
-
-      // 2. If the object is rotated, apply inverse rotation to the click coordinates
-      if (rotation !== 0) {
-        const rad = (-rotation * Math.PI) / 180; // Inverse angle in radians
+        const rad = (-rotation * Math.PI) / 180;
         const cosTheta = Math.cos(rad);
         const sinTheta = Math.sin(rad);
-
         const rotatedLocalX = localX * cosTheta - localY * sinTheta;
         const rotatedLocalY = localX * sinTheta + localY * cosTheta;
-        
         localX = rotatedLocalX;
         localY = rotatedLocalY;
-      }
 
-      // 3. Perform AABB check in the object's local, unrotated coordinate system
-      if (
-        localX >= -width / 2 &&
-        localX <= width / 2 &&
-        localY >= -height / 2 &&
-        localY <= height / 2
-      ) {
-        return id;
+        if (
+          localX >= -width / 2 &&
+          localX <= width / 2 &&
+          localY >= -height / 2 &&
+          localY <= height / 2
+        ) {
+          console.log('getObjectAtPosition: Found rotated rectangle', id);
+          return id;
+        }
       }
     } else if (shape === 'circle') {
-      const radius = width / 2;
-      const centerX = x + radius;
-      const centerY = y + radius;
-      const distanceSq = (worldX - centerX) ** 2 + (worldY - centerY) ** 2;
+      const radius = width / 2; 
+      const circleCenterX = x + radius;
+      const circleCenterY = y + radius;
+      
+      const distanceSq = (worldX - circleCenterX) ** 2 + (worldY - circleCenterY) ** 2;
       if (distanceSq <= radius ** 2) {
+        console.log('getObjectAtPosition: Found circle', id);
         return id;
       }
     }
   }
-  return null; // No object found
+  // console.log('getObjectAtPosition: No object found at', { worldX, worldY }); // Optional: for debugging misses
+  return null;
 };
