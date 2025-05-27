@@ -2,7 +2,7 @@
 import * as objects from './objects.js';
 import * as canvas from './canvas.js';
 import * as ui from './ui.js';
-import { setBackgroundUrlInputText } from './ui.js'; // Import the new function
+import { setBackgroundUrlInputText, setObjectImageUrlText } from './ui.js'; // Import the new functions
 import * as api from './api.js'; // VTT Scripting API
 // Firebase is imported for its stubbed functions in offline mode
 import * as firebase from './firebase.js';
@@ -226,6 +226,7 @@ const initializeApplication = async () => {
       }
     },
     onBackgroundImageFileSelected: handleBackgroundImageFileSelected, // Added callback
+    onObjectImageFileSelected: handleObjectImageFileSelected, // Added callback
     // onInspectorPropertyChange: (props) => { console.log("Inspector props changed (live):", props); } // For live updates
   };
 
@@ -233,8 +234,12 @@ const initializeApplication = async () => {
   // console.log('[main.js] uiCallbacks object before calling ui.initUIEventListeners:', uiCallbacks);
 
   ui.initUIEventListeners(uiCallbacks);
-  // Pass requestRedraw to canvas module so it can trigger redraws internally (e.g., after image load)
-  canvas.initCanvas(document.getElementById('vtt-canvas'), requestRedraw);
+  // Pass requestRedraw and ui.displayMessage to canvas module
+  canvas.initCanvas(
+    document.getElementById('vtt-canvas'),
+    requestRedraw,
+    ui.displayMessage // Pass the actual ui.displayMessage function
+  );
 
   // Create default objects for testing
   objects.createGenericObject('rectangle', {
