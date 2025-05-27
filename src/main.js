@@ -229,6 +229,9 @@ const initializeApplication = async () => {
     // onInspectorPropertyChange: (props) => { console.log("Inspector props changed (live):", props); } // For live updates
   };
 
+  // ADD THIS LOG:
+  console.log('[main.js] uiCallbacks object before calling ui.initUIEventListeners:', uiCallbacks);
+
   ui.initUIEventListeners(uiCallbacks);
   // Pass requestRedraw to canvas module so it can trigger redraws internally (e.g., after image load)
   canvas.initCanvas(document.getElementById('vtt-canvas'), requestRedraw);
