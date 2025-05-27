@@ -160,11 +160,8 @@ const loadImage = (url, cacheKey, callback) => {
   image.crossOrigin = 'Anonymous'; // For images from other domains if canvas is tainted
   image.onload = () => {
     loadedImages.set(cacheKey, { img: image, status: 'loaded' });
-    if (url.startsWith('data:image/')) {
-      console.log(`loadImage: Successfully loaded data URI. Key: ${cacheKey}`);
-    } else {
-      console.log(`Image loaded: ${url}`);
-    }
+    // Unified log message
+    console.log(`Successfully loaded image. Key: ${cacheKey}`);
     if (callback) callback();
   };
   image.onerror = (err) => { // Add err parameter to log it
@@ -176,9 +173,10 @@ const loadImage = (url, cacheKey, callback) => {
     }
     if (callback) callback(); // Still call callback to redraw, maybe show placeholder
   };
-  if (url.startsWith('data:image/')) {
-    console.log(`loadImage: Attempting to load data URI. Starts with: ${url.substring(0, 100)}...`);
-  }
+  // Comment out verbose pre-load log
+  // if (url.startsWith('data:image/')) {
+  //   console.log(`loadImage: Attempting to load data URI. Starts with: ${url.substring(0, 100)}...`);
+  // }
   image.src = url;
 };
 
