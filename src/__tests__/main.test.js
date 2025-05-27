@@ -205,3 +205,204 @@ describe('Object Selection in main.js', () => {
     expect(globalOnDrawNeededCallback).toHaveBeenCalled();
   });
 });
+
+// Inside the describe block in src/__tests__/main.test.js, after existing tests:
+
+describe('Object Dragging and Inspector Update in main.js', () => {
+  let canvasEl;
+
+  // beforeEach is already in main.test.js, ensure it clears mocks
+  // and initializes application. We might need to re-get canvasEl if it's not module-scoped.
+  beforeEach(async () => {
+    // This setup is largely similar to existing tests in main.test.js
+    // Ensure mocks are cleared if not already done by a top-level beforeEach
+    jest.clearAllMocks(); // This is also in the global beforeEach, but repeated here for safety.
+    objects.clearLocalObjects(); // Also in global beforeEach.
+    
+    // Re-initialize application to ensure fresh listeners for each test if needed,
+    // though the existing main.test.js has initializeApplication in a global beforeEach.
+    // For this test suite, we rely on the global beforeEach to call initializeApplication.
+    // If it weren't global, we'd call it here: await initializeApplication();
+    
+    canvasEl = document.getElementById('vtt-canvas'); // Get canvas element
+    
+    // It's important that mockSelectedObjectId is reset, which happens in the global beforeEach.
+    // Also, ensure globalOnDrawNeededCallback is captured, also handled by global beforeEach.
+  });
+
+  test('Inspector should update live when an object is dragged', () => {
+    // 1. Arrange: Create a movable object and select it
+    const testObject = objects.createGenericObject('rectangle', {
+      x: 50, y: 50, width: 100, height: 50, isMovable: true, name: 'Draggable'
+    });
+    const initialObjectState = { ...objects.getLocalObject(testObject.id) }; // Copy
+
+    // Simulate object selection via mousedown
+    // Mock canvas responses for selection
+    canvas.getMousePositionOnCanvas
+      .mockReturnValueOnce({ x: 75, y: 75 }); // Click inside object (50,50 to 150,100)
+    canvas.getObjectAtPosition.mockReturnValueOnce(testObject.id);
+    // getSelectedObjectId will be called by main.js to see if it's different,
+    // it should return null initially for selection to occur.
+    canvas.getSelectedObjectId.mockReturnValueOnce(null);
+
+
+    const mousedownEvent = new MouseEvent('mousedown', { clientX: 75, clientY: 75, bubbles: true });
+    canvasEl.dispatchEvent(mousedownEvent);
+
+    // Verify selection occurred (populateObjectInspector is called on select)
+    expect(ui.populateObjectInspector).toHaveBeenCalledWith(expect.objectContaining({ id: testObject.id }));
+    ui.populateObjectInspector.mockClear(); // Clear mock for the next check
+    
+    // Ensure main.js's internal state for selected object is now testObject.id for dragging
+    // This is handled by canvas.setSelectedObjectId being called, which updates mockSelectedObjectId.
+    // So subsequent calls to canvas.getSelectedObjectId() in main.js will return testObject.id.
+    // No explicit mockReturnValueOnce needed here if the mock is correctly updating.
+
+    // 2. Act: Simulate dragging the object
+    // Mock canvas responses for mousemove
+    // New mouse position for dragging
+    const dragToX = 60;
+    const dragToY = 60;
+    // dragOffsetX and dragOffsetY were set internally in main.js during mousedown.
+    // If mousedown was at world (75,75) and object x,y was (50,50), then
+    // dragOffsetX = 75 - 50 = 25
+    // dragOffsetY = 75 - 50 = 25
+    // New object position should be (dragToX - dragOffsetX, dragToY - dragOffsetY)
+    // = (60 - 25, 60 - 25) = (35, 35)
+    canvas.getMousePositionOnCanvas
+      .mockReturnValueOnce({ x: dragToX, y: dragToY }); // New mouse position in world coords
+
+    const mousemoveEvent = new MouseEvent('mousemove', { clientX: dragToX, clientY: dragToY, bubbles: true });
+    canvasEl.dispatchEvent(mousemoveEvent);
+
+    // 3. Assert: ui.populateObjectInspector is called with the new object state
+    const expectedUpdatedObject = {
+      ...initialObjectState, // Start with initial state
+      x: 35, // Calculated new X
+      y: 35  // Calculated new Y
+    };
+
+    // The actual objects.updateLocalObject would have been called by main.js's mousemove handler.
+    // Then main.js should call ui.populateObjectInspector with the result of objects.getLocalObject(testObject.id).
+    expect(ui.populateObjectInspector).toHaveBeenCalledTimes(1);
+    expect(ui.populateObjectInspector).toHaveBeenCalledWith(expect.objectContaining({
+      id: testObject.id,
+      x: expectedUpdatedObject.x,
+      y: expectedUpdatedObject.y,
+    }));
+
+    // Also verify that the object itself was updated in the store (optional, but good)
+    const finalObjectState = objects.getLocalObject(testObject.id);
+    expect(finalObjectState.x).toBe(expectedUpdatedObject.x);
+    expect(finalObjectState.y).toBe(expectedUpdatedObject.y);
+  });
+});
+
+// Inside src/__tests__/main.test.js
+// This can be a new 'describe' block or added to an existing relevant one.
+// For organizational purposes, let's add it to the existing top-level describe or create one for 'Background Handling'.
+
+describe('Background Image Handling in main.js', () => {
+  // beforeEach is already in main.test.js, ensuring mocks are cleared
+  // and application is initialized.
+  // canvasEl is also available from the outer scope if needed, though not directly for this test.
+
+  let mockFileReaderInstance;
+
+  beforeEach(() => {
+    // Mock FileReader
+    mockFileReaderInstance = {
+      readAsDataURL: jest.fn(),
+      onload: null, // We will set this in the test
+      onerror: null, // We can set this too if testing error paths
+      result: null   // To store the mock result
+    };
+    global.FileReader = jest.fn(() => mockFileReaderInstance);
+
+    // Ensure mocks from ui.js and canvas.js are reset (likely handled by global beforeEach)
+    // ui.setBackgroundUrlInputText.mockClear(); // Already done by jest.clearAllMocks()
+    // ui.displayMessage.mockClear();
+    // canvas.setTableBackground.mockClear();
+  });
+
+  test('should handle local background image file selection', () => {
+    // 1. Arrange
+    const mockFile = { name: 'test-image.png', type: 'image/png' };
+    const mockEvent = { target: { files: [mockFile] } };
+    const sampleDataURI = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA'; // Minimal valid data URI
+
+    // Find the handleBackgroundImageFileSelected function.
+    // It's passed in uiCallbacks to ui.initUIEventListeners.
+    // We need to capture uiCallbacks or specifically onBackgroundImageFileSelected.
+    // The existing main.test.js calls initializeApplication() in beforeEach.
+    // ui.initUIEventListeners is called within initializeApplication.
+    // We can get the callback from the mock.
+    
+    let onBackgroundImageFileSelectedCallback;
+    if (ui.initUIEventListeners.mock.calls.length > 0) {
+      const uiCallbacks = ui.initUIEventListeners.mock.calls[0][0];
+      onBackgroundImageFileSelectedCallback = uiCallbacks.onBackgroundImageFileSelected;
+    } else {
+      // This would indicate an issue with test setup or assumptions
+      throw new Error('ui.initUIEventListeners was not called, cannot get onBackgroundImageFileSelectedCallback');
+    }
+    expect(onBackgroundImageFileSelectedCallback).toBeDefined();
+
+    // 2. Act
+    // Directly call the captured callback, simulating the event trigger from ui.js
+    onBackgroundImageFileSelectedCallback(mockEvent);
+
+    // Simulate FileReader onload
+    // The callback assigned reader.onload in main.js. We trigger it here.
+    expect(mockFileReaderInstance.readAsDataURL).toHaveBeenCalledWith(mockFile);
+    mockFileReaderInstance.result = sampleDataURI; // Set the result for the FileReader
+    if (mockFileReaderInstance.onload) {
+      mockFileReaderInstance.onload({ target: { result: sampleDataURI } }); // Trigger onload
+    } else {
+      throw new Error('FileReader onload was not set by handleBackgroundImageFileSelected');
+    }
+    
+    // 3. Assert
+    expect(canvas.setTableBackground).toHaveBeenCalledTimes(1);
+    expect(canvas.setTableBackground).toHaveBeenCalledWith({
+      type: 'image',
+      value: sampleDataURI,
+    });
+
+    expect(ui.setBackgroundUrlInputText).toHaveBeenCalledTimes(1);
+    expect(ui.setBackgroundUrlInputText).toHaveBeenCalledWith('Local file: test-image.png');
+
+    expect(ui.displayMessage).toHaveBeenCalledTimes(1);
+    expect(ui.displayMessage).toHaveBeenCalledWith('Background image set to: test-image.png', 'success');
+  });
+
+  test('should handle FileReader error during local background image selection', () => {
+    const mockFile = { name: 'error-image.png', type: 'image/png' };
+    const mockEvent = { target: { files: [mockFile] } };
+    const mockError = new Error('File read error');
+
+    let onBackgroundImageFileSelectedCallback;
+    if (ui.initUIEventListeners.mock.calls.length > 0) {
+      const uiCallbacks = ui.initUIEventListeners.mock.calls[0][0];
+      onBackgroundImageFileSelectedCallback = uiCallbacks.onBackgroundImageFileSelected;
+    } else {
+      throw new Error('ui.initUIEventListeners was not called');
+    }
+    
+    onBackgroundImageFileSelectedCallback(mockEvent);
+
+    expect(mockFileReaderInstance.readAsDataURL).toHaveBeenCalledWith(mockFile);
+    if (mockFileReaderInstance.onerror) {
+      mockFileReaderInstance.onerror({ target: { error: mockError } }); // Trigger onerror
+    } else {
+      throw new Error('FileReader onerror was not set or not triggered correctly');
+    }
+
+    expect(canvas.setTableBackground).not.toHaveBeenCalled();
+    expect(ui.setBackgroundUrlInputText).not.toHaveBeenCalled();
+    expect(ui.showModal).toHaveBeenCalledTimes(1);
+    expect(ui.showModal).toHaveBeenCalledWith('File Read Error', 'Could not read the selected file for the background image.');
+    expect(ui.displayMessage).toHaveBeenCalledWith('Failed to load background image from file.', 'error');
+  });
+});
