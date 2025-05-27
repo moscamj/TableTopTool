@@ -100,6 +100,22 @@ const handleLoadTableState = (fileContent) => {
   }
 };
 
+// --- Object Creation Modal Callbacks ---
+export const handleObjectCreationSubmit = (shape, props) => {
+  const newObject = objects.createGenericObject(shape, props);
+  if (newObject) {
+    console.log('New object created via modal:', newObject);
+    // Future enhancement: Automatically select the new object
+    // canvas.setSelectedObjectId(newObject.id);
+    // ui.populateObjectInspector(objects.getLocalObject(newObject.id));
+  }
+  requestRedraw();
+};
+
+export const handleCreateObjectRequested = () => {
+  ui.displayCreateObjectModal(handleObjectCreationSubmit);
+};
+
 // --- Application Initialization ---
 const initializeApplication = async () => {
   // Attempt to initialize Firebase (it will run in offline mode)
@@ -109,21 +125,7 @@ const initializeApplication = async () => {
 
   // Define UI Callbacks
   const uiCallbacks = {
-    onCreateRectangle: () => {
-      const newRect = objects.createGenericObject('rectangle', {
-        x: 10,
-        y: 10,
-      }); // Adjust default pos later
-      canvas.setSelectedObjectId(newRect.id);
-      ui.populateObjectInspector(objects.getLocalObject(newRect.id));
-      requestRedraw();
-    },
-    onCreateCircle: () => {
-      const newCircle = objects.createGenericObject('circle', { x: 10, y: 10 });
-      canvas.setSelectedObjectId(newCircle.id);
-      ui.populateObjectInspector(objects.getLocalObject(newCircle.id));
-      requestRedraw();
-    },
+    onCreateObjectRequested: handleCreateObjectRequested, // New callback for "Create Object"
     onSetBackground: () => {
       const { backgroundUrl, backgroundColor } = ui.getToolbarValues();
       if (backgroundUrl) {

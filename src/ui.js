@@ -12,8 +12,7 @@ const domElements = {
 
   // Tools Sidebar
   toolsSidebar: null,
-  createRectButton: null,
-  createCircleButton: null,
+  createObjectButton: null,
   backgroundUrlInput: null,
   backgroundColorInput: null,
   setBackgroundButton: null,
@@ -72,10 +71,7 @@ const cacheDOMElements = () => {
   );
 
   domElements.toolsSidebar = document.getElementById('tools-sidebar');
-  domElements.createRectButton = document.getElementById('create-rect-button');
-  domElements.createCircleButton = document.getElementById(
-    'create-circle-button'
-  );
+  domElements.createObjectButton = document.getElementById('create-object-button');
   domElements.backgroundUrlInput = document.getElementById(
     'background-url-input'
   );
@@ -149,8 +145,8 @@ document.addEventListener('DOMContentLoaded', cacheDOMElements);
 export const initUIEventListeners = (callbacks) => {
   // Destructure callback functions passed from main.js for easier reference.
   const {
-    onCreateRectangle,
-    onCreateCircle,
+    // onCreateRectangle, // Removed
+    // onCreateCircle, // Removed
     onSetBackground,
     onInspectorPropertyChange,
     onApplyObjectChanges,
@@ -158,18 +154,17 @@ export const initUIEventListeners = (callbacks) => {
     onSaveToFile,
     onLoadFromFileRequest, // Renamed for clarity in original code, kept here
     onLoadFromFileInputChange,
+    onCreateObjectRequested, // Added for the new "Create Object" modal
   } = callbacks;
 
   // Ensure DOM elements are cached before attaching listeners.
   // This is a fallback if initUIEventListeners is called before DOMContentLoaded.
-  if (!domElements.createRectButton) cacheDOMElements();
+  if (!domElements.toolsSidebar) cacheDOMElements(); // Changed from createRectButton
 
-  if (onCreateRectangle && domElements.createRectButton) {
-    domElements.createRectButton.addEventListener('click', onCreateRectangle);
+  if (onCreateObjectRequested && domElements.createObjectButton) {
+    domElements.createObjectButton.addEventListener('click', onCreateObjectRequested);
   }
-  if (onCreateCircle && domElements.createCircleButton) {
-    domElements.createCircleButton.addEventListener('click', onCreateCircle);
-  }
+
   if (onSetBackground && domElements.setBackgroundButton) {
     domElements.setBackgroundButton.addEventListener('click', onSetBackground);
   }
@@ -370,7 +365,7 @@ export const displayMessage = (text, type = 'info', duration = 3000) => {
   }, duration);
 }
 
-export function showModal(
+export const showModal = (
   title,
   contentHtml,
   buttonsArray = [{ text: 'OK', type: 'primary' }]
@@ -425,6 +420,73 @@ export const hideModal = () => {
   domElements.modalTitle.textContent = '';
   domElements.modalContent.innerHTML = '';
   domElements.modalButtons.innerHTML = '';
+};
+
+export const displayCreateObjectModal = (createCallback) => {
+  const modalContentHtml = `
+    <style>
+      .modal-label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #E2E8F0; }
+      .modal-input { background-color: #4A5568; border: 1px solid #718096; border-radius: 0.25rem; padding: 0.25rem 0.5rem; font-size: 0.875rem; margin-bottom: 0.75rem; width: 100%; color: #E2E8F0; box-sizing: border-box; }
+      .modal-input[type="color"] { padding: 0.1rem; height: 2.5rem; }
+    </style>
+    <div>
+      <label class="modal-label" for="create-obj-shape">Shape:</label>
+      <select id="create-obj-shape" class="modal-input">
+        <option value="rectangle" selected>Rectangle</option>
+        <option value="circle">Circle</option>
+      </select>
+    </div>
+    <div>
+      <label class="modal-label" for="create-obj-x">X Position:</label>
+      <input type="number" id="create-obj-x" value="50" class="modal-input">
+    </div>
+    <div>
+      <label class="modal-label" for="create-obj-y">Y Position:</label>
+      <input type="number" id="create-obj-y" value="50" class="modal-input">
+    </div>
+    <div>
+      <label class="modal-label" for="create-obj-width">Width:</label>
+      <input type="number" id="create-obj-width" value="100" class="modal-input">
+    </div>
+    <div>
+      <label class="modal-label" for="create-obj-height">Height:</label>
+      <input type="number" id="create-obj-height" value="100" class="modal-input">
+    </div>
+    <div>
+      <label class="modal-label" for="create-obj-bgcolor">Background Color:</label>
+      <input type="color" id="create-obj-bgcolor" value="#CCCCCC" class="modal-input">
+    </div>
+  `;
+
+  const buttonsArray = [
+    {
+      text: 'Create',
+      type: 'primary',
+      onClickCallback: () => {
+        const shape = document.getElementById('create-obj-shape').value;
+        const props = {
+          x: parseInt(document.getElementById('create-obj-x').value, 10) || 0,
+          y: parseInt(document.getElementById('create-obj-y').value, 10) || 0,
+          width: parseInt(document.getElementById('create-obj-width').value, 10) || 50,
+          height: parseInt(document.getElementById('create-obj-height').value, 10) || 50,
+          appearance: {
+            backgroundColor: document.getElementById('create-obj-bgcolor').value,
+          },
+        };
+        if (createCallback) {
+          createCallback(shape, props);
+        }
+        // hideModal() is called by default by showModal's button handler
+      },
+    },
+    {
+      text: 'Cancel',
+      type: 'secondary',
+      // onClickCallback: hideModal, // Default behavior, explicitly stating is fine too
+    },
+  ];
+
+  showModal('Create New Object', modalContentHtml, buttonsArray);
 };
 
 export const getToolbarValues = () => {
