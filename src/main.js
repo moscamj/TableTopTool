@@ -2,6 +2,7 @@
 import * as objects from './objects.js';
 import * as canvas from './canvas.js';
 import * as ui from './ui.js';
+import { setBackgroundUrlInputText } from './ui.js'; // Import the new function
 import * as api from './api.js'; // VTT Scripting API
 // Firebase is imported for its stubbed functions in offline mode
 import * as firebase from './firebase.js';
@@ -116,6 +117,31 @@ export const handleCreateObjectRequested = () => {
   ui.displayCreateObjectModal(handleObjectCreationSubmit);
 };
 
+// --- Background Image File Handling ---
+const handleBackgroundImageFileSelected = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataURL = e.target.result;
+      canvas.setTableBackground({
+        type: 'image',
+        value: dataURL,
+      });
+      // Update the backgroundUrlInput field with the file name
+      setBackgroundUrlInputText(`Local file: ${file.name}`); // Use the imported function
+      ui.displayMessage(`Background image set to: ${file.name}`, 'success');
+      // requestRedraw() is called by setTableBackground if needed
+    };
+    reader.onerror = (e) => {
+      console.error('Error reading file for background:', e);
+      ui.showModal('File Read Error', 'Could not read the selected file for the background image.');
+      ui.displayMessage('Failed to load background image from file.', 'error');
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
 // --- Application Initialization ---
 const initializeApplication = async () => {
   // Attempt to initialize Firebase (it will run in offline mode)
@@ -127,8 +153,17 @@ const initializeApplication = async () => {
   const uiCallbacks = {
     onCreateObjectRequested: handleCreateObjectRequested, // New callback for "Create Object"
     onSetBackground: () => {
-      const { backgroundUrl, backgroundColor } = ui.getToolbarValues();
-      if (backgroundUrl) {
+      let { backgroundUrl, backgroundColor } = ui.getToolbarValues(); // Use let for backgroundUrl
+
+      // If the input field shows "Local file: ...", it means a local file was already loaded.
+      // Pressing "Set Background" with this text should not try to load it as a URL.
+      // Clear the input and use color if it's a placeholder.
+      if (backgroundUrl.startsWith('Local file:')) {
+        setBackgroundUrlInputText(''); // Clear the placeholder text // Uses imported setBackgroundUrlInputText
+        backgroundUrl = ''; // Treat as empty for logic below
+      }
+
+      if (backgroundUrl) { // This will now be true only for actual URLs
         canvas.setTableBackground({
           type: 'image',
           value: backgroundUrl,
@@ -187,6 +222,7 @@ const initializeApplication = async () => {
         reader.readAsText(file);
       }
     },
+    onBackgroundImageFileSelected: handleBackgroundImageFileSelected, // Added callback
     // onInspectorPropertyChange: (props) => { console.log("Inspector props changed (live):", props); } // For live updates
   };
 
@@ -276,6 +312,8 @@ const initializeApplication = async () => {
         y: mouseY - dragOffsetY,
       });
       requestRedraw();
+      // Add this line:
+      ui.populateObjectInspector(objects.getLocalObject(selectedObjId));
     } else if (isPanning) {
       const { panX, panY, zoom } = currentPZS; // Destructure PZS for panning
       const dx = e.clientX - lastPanX;

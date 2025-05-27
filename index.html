@@ -33,7 +33,10 @@
             <div>
                 <h3 class="text-md font-semibold mb-1">Table Background</h3>
                 <label for="background-url-input" class="block text-sm mb-1">Image URL:</label>
-                <input type="text" id="background-url-input" placeholder="e.g., /assets/map.png" class="w-full px-2 py-1 text-sm bg-gray-600 border border-gray-500 rounded mb-2">
+                <div class="flex items-center space-x-2 mb-2">
+                    <input type="text" id="background-url-input" placeholder="e.g., /assets/map.png" class="w-full px-2 py-1 text-sm bg-gray-600 border border-gray-500 rounded">
+                    <button id="choose-background-image-button" class="px-3 py-1 text-sm bg-blue-500 hover:bg-blue-600 rounded text-white whitespace-nowrap">Choose File</button>
+                </div>
                 <label for="background-color-input" class="block text-sm mb-1">Background Color:</label>
                 <input type="color" id="background-color-input" value="#cccccc" class="w-full h-8 px-1 py-1 bg-gray-600 border border-gray-500 rounded mb-2">
                 <button id="set-background-button" class="w-full px-3 py-2 text-sm bg-teal-500 hover:bg-teal-600 rounded">Set Background</button>

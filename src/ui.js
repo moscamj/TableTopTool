@@ -16,6 +16,7 @@ const domElements = {
   backgroundUrlInput: null,
   backgroundColorInput: null,
   setBackgroundButton: null,
+  chooseBackgroundImageButton: null, // Added for "Choose File" button for background image
 
   // Canvas
   canvasContainer: null,
@@ -53,6 +54,7 @@ const domElements = {
 
   // File input (hidden, triggered by button)
   fileInput: null,
+  backgroundImageFileInput: null, // Added for background image selection
 };
 
 /**
@@ -80,6 +82,9 @@ const cacheDOMElements = () => {
   );
   domElements.setBackgroundButton = document.getElementById(
     'set-background-button'
+  );
+  domElements.chooseBackgroundImageButton = document.getElementById(
+    'choose-background-image-button' // Added
   );
 
   domElements.canvasContainer = document.getElementById('canvas-container');
@@ -124,6 +129,13 @@ const cacheDOMElements = () => {
   domElements.fileInput.style.display = 'none';
   document.body.appendChild(domElements.fileInput);
 
+  // Create a hidden file input for background images
+  domElements.backgroundImageFileInput = document.createElement('input');
+  domElements.backgroundImageFileInput.type = 'file';
+  domElements.backgroundImageFileInput.accept = 'image/*'; // Accept all image types
+  domElements.backgroundImageFileInput.style.display = 'none';
+  document.body.appendChild(domElements.backgroundImageFileInput);
+
   // Update button texts and visibility for offline mode
   if (domElements.sessionSaveButton)
     domElements.sessionSaveButton.textContent = 'Save to File';
@@ -155,6 +167,7 @@ export const initUIEventListeners = (callbacks) => {
     onLoadFromFileRequest, // Renamed for clarity in original code, kept here
     onLoadFromFileInputChange,
     onCreateObjectRequested, // Added for the new "Create Object" modal
+    onBackgroundImageFileSelected, // New callback for background image file selection
   } = callbacks;
 
   // Ensure DOM elements are cached before attaching listeners.
@@ -209,6 +222,23 @@ export const initUIEventListeners = (callbacks) => {
       'change',
       onLoadFromFileInputChange
     );
+  }
+
+  // Event listener for the "Choose File" button for background image
+  if (domElements.chooseBackgroundImageButton) {
+    domElements.chooseBackgroundImageButton.addEventListener('click', () => {
+      if (domElements.backgroundImageFileInput) {
+        domElements.backgroundImageFileInput.value = null; // Clear previous selection
+        domElements.backgroundImageFileInput.click(); // Trigger hidden file input
+      }
+    });
+  }
+
+  // Event listener for the actual file input change (for background image)
+  if (onBackgroundImageFileSelected && domElements.backgroundImageFileInput) {
+    domElements.backgroundImageFileInput.addEventListener('change', (event) => {
+      onBackgroundImageFileSelected(event);
+    });
   }
 };
 
@@ -505,3 +535,13 @@ export const getToolbarValues = () => {
 document.addEventListener('DOMContentLoaded', () => {
   populateObjectInspector(null);
 });
+
+/**
+ * Sets the text content of the background URL input field.
+ * @param {string} text - The text to set.
+ */
+export const setBackgroundUrlInputText = (text) => {
+  if (domElements.backgroundUrlInput) {
+    domElements.backgroundUrlInput.value = text;
+  }
+};
