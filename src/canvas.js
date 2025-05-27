@@ -368,18 +368,39 @@ export const getMousePositionOnCanvas = (event, currentPZS) => {
 // Does not account for rotation for simplicity in this MVP stage for picking.
 export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
   const sortedObjects = Array.from(objectsMap.values()).sort(
-    (a, b) => (b.zIndex || 0) - (a.zIndex || 0)
+    (a, b) => (b.zIndex || 0) - (a.zIndex || 0) // Highest zIndex first
   );
 
   for (const obj of sortedObjects) {
-    const { x, y, width, height, shape, id } = obj;
+    const { x, y, width, height, shape, id, rotation = 0 } = obj; // Default rotation to 0
 
     if (shape === 'rectangle') {
+      const centerX = x + width / 2;
+      const centerY = y + height / 2;
+
+      // 1. Translate click coordinates so object's center is the origin
+      let localX = worldX - centerX;
+      let localY = worldY - centerY;
+
+      // 2. If the object is rotated, apply inverse rotation to the click coordinates
+      if (rotation !== 0) {
+        const rad = (-rotation * Math.PI) / 180; // Inverse angle in radians
+        const cosTheta = Math.cos(rad);
+        const sinTheta = Math.sin(rad);
+
+        const rotatedLocalX = localX * cosTheta - localY * sinTheta;
+        const rotatedLocalY = localX * sinTheta + localY * cosTheta;
+        
+        localX = rotatedLocalX;
+        localY = rotatedLocalY;
+      }
+
+      // 3. Perform AABB check in the object's local, unrotated coordinate system
       if (
-        worldX >= x &&
-        worldX <= x + width &&
-        worldY >= y &&
-        worldY <= y + height
+        localX >= -width / 2 &&
+        localX <= width / 2 &&
+        localY >= -height / 2 &&
+        localY <= height / 2
       ) {
         return id;
       }

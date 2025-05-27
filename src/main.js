@@ -194,6 +194,26 @@ const initializeApplication = async () => {
   // Pass requestRedraw to canvas module so it can trigger redraws internally (e.g., after image load)
   canvas.initCanvas(document.getElementById('vtt-canvas'), requestRedraw);
 
+  // Create default objects for testing
+  objects.createGenericObject('rectangle', {
+    x: 50,
+    y: 50,
+    width: 100,
+    height: 75,
+    appearance: { backgroundColor: '#FFC0CB', text: 'Rect 1' },
+    name: 'Test Rectangle 1',
+  });
+
+  objects.createGenericObject('circle', {
+    x: 200,
+    y: 100,
+    width: 60, // Diameter
+    height: 60, // Diameter
+    appearance: { backgroundColor: '#ADD8E6', text: 'Circ 1' },
+    name: 'Test Circle 1',
+    rotation: 30,
+  });
+
   // --- Canvas Event Listeners ---
   const canvasEl = document.getElementById('vtt-canvas'); // Or get from canvas.getCanvasElement()
   let isDragging = false;
