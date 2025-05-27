@@ -98,18 +98,29 @@ export const getTableBackground = () => {
 export const setTableBackground = (newBackground) => {
   if (newBackground && typeof newBackground === 'object') {
     const { type: newType, value: newValue } = newBackground;
-    let changed =
-      tableBackground.type !== newType || tableBackground.value !== newValue;
-    
-    // Update tableBackground directly with new properties
+    const oldType = tableBackground.type;
+    const oldValue = tableBackground.value;
+
     tableBackground.type = newType;
     tableBackground.value = newValue;
 
-    if (newType === 'image' && newValue) {
-      loadImage(newValue, newValue, onDrawNeededCallback);
-    } else if (changed) {
-      // Ensure redraw if only color changed or image removed
-      onDrawNeededCallback();
+    if (newType === 'image') {
+      if (newValue) { // If a new image URL/dataURI is provided
+        loadImage(newValue, newValue, onDrawNeededCallback);
+      }
+      // Always request a redraw when the type is 'image',
+      // either to draw the new image, a loading state, an error state, or to clear a previous image if newValue is null.
+      onDrawNeededCallback(); 
+    } else if (newType === 'color') {
+      // Only redraw if color actually changed or type changed from image to color
+      if (oldType !== newType || oldValue !== newValue) {
+        onDrawNeededCallback();
+      }
+    } else {
+      // If type is not image or color but changed (e.g. background removed completely)
+      if (oldType !== newType || oldValue !== newValue) {
+        onDrawNeededCallback();
+      }
     }
   }
 };
@@ -149,14 +160,25 @@ const loadImage = (url, cacheKey, callback) => {
   image.crossOrigin = 'Anonymous'; // For images from other domains if canvas is tainted
   image.onload = () => {
     loadedImages.set(cacheKey, { img: image, status: 'loaded' });
-    console.log(`Image loaded: ${url}`); // Kept template literal as it was already correct
+    if (url.startsWith('data:image/')) {
+      console.log(`loadImage: Successfully loaded data URI. Key: ${cacheKey}`);
+    } else {
+      console.log(`Image loaded: ${url}`);
+    }
     if (callback) callback();
   };
-  image.onerror = () => {
+  image.onerror = (err) => { // Add err parameter to log it
     loadedImages.set(cacheKey, { img: null, status: 'error' });
-    console.error(`Error loading image: ${url}`); // Kept template literal
+    if (url.startsWith('data:image/')) {
+      console.error(`loadImage: Error loading data URI. Key: ${cacheKey}`, err);
+    } else {
+      console.error(`Error loading image: ${url}`, err);
+    }
     if (callback) callback(); // Still call callback to redraw, maybe show placeholder
   };
+  if (url.startsWith('data:image/')) {
+    console.log(`loadImage: Attempting to load data URI. Starts with: ${url.substring(0, 100)}...`);
+  }
   image.src = url;
 };
 
