@@ -86,6 +86,7 @@ const cacheDOMElements = () => {
   domElements.chooseBackgroundImageButton = document.getElementById(
     'choose-background-image-button' // Added
   );
+  console.log('[ui.js] chooseBackgroundImageButton found:', domElements.chooseBackgroundImageButton ? 'Yes' : 'No');
 
   domElements.canvasContainer = document.getElementById('canvas-container');
   domElements.vttCanvas = document.getElementById('vtt-canvas');
@@ -135,6 +136,7 @@ const cacheDOMElements = () => {
   domElements.backgroundImageFileInput.accept = 'image/*'; // Accept all image types
   domElements.backgroundImageFileInput.style.display = 'none';
   document.body.appendChild(domElements.backgroundImageFileInput);
+  console.log('[ui.js] backgroundImageFileInput created:', domElements.backgroundImageFileInput ? 'Yes' : 'No');
 
   // Update button texts and visibility for offline mode
   if (domElements.sessionSaveButton)
@@ -227,18 +229,35 @@ export const initUIEventListeners = (callbacks) => {
   // Event listener for the "Choose File" button for background image
   if (domElements.chooseBackgroundImageButton) {
     domElements.chooseBackgroundImageButton.addEventListener('click', () => {
+      console.log('[ui.js] "Choose File" button clicked.'); 
       if (domElements.backgroundImageFileInput) {
         domElements.backgroundImageFileInput.value = null; // Clear previous selection
         domElements.backgroundImageFileInput.click(); // Trigger hidden file input
+        console.log('[ui.js] Triggered click on hidden backgroundImageFileInput.'); 
+      } else {
+        console.error('[ui.js] backgroundImageFileInput not found on button click.'); 
       }
     });
+  } else {
+    console.error('[ui.js] chooseBackgroundImageButton not found, cannot attach click listener.'); 
   }
 
   // Event listener for the actual file input change (for background image)
+  console.log('[ui.js] Attempting to attach "change" listener to backgroundImageFileInput.'); 
   if (onBackgroundImageFileSelected && domElements.backgroundImageFileInput) {
+    console.log('[ui.js] "onBackgroundImageFileSelected" callback IS defined and backgroundImageFileInput IS found. Attaching listener.'); 
     domElements.backgroundImageFileInput.addEventListener('change', (event) => {
+      console.log('[ui.js] "change" event detected on backgroundImageFileInput.'); 
       onBackgroundImageFileSelected(event);
     });
+  } else {
+    
+    if (!onBackgroundImageFileSelected) {
+      console.error('[ui.js] "onBackgroundImageFileSelected" callback is NOT defined. Cannot attach change listener to backgroundImageFileInput.');
+    }
+    if (!domElements.backgroundImageFileInput) {
+      console.error('[ui.js] backgroundImageFileInput element not found. Cannot attach change listener.');
+    }
   }
 };
 
