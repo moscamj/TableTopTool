@@ -339,6 +339,20 @@ export const drawVTT = (
       ctx.fillText(text, width / 2, height / 2);
     }
 
+    // Draw object name (if any) - Placed before selection highlight
+    if (obj.name && typeof obj.name === 'string' && obj.name.trim() !== '') {
+      const nameFontSize = 12;
+      ctx.font = `${nameFontSize}px Arial`;
+      ctx.fillStyle = '#000000'; // Black color for the name
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom'; // To draw text above the point
+
+      const nameTopMargin = 5; // Number of pixels above the object's bounding box
+
+      // Draw the name centered above the object
+      ctx.fillText(obj.name, width / 2, -nameTopMargin);
+    }
+
     if (id === currentSelectedId) {
       ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'; // Bright blue for selection
       // Adjust line width of selection highlight based on zoom, ensuring it's visible but not too thick/thin.

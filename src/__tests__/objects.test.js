@@ -3,7 +3,8 @@ import {
   getLocalObject,
   clearLocalObjects,
   getAllLocalObjects,
-  currentObjects, // Import for direct inspection if necessary
+  updateLocalObject, // Added import
+  currentObjects, 
 } from '../objects.js';
 
 // Helper to validate UUID
@@ -19,7 +20,7 @@ describe('objects.js', () => {
   });
 
   describe('createGenericObject', () => {
-    test('should create a rectangle with default properties', () => {
+    test('should create a rectangle with default properties including default name', () => {
       const rect = createGenericObject('rectangle');
       expect(rect.shape).toBe('rectangle');
       expect(rect.x).toBe(50); // Default x
@@ -28,9 +29,10 @@ describe('objects.js', () => {
       expect(rect.height).toBe(100); // Default height for rectangle
       expect(rect.appearance.backgroundColor).toBe('#CCCCCC'); // Default color
       expect(isUUID(rect.id)).toBe(true);
+      expect(rect.name).toBe(`Object ${currentObjects.size}`);
     });
 
-    test('should create a circle with default properties', () => {
+    test('should create a circle with default properties including default name', () => {
       const circle = createGenericObject('circle');
       expect(circle.shape).toBe('circle');
       expect(circle.x).toBe(50); // Default x
@@ -39,6 +41,14 @@ describe('objects.js', () => {
       expect(circle.height).toBe(50); // Default height/diameter for circle
       expect(circle.appearance.backgroundColor).toBe('#CCCCCC');
       expect(isUUID(circle.id)).toBe(true);
+      expect(circle.name).toBe(`Object ${currentObjects.size}`);
+    });
+    
+    test('should correctly assign default names sequentially', () => {
+      const obj1 = createGenericObject('rectangle');
+      expect(obj1.name).toBe('Object 1');
+      const obj2 = createGenericObject('circle');
+      expect(obj2.name).toBe('Object 2');
     });
 
     test('should create a rectangle with custom initial properties', () => {
@@ -120,6 +130,103 @@ describe('objects.js', () => {
       clearLocalObjects();
       expect(getAllLocalObjects()).toEqual([]);
       expect(getAllLocalObjects().length).toBe(0); // Check via public API
+    });
+  });
+
+  // New describe block for updateLocalObject
+  describe('updateLocalObject', () => {
+    let testObjId;
+    const initialProps = {
+      x: 10,
+      y: 20,
+      width: 100,
+      height: 50,
+      name: 'InitialName',
+      appearance: { backgroundColor: 'red', text: 'Hello' },
+      zIndex: 1,
+      isMovable: true,
+      shape: 'rectangle',
+      scripts: { onClick: 'console.log("clicked")'},
+      data: { custom: 'value' }
+    };
+
+    beforeEach(() => {
+      const obj = createGenericObject('rectangle', initialProps);
+      testObjId = obj.id;
+    });
+
+    test('should update only the name', () => {
+      updateLocalObject(testObjId, { name: 'NewName' });
+      const updated = getLocalObject(testObjId);
+      expect(updated.name).toBe('NewName');
+      expect(updated.x).toBe(initialProps.x);
+      expect(updated.y).toBe(initialProps.y);
+      expect(updated.width).toBe(initialProps.width);
+      expect(updated.height).toBe(initialProps.height);
+      expect(updated.appearance).toEqual(initialProps.appearance);
+      expect(updated.zIndex).toBe(initialProps.zIndex);
+    });
+
+    test('should update only width and height', () => {
+      updateLocalObject(testObjId, { width: 150, height: 75 });
+      const updated = getLocalObject(testObjId);
+      expect(updated.width).toBe(150);
+      expect(updated.height).toBe(75);
+      expect(updated.name).toBe(initialProps.name);
+      expect(updated.x).toBe(initialProps.x);
+      expect(updated.appearance).toEqual(initialProps.appearance);
+    });
+
+    test('should update name, width, and height simultaneously', () => {
+      updateLocalObject(testObjId, { name: 'SimulName', width: 200, height: 120 });
+      const updated = getLocalObject(testObjId);
+      expect(updated.name).toBe('SimulName');
+      expect(updated.width).toBe(200);
+      expect(updated.height).toBe(120);
+      expect(updated.x).toBe(initialProps.x);
+    });
+
+    test('should store 0, negative, or NaN dimensions if provided', () => {
+      updateLocalObject(testObjId, { width: 0, height: -10 });
+      let updated = getLocalObject(testObjId);
+      expect(updated.width).toBe(0);
+      expect(updated.height).toBe(-10);
+
+      updateLocalObject(testObjId, { width: NaN });
+      updated = getLocalObject(testObjId);
+      expect(updated.width).toBeNaN(); // NaN is stored as is
+    });
+    
+    test('should update other properties (x, y, appearance) along with name, width, or height', () => {
+      const newAppearance = { backgroundColor: 'blue', text: 'World' };
+      updateLocalObject(testObjId, {
+        name: 'ComplexUpdate',
+        width: 250,
+        x: 100,
+        appearance: newAppearance
+      });
+      const updated = getLocalObject(testObjId);
+      expect(updated.name).toBe('ComplexUpdate');
+      expect(updated.width).toBe(250);
+      expect(updated.height).toBe(initialProps.height); // Height should remain unchanged
+      expect(updated.x).toBe(100);
+      expect(updated.y).toBe(initialProps.y); // Y should remain unchanged
+      expect(updated.appearance).toEqual(newAppearance);
+    });
+
+    test('should deeply merge appearance properties', () => {
+      updateLocalObject(testObjId, { appearance: { text: 'Updated Text' } });
+      const updated = getLocalObject(testObjId);
+      // Check that the original backgroundColor is preserved and text is updated.
+      expect(updated.appearance.backgroundColor).toBe(initialProps.appearance.backgroundColor);
+      expect(updated.appearance.text).toBe('Updated Text');
+    });
+
+    test('should not update if ID does not exist, and return undefined', () => {
+      const result = updateLocalObject('non-existent-id', { name: 'Ghost' });
+      expect(result).toBeUndefined();
+      const originalObject = getLocalObject(testObjId); // Check original object is unchanged
+      expect(originalObject.name).toBe(initialProps.name);
     });
   });
 });

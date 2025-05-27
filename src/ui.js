@@ -41,7 +41,7 @@ const domElements = {
   objShape: null,
   objData: null,
   objScriptOnClick: null,
-  objName: null, // Assuming an ID like #obj-name exists or will be added
+  objName: null,
   updateObjectButton: null,
   deleteObjectButton: null,
 
@@ -116,7 +116,7 @@ const cacheDOMElements = () => {
   domElements.objShape = document.getElementById('obj-shape');
   domElements.objData = document.getElementById('obj-data');
   domElements.objScriptOnClick = document.getElementById('obj-script-onclick');
-  // domElements.objName = document.getElementById('obj-name'); // Add to index.html if needed
+  domElements.objName = document.getElementById('obj-name');
 
   domElements.updateObjectButton = document.getElementById(
     'update-object-button'
@@ -294,7 +294,7 @@ export const populateObjectInspector = (objectData) => {
     // even if some fields are missing from objectData.
     const {
       id,
-      name, // Placeholder for a potential object name field
+      name = '', // Default to empty string if name is not provided
       x = 0,
       y = 0,
       width = 0,
@@ -312,7 +312,7 @@ export const populateObjectInspector = (objectData) => {
       inspectorContentDiv.querySelector('p').style.display = 'none'; // Hide placeholder message
 
     domElements.objId.textContent = id || '';
-    // domElements.objName.value = name || ''; // If #obj-name input exists
+    if (domElements.objName) domElements.objName.value = name || '';
     domElements.objX.value = x;
     domElements.objY.value = y;
     domElements.objWidth.value = width;
@@ -357,9 +357,11 @@ export const populateObjectInspector = (objectData) => {
       if (
         child !== inspectorContentDiv &&
         child !== domElements.inspectorActions
-      )
+      ) {
         child.style.display = 'none';
+      }
     });
+    if (domElements.objName) domElements.objName.value = ''; // Clear name field
 
     if (domElements.inspectorActions)
       domElements.inspectorActions.classList.add('hidden');
@@ -381,11 +383,17 @@ export const readObjectInspector = () => {
 
   return {
     id: domElements.objId.textContent, // ID is read-only from display
-    // name: domElements.objName.value, // if #obj-name exists
+    name: domElements.objName ? domElements.objName.value.trim() : '',
     x: parseFloat(domElements.objX.value) || 0,
     y: parseFloat(domElements.objY.value) || 0,
-    width: parseFloat(domElements.objWidth.value) || 0,
-    height: parseFloat(domElements.objHeight.value) || 0,
+    width: (() => {
+      let newWidth = parseFloat(domElements.objWidth.value);
+      return (isNaN(newWidth) || newWidth < 1) ? 1 : newWidth;
+    })(),
+    height: (() => {
+      let newHeight = parseFloat(domElements.objHeight.value);
+      return (isNaN(newHeight) || newHeight < 1) ? 1 : newHeight;
+    })(),
     rotation: parseFloat(domElements.objRotation.value) || 0,
     zIndex: parseInt(domElements.objZIndex.value, 10) || 0,
     isMovable: domElements.objIsMovable.checked,
