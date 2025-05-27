@@ -307,6 +307,43 @@ describe('Canvas drawVTT Highlight Logic', () => {
         noBorderObj.height + 2 * offset
     );
   });
+
+  test('Global canvas transformations are applied correctly (without DPR multiplication)', () => {
+    // Arrange
+    const objectsToDraw = new Map(); // No objects needed for this specific test
+    const pzsCustom = { panX: 10, panY: 20, zoom: 1.5 };
+    // initCanvas and setPanZoomState are called in beforeEach, setting up initial ctx state.
+    // We are interested in the translate and scale calls *within* drawVTT.
+    
+    // Act
+    drawVTT(objectsToDraw, pzsCustom, bgDefault, null);
+
+    // Assert
+    // Expected sequence of calls at the start of drawVTT:
+    // 1. ctx.save()
+    // 2. ctx.fillRect() (to clear canvas)
+    // 3. ctx.translate(panX, panY)
+    // 4. ctx.scale(zoom, zoom)
+
+    // Check that save was called
+    expect(mockCtx.save).toHaveBeenCalled();
+
+    // Check the fillRect call for clearing (optional, but good for context)
+    // canvas.width and canvas.height are already DPR-scaled in mockCanvasEl
+    expect(mockCtx.fillRect).toHaveBeenCalledWith(0, 0, mockCanvasEl.width, mockCanvasEl.height);
+
+    // Check the translate call
+    // It should be the first translate call in drawVTT after the initial setup.
+    // Note: initCanvas also calls ctx.scale(dpr,dpr), so we look for the one in drawVTT.
+    // The mockCtx.translate is reset in beforeEach.
+    expect(mockCtx.translate).toHaveBeenCalledTimes(1); // Assuming no other translate calls before object drawing loop
+    expect(mockCtx.translate).toHaveBeenCalledWith(pzsCustom.panX, pzsCustom.panY);
+
+    // Check the scale call
+    // This should be the first scale call in drawVTT after the initial setup and translate.
+    expect(mockCtx.scale).toHaveBeenCalledTimes(1);  // Assuming no other scale calls before object drawing loop
+    expect(mockCtx.scale).toHaveBeenCalledWith(pzsCustom.zoom, pzsCustom.zoom);
+  });
 });
 
 // --- Tests for getObjectAtPosition ---
