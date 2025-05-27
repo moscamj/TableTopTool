@@ -335,8 +335,8 @@ export const drawVTT = (
         if (!imgEntry)
           loadImage(imageUrl, imageUrl, onDrawNeededCallback);
       }
-      // ---> ADD ERROR DRAWING LOGIC HERE <---
-      const imgEntry = loadedImages.get(imageUrl); // Get it again or use existing reference
+      // ---> ERROR DRAWING LOGIC USES EXISTING imgEntry <---
+      // const imgEntry = loadedImages.get(imageUrl); // This line was removed
       if (imgEntry && imgEntry.status === 'error') {
           // Ensure base styles like fillStyle for text are set if not already
           ctx.strokeStyle = 'red';
