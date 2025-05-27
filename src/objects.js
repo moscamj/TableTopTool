@@ -10,6 +10,7 @@
  * @property {string} [text] - Text to display on the object.
  * @property {string} [fontFamily] - Font for the text.
  * @property {number} [fontSize] - Font size for the text.
+ * @property {boolean} [showLabel] - Whether to display the object's name as a label.
  */
 
 /**
@@ -70,9 +71,10 @@ export const createGenericObject = (shape, initialProps = {}) => {
       borderColor: '#333333',
       borderWidth: 1,
       textColor: '#000000',
-      text: '',
+      text: '', // Default label text is empty
       fontFamily: 'Arial',
       fontSize: 14,
+      showLabel: false, // Default to not showing the label
     },
     isMovable: true,
     data: {},

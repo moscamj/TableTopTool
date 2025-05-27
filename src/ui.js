@@ -42,6 +42,8 @@ const domElements = {
   objData: null,
   objScriptOnClick: null,
   objName: null,
+  objLabelText: null, // New
+  objShowLabel: null, // New
   updateObjectButton: null,
   deleteObjectButton: null,
 
@@ -117,6 +119,8 @@ const cacheDOMElements = () => {
   domElements.objData = document.getElementById('obj-data');
   domElements.objScriptOnClick = document.getElementById('obj-script-onclick');
   domElements.objName = document.getElementById('obj-name');
+  domElements.objLabelText = document.getElementById('obj-label-text'); // New
+  domElements.objShowLabel = document.getElementById('obj-show-label'); // New
 
   domElements.updateObjectButton = document.getElementById(
     'update-object-button'
@@ -323,12 +327,16 @@ export const populateObjectInspector = (objectData) => {
     domElements.objShape.value = shape;
 
     if (appearance) {
-      const { backgroundColor = '#CCCCCC', imageUrl = '' } = appearance;
+      const { backgroundColor = '#CCCCCC', imageUrl = '', text = '', showLabel = false } = appearance;
       domElements.objBgColor.value = backgroundColor;
       domElements.objImageUrl.value = imageUrl;
+      if (domElements.objLabelText) domElements.objLabelText.value = text || '';
+      if (domElements.objShowLabel) domElements.objShowLabel.checked = showLabel || false;
     } else {
       domElements.objBgColor.value = '#CCCCCC';
       domElements.objImageUrl.value = '';
+      if (domElements.objLabelText) domElements.objLabelText.value = '';
+      if (domElements.objShowLabel) domElements.objShowLabel.checked = false;
     }
 
     domElements.objData.value = data ? JSON.stringify(data, null, 2) : '{}';
@@ -362,6 +370,8 @@ export const populateObjectInspector = (objectData) => {
       }
     });
     if (domElements.objName) domElements.objName.value = ''; // Clear name field
+    if (domElements.objLabelText) domElements.objLabelText.value = ''; // Clear label text
+    if (domElements.objShowLabel) domElements.objShowLabel.checked = false; // Uncheck show label
 
     if (domElements.inspectorActions)
       domElements.inspectorActions.classList.add('hidden');
@@ -401,7 +411,9 @@ export const readObjectInspector = () => {
     appearance: {
       backgroundColor: domElements.objBgColor.value,
       imageUrl: domElements.objImageUrl.value.trim(),
-      // Add other appearance props from their respective inputs
+      text: domElements.objLabelText ? domElements.objLabelText.value : '',
+      showLabel: domElements.objShowLabel ? domElements.objShowLabel.checked : false,
+      // Potentially other existing appearance props like borderColor, borderWidth if they are in inspector
     },
     data: data,
     scripts: {

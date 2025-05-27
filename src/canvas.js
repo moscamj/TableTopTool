@@ -271,10 +271,11 @@ export const drawVTT = (
       borderColor,     // Will be undefined if not set
       borderWidth = 0, // Default border width to 0
       imageUrl,        // Will be undefined if not set
-      text,            // Will be undefined if not set
+      text,            // Will be undefined if not set (this is obj.appearance.text)
       textColor = '#000000', // Default text color
       fontSize = 14,         // Default font size
       fontFamily = 'Arial',  // Default font family
+      showLabel = false  // Default to false if not present
     } = appearance || {};
 
     // Save the current state of the canvas context before drawing this object.
@@ -331,7 +332,8 @@ export const drawVTT = (
       }
     }
 
-    if (text) {
+    // Render internal object label (appearance.text)
+    if (showLabel === true && typeof text === 'string' && text.trim() !== '') {
       ctx.fillStyle = textColor;
       ctx.font = `${fontSize}px ${fontFamily}`;
       ctx.textAlign = 'center';
