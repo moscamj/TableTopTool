@@ -188,8 +188,8 @@ export const drawVTT = (
   // These transformations are affected by the Device Pixel Ratio (dpr) to ensure
   // panning and zooming feel consistent across different display densities.
   // All subsequent drawing operations will be affected by this transformed coordinate system.
-  ctx.translate(panX * dpr, panY * dpr);
-  ctx.scale(zoom * dpr, zoom * dpr);
+  ctx.translate(panX, panY);
+  ctx.scale(zoom, zoom);
 
   // 1. Draw Table Background
   // Calculate the width and height of the viewport in "world" coordinates.
@@ -346,14 +346,15 @@ export const drawVTT = (
 export const getMousePositionOnCanvas = (event, currentPZS) => {
   if (!canvas) return { x: 0, y: 0 };
 
-  const { clientX, clientY } = event;
-  const rect = canvas.getBoundingClientRect(); // Get canvas position and size in CSS pixels
-  const { left: rectLeft, top: rectTop } = rect; // Destructure for clarity
+  // const { clientX, clientY } = event; // Not needed with offsetX/Y
+  // const rect = canvas.getBoundingClientRect(); // Get canvas position and size in CSS pixels
+  // const { left: rectLeft, top: rectTop } = rect; // Destructure for clarity
   const { panX, panY, zoom } = currentPZS; // Current pan and zoom state
 
   // Convert mouse click coordinates (relative to viewport) to canvas screen coordinates (CSS pixels)
-  const screenX = clientX - rectLeft;
-  const screenY = clientY - rectTop;
+  // Use event.offsetX and event.offsetY which are relative to the padding edge of the target element (canvas)
+  const screenX = event.offsetX;
+  const screenY = event.offsetY;
 
   // Convert canvas screen coordinates to world coordinates
   // 1. Subtract pan offset (panX, panY are in CSS pixels relative to canvas origin)
