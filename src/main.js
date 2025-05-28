@@ -2,10 +2,14 @@
 import * as objects from './objects.js';
 import * as canvas from './canvas.js';
 import * as ui from './ui.js';
-import { setBackgroundUrlInputText, setObjectImageUrlText } from './ui.js'; // Import the new functions
+import { setBackgroundUrlInputText, setObjectImageUrlText, getModalContentElement } from './ui.js'; // Import the new functions
 import * as api from './api.js'; // VTT Scripting API
 // Firebase is imported for its stubbed functions in offline mode
 import * as firebase from './firebase.js';
+
+// In-memory state storage
+let inMemoryStates = [];
+const MAX_IN_MEMORY_STATES = 5;
 
 let currentSessionId = 'local-session'; // Can be updated on load
 let localUserId = 'offline-user';
@@ -101,6 +105,97 @@ const handleLoadTableState = (fileContent) => {
   }
 };
 
+// --- In-Memory Save/Load ---
+export const handleSaveMemoryState = () => {
+  const state = {
+    timestamp: new Date().toISOString(), // For identification
+    name: `State saved at ${new Date().toLocaleTimeString()}`, // Default name
+    objects: api.VTT_API.getAllObjects(),
+    background: canvas.getTableBackground(),
+    viewState: canvas.getPanZoomState(),
+    boardProperties: api.VTT_API.getBoardProperties() // Also save board properties
+  };
+
+  inMemoryStates.unshift(state); // Add to the beginning
+
+  if (inMemoryStates.length > MAX_IN_MEMORY_STATES) {
+    inMemoryStates.length = MAX_IN_MEMORY_STATES; // Trim oldest states
+  }
+
+  api.VTT_API.showMessage('Board state saved to memory.', 'success');
+  // TODO: Update UI for Load State button (e.g., enable it, show number of states)
+};
+
+const applyLoadedMemoryState = (stateObject) => {
+  if (!stateObject) {
+    api.VTT_API.showMessage('Invalid state object provided.', 'error');
+    return;
+  }
+
+  api.VTT_API.clearAllObjects();
+
+  stateObject.objects.forEach(obj => {
+    objects.currentObjects.set(obj.id, obj); // Direct manipulation, ensure this is desired or use API if exists
+    if (obj.appearance && obj.appearance.imageUrl) {
+      canvas.loadImage(obj.appearance.imageUrl, obj.appearance.imageUrl, requestRedraw);
+    }
+  });
+
+  if (stateObject.background) canvas.setTableBackground(stateObject.background);
+  if (stateObject.viewState) canvas.setPanZoomState(stateObject.viewState);
+  if (stateObject.boardProperties) {
+    api.VTT_API.setBoardProperties(stateObject.boardProperties);
+    // Also update the UI display for board settings if they are visible
+    ui.updateBoardSettingsDisplay(stateObject.boardProperties);
+  }
+
+  requestRedraw();
+  api.VTT_API.showMessage(`Board state loaded: ${stateObject.name}`, 'success');
+};
+
+export const handleLoadMemoryStateRequest = () => {
+  if (inMemoryStates.length === 0) {
+    api.VTT_API.showMessage('No states saved in memory.', 'info');
+    return;
+  }
+
+  let modalContentHtml = '<p>Select a state to load:</p><div class="flex flex-col space-y-2 mt-2">';
+  inMemoryStates.forEach((state, index) => {
+    // Using more Tailwind-like classes for buttons within the modal
+    modalContentHtml += `<button class="w-full text-left p-2 bg-gray-600 hover:bg-gray-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" data-state-index="${index}">
+                           ${state.name || `State ${index + 1} - ${new Date(state.timestamp).toLocaleString()}`}
+                         </button>`;
+  });
+  modalContentHtml += '</div>';
+
+  const modalButtonsArray = [
+    { text: 'Cancel', type: 'secondary' }
+  ];
+
+  ui.showModal('Load State from Memory', modalContentHtml, modalButtonsArray);
+
+  // Add event listeners to the dynamically created buttons
+  const modalContentElement = getModalContentElement(); // Get modal content div from ui.js
+  if (modalContentElement) {
+    const stateButtons = modalContentElement.querySelectorAll('[data-state-index]');
+    stateButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        const index = parseInt(button.getAttribute('data-state-index'));
+        if (inMemoryStates[index]) {
+          applyLoadedMemoryState(inMemoryStates[index]);
+          ui.hideModal(); // Explicitly hide modal
+        } else {
+          api.VTT_API.showMessage('Selected state not found.', 'error');
+        }
+      });
+    });
+  } else {
+    console.error('[main.js] Modal content element not found. Cannot attach listeners for load state.');
+    api.VTT_API.showMessage('Error setting up load state options.', 'error');
+  }
+};
+
+
 // --- Application Initialization ---
 const initializeApplication = async () => {
   // Attempt to initialize Firebase (it will run in offline mode)
@@ -115,6 +210,8 @@ const initializeApplication = async () => {
     // onApplyObjectChanges: () => { ... }, // Removed: ui.js handles directly
     // onDeleteObject: () => { ... }, // Removed: ui.js handles directly
     onSaveToFile: handleSaveTableState,
+    onSaveMemoryState: handleSaveMemoryState, // Added for in-memory save
+    onLoadMemoryStateRequest: handleLoadMemoryStateRequest, // Added for in-memory load
     onLoadFromFileInputChange: (event) => {
       const file = event.target.files[0];
       if (file) {

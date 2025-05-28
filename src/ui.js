@@ -12,6 +12,9 @@ const domElements = {
   sessionLoadInput: null,
   sessionLoadButton: null,
   sessionSaveButton: null,
+  clearBoardButton: null, // Added for Clear Board
+  saveMemoryStateButton: null, // Added for In-Memory Save
+  loadMemoryStateButton: null, // Added for In-Memory Load
 
   // Tools Sidebar
   toolsSidebar: null,
@@ -94,6 +97,9 @@ const cacheDOMElements = () => {
   domElements.sessionSaveButton = document.getElementById(
     'session-save-button'
   );
+  domElements.clearBoardButton = document.getElementById('clear-board-button'); // Added for Clear Board
+  domElements.saveMemoryStateButton = document.getElementById('save-memory-state-button'); // Added for In-Memory Save
+  domElements.loadMemoryStateButton = document.getElementById('load-memory-state-button'); // Added for In-Memory Load
 
   domElements.toolsSidebar = document.getElementById('tools-sidebar');
   domElements.createObjectButton = document.getElementById('create-object-button');
@@ -311,8 +317,10 @@ export const initUIEventListeners = (callbacks) => {
     // onApplyObjectChanges, // Removed - handled by handleApplyObjectChangesFromInspector
     // onDeleteObject, // Removed - handled by handleDeleteObjectFromInspector
     onSaveToFile,
-    onLoadFromFileRequest, // Renamed for clarity in original code, kept here
+    // onLoadFromFileRequest, // Removed as per new requirement
     onLoadFromFileInputChange,
+    onSaveMemoryState, // Added for In-Memory Save
+    onLoadMemoryStateRequest, // Added for In-Memory Load
     // onCreateObjectRequested, // Removed - createObjectButton now calls displayCreateObjectModal directly
     // onBackgroundImageFileSelected, // Removed - handled by handleBackgroundImageFileChange
     // onObjectImageFileSelected, // Removed - handled by handleObjectImageFileChange
@@ -364,12 +372,29 @@ export const initUIEventListeners = (callbacks) => {
   if (onSaveToFile && domElements.sessionSaveButton) {
     domElements.sessionSaveButton.addEventListener('click', onSaveToFile);
   }
-  if (onLoadFromFileRequest && domElements.sessionLoadButton) {
-    domElements.sessionLoadButton.addEventListener('click', () => {
-      domElements.fileInput.value = null; // Clear previous selection
-      domElements.fileInput.click(); // Trigger hidden file input
+  // File Save/Load
+  if (onSaveToFile && domElements.sessionSaveButton) {
+    domElements.sessionSaveButton.addEventListener('click', onSaveToFile);
+  }
+  // if (onLoadFromFileRequest && domElements.sessionLoadButton) { // Old version
+  //   domElements.sessionLoadButton.addEventListener('click', () => {
+  //     domElements.fileInput.value = null; // Clear previous selection
+  //     domElements.fileInput.click(); // Trigger hidden file input
+  //   });
+  // }
+
+  // New setup for sessionLoadButton
+  if (domElements.sessionLoadButton) { // Check if button exists
+    domElements.sessionLoadButton.addEventListener('click', () => { // Directly add listener
+      if (domElements.fileInput) { // Check if fileInput exists
+        domElements.fileInput.value = null; // Clear previous selection
+        domElements.fileInput.click(); // Trigger hidden file input
+      } else {
+        console.error('[ui.js] fileInput element not found when sessionLoadButton clicked.');
+      }
     });
   }
+
   if (onLoadFromFileInputChange && domElements.fileInput) {
     domElements.fileInput.addEventListener(
       'change',
@@ -429,6 +454,56 @@ export const initUIEventListeners = (callbacks) => {
     domElements.applyBoardPropertiesButton.addEventListener('click', handleApplyBoardProperties);
   } else {
     console.error('[ui.js] applyBoardPropertiesButton not found in DOM, cannot attach listener.');
+  }
+
+  // Event listener for Clear Board button
+  if (domElements.clearBoardButton) {
+    domElements.clearBoardButton.addEventListener('click', () => {
+      showModal(
+        'Confirm Clear Board',
+        '<p>Are you sure you want to clear all objects and reset the background?</p>',
+        [
+          { text: 'Cancel', type: 'secondary' },
+          {
+            text: 'Clear Board',
+            type: 'danger',
+            onClickCallback: () => {
+              VTT_API.clearAllObjects();
+              VTT_API.setTableBackground({ type: 'color', value: '#cccccc' }); // Reset background
+              // Clear background URL input
+              if (domElements.backgroundUrlInput) {
+                domElements.backgroundUrlInput.value = '';
+              }
+              // Reset background color input visually
+              if (domElements.backgroundColorInput) {
+                domElements.backgroundColorInput.value = '#cccccc';
+              }
+              VTT_API.showMessage('Board cleared.', 'info');
+              // hideModal() is called by default by showModal's button handler
+            },
+          },
+        ]
+      );
+    });
+  } else {
+    console.error('[ui.js] clearBoardButton not found in DOM, cannot attach listener.');
+  }
+
+  // Event listener for Save Memory State button
+  if (callbacks.onSaveMemoryState && domElements.saveMemoryStateButton) {
+    domElements.saveMemoryStateButton.addEventListener('click', callbacks.onSaveMemoryState);
+  } else {
+    if (!callbacks.onSaveMemoryState) console.error('[ui.js] onSaveMemoryState callback not provided.');
+    if (!domElements.saveMemoryStateButton) console.error('[ui.js] saveMemoryStateButton not found in DOM.');
+  }
+
+  // TODO: Add event listener for loadMemoryStateButton when its functionality is implemented
+  // Event listener for Load Memory State button
+  if (callbacks.onLoadMemoryStateRequest && domElements.loadMemoryStateButton) {
+    domElements.loadMemoryStateButton.addEventListener('click', callbacks.onLoadMemoryStateRequest);
+  } else {
+    if (!callbacks.onLoadMemoryStateRequest) console.error('[ui.js] onLoadMemoryStateRequest callback not provided.');
+    if (!domElements.loadMemoryStateButton) console.error('[ui.js] loadMemoryStateButton not found in DOM.');
   }
 };
 
@@ -903,4 +978,13 @@ export const setObjectImageUrlText = (text) => {
   } else {
     console.error('[ui.js] objImageUrl element not found. Cannot set text.');
   }
+};
+
+/**
+ * Returns the modal content DOM element.
+ * @returns {HTMLElement|null} The modal content element or null if not found.
+ */
+export const getModalContentElement = () => {
+  if (!domElementsCached) cacheDOMElements(); // Ensure cache is populated
+  return domElements.modalContent || null;
 };
