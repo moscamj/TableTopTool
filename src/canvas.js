@@ -1,9 +1,32 @@
 // src/canvas.js
+const MM_PER_UNIT = {
+  'in': 25.4,
+  'ft': 304.8,
+  'm': 1000,
+  'cm': 10,
+  'mm': 1,
+};
+
 let canvas;
 let ctx;
 let panZoomState = { panX: 0, panY: 0, zoom: 1.0 };
-let tableBackground = { type: 'color', value: '#cccccc' }; // Default background
+let tableBackground = { type: 'color', value: '#cccccc' }; // Default background for objects/tokens, if needed, or for table itself if not overridden by boardPhysical
 let selectedObjectId = null;
+
+let boardPhysical = {
+  widthUser: 36,      // Default value from HTML board-width-input
+  heightUser: 24,     // Default value from HTML board-height-input
+  unitUser: 'ft',     // Default value from HTML board-scale-unit-input
+  // Calculated pixel dimensions (1px = 1mm internally for canvas drawing)
+  widthPx: 36 * MM_PER_UNIT['ft'], // Calculated from defaults
+  heightPx: 24 * MM_PER_UNIT['ft'],// Calculated from defaults
+};
+
+// This scale is for interpreting map features, not setting board pixel size directly.
+// The unit for 'ratio' is effectively boardPhysical.unitUser based on current HTML structure.
+let mapInterpretationScale = {
+  ratio: 1, // Default from HTML board-scale-input (e.g., if map is 1:1 with unitUser)
+};
 // let isPanning = false; // isPanning and lastMousePosition are not used in this file, managed by main.js
 // let lastMousePosition = { x: 0, y: 0 };
 
@@ -204,10 +227,11 @@ export const drawVTT = (
   // This allows us to restore it later, isolating transformations to this draw call.
   ctx.save();
 
-  // Clear canvas (physical pixels)
-  // This ensures the entire canvas area is cleared before drawing the new frame.
-  ctx.fillStyle = 'white'; // Fallback clear color
-  ctx.fillRect(0, 0, canvas.width, canvas.height); // Use physical width/height of the canvas
+  // Clear entire canvas viewport with a neutral color (area outside the board)
+  // const dpr = window.devicePixelRatio || 1; // dpr is already available in this function
+  ctx.fillStyle = '#333740'; // A dark neutral color for off-board area
+  ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr); // Use CSS pixel dimensions for full clear
+
 
   // Apply global pan and zoom transformations.
   // These transformations are affected by the Device Pixel Ratio (dpr) to ensure
@@ -216,37 +240,37 @@ export const drawVTT = (
   ctx.translate(panX, panY);
   ctx.scale(zoom, zoom);
 
-  // 1. Draw Table Background
-  // Calculate the width and height of the viewport in "world" coordinates.
-  // This is done by taking the canvas's physical dimensions, converting to CSS pixels (dividing by dpr),
-  // and then accounting for the current zoom level.
-  const viewWidthWorld = canvas.width / dpr / zoom;
-  const viewHeightWorld = canvas.height / dpr / zoom;
+  // (panX, panY, zoom are from currentPZS argument to drawVTT)
+  // (currentTblBg is also from arguments to drawVTT)
+  // const { type: bgType, value: bgValue } = currentTblBg || {}; // Already destructured above
 
-  if (bgType) {
-    if (bgType === 'color' && bgValue) {
+  // Draw the board's actual background (color or image)
+  // This background covers boardPhysical.widthPx by boardPhysical.heightPx.
+  if (bgType === 'color' && bgValue) {
       ctx.fillStyle = bgValue;
-      ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
-    } else if (bgType === 'image' && bgValue) {
+      ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+  } else if (bgType === 'image' && bgValue) {
       const bgImageEntry = loadedImages.get(bgValue);
-      if (
-        bgImageEntry &&
-        bgImageEntry.status === 'loaded' &&
-        bgImageEntry.img
-      ) {
-        ctx.drawImage(bgImageEntry.img, 0, 0, viewWidthWorld, viewHeightWorld);
-      } else if (!bgImageEntry || bgImageEntry.status === 'loading') {
-        ctx.fillStyle = '#e0e0e0'; // Loading placeholder
-        ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
-        if (!bgImageEntry)
-          loadImage(bgValue, bgValue, onDrawNeededCallback); // Use destructured bgValue
-      } else {
-        // Error or no image
-        ctx.fillStyle = '#c0c0c0'; // Error placeholder
-        ctx.fillRect(0, 0, viewWidthWorld, viewHeightWorld);
+      if (bgImageEntry && bgImageEntry.status === 'loaded' && bgImageEntry.img) {
+          ctx.drawImage(bgImageEntry.img, 0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+      } else { // Loading or error for board background image
+          ctx.fillStyle = (bgImageEntry && bgImageEntry.status === 'error') ? '#A08080' : '#C0C0C0'; // Error or Loading color
+          ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+          if (!bgImageEntry || bgImageEntry.status === 'loading') { // Check if undefined or still loading
+              if(!loadedImages.has(bgValue) || loadedImages.get(bgValue).status !== 'loading') { // Avoid re-triggering load if already loading
+                  loadImage(bgValue, bgValue, onDrawNeededCallback); // Start loading
+              }
+          }
       }
-    }
+  } else { // Default board background if no specific one is set from currentTblBg
+      ctx.fillStyle = '#888888'; // Default board color if nothing else is set
+      ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
   }
+
+  // Draw a border for the board itself
+  ctx.strokeStyle = '#111111'; // Dark border for the board
+  ctx.lineWidth = Math.max(0.5, 1 / zoom); // Ensure border is visible but not too thick on zoom
+  ctx.strokeRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
 
   // 2. Draw Objects (sorted by zIndex)
   const sortedObjects = Array.from(objectsMap.values()).sort(
@@ -515,4 +539,61 @@ export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
   }
   // console.log('getObjectAtPosition: No object found at', { worldX, worldY }); // Optional: for debugging misses
   return null;
+};
+
+export const updateBoardProperties = (newProps) => {
+  // newProps expected to have: width, height, unit, scaleRatio
+  let changed = false;
+  const newWidthUser = parseFloat(newProps.width);
+  if (newProps.width !== undefined && !isNaN(newWidthUser) && boardPhysical.widthUser !== newWidthUser) {
+    boardPhysical.widthUser = newWidthUser;
+    changed = true;
+  }
+  const newHeightUser = parseFloat(newProps.height);
+  if (newProps.height !== undefined && !isNaN(newHeightUser) && boardPhysical.heightUser !== newHeightUser) {
+    boardPhysical.heightUser = newHeightUser;
+    changed = true;
+  }
+  if (newProps.unit && MM_PER_UNIT[newProps.unit] && boardPhysical.unitUser !== newProps.unit) {
+    boardPhysical.unitUser = newProps.unit;
+    changed = true;
+  }
+  
+  const newScaleRatio = parseFloat(newProps.scaleRatio);
+  if (newProps.scaleRatio !== undefined && !isNaN(newScaleRatio) && mapInterpretationScale.ratio !== newScaleRatio) {
+    mapInterpretationScale.ratio = newScaleRatio;
+    // This change doesn't directly trigger a redraw of the board boundary,
+    // but other UI elements might depend on it, so we note it.
+    // If in the future scale markers are drawn, this would trigger redraw.
+    console.log('Map interpretation scale ratio updated:', mapInterpretationScale.ratio);
+  }
+
+  if (changed) {
+    const unitMultiplier = MM_PER_UNIT[boardPhysical.unitUser] || MM_PER_UNIT['in']; // Fallback to inches
+    boardPhysical.widthPx = boardPhysical.widthUser * unitMultiplier;
+    boardPhysical.heightPx = boardPhysical.heightUser * unitMultiplier;
+    
+    console.log('Board physical properties updated:', boardPhysical);
+    onDrawNeededCallback(); // Request a redraw
+  }
+  // Return all properties for UI update
+  return {
+     widthUser: boardPhysical.widthUser,
+     heightUser: boardPhysical.heightUser,
+     unitUser: boardPhysical.unitUser,
+     widthPx: boardPhysical.widthPx,
+     heightPx: boardPhysical.heightPx,
+     scaleRatio: mapInterpretationScale.ratio
+  };
+};
+
+export const getBoardProperties = () => {
+  return {
+     widthUser: boardPhysical.widthUser,
+     heightUser: boardPhysical.heightUser,
+     unitUser: boardPhysical.unitUser,
+     widthPx: boardPhysical.widthPx,
+     heightPx: boardPhysical.heightPx,
+     scaleRatio: mapInterpretationScale.ratio
+  };
 };
