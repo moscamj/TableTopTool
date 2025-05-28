@@ -162,7 +162,7 @@ export const setSelectedObjectId = (id) => {
 };
 
 // --- Image Loading ---
-const loadImage = (url, cacheKey, callback) => {
+export const loadImage = (url, cacheKey, callback) => {
   if (!url) {
     if (loadedImages.has(cacheKey)) {
       // Image explicitly removed
