@@ -66,6 +66,7 @@ const domElements = {
   // Board Setup Tools
   boardWidthInput: null,
   boardHeightInput: null,
+  boardDimensionUnitInput: null, // Added for the new selector
   boardScaleInput: null,
   boardScaleUnitInput: null,
   effectiveBoardSizeDisplay: null,
@@ -209,6 +210,7 @@ const cacheDOMElements = () => {
   // Cache new board setup elements
   domElements.boardWidthInput = document.getElementById('board-width-input');
   domElements.boardHeightInput = document.getElementById('board-height-input');
+  domElements.boardDimensionUnitInput = document.getElementById('board-dimension-unit-input'); // Added
   domElements.boardScaleInput = document.getElementById('board-scale-input');
   domElements.boardScaleUnitInput = document.getElementById('board-scale-unit-input');
   domElements.effectiveBoardSizeDisplay = document.getElementById('effective-board-size-display');
@@ -234,8 +236,9 @@ const updateBoardSettingsDisplay = (boardProps) => {
   if (!boardProps) return;
   if (domElements.boardWidthInput) domElements.boardWidthInput.value = boardProps.widthUser ?? '';
   if (domElements.boardHeightInput) domElements.boardHeightInput.value = boardProps.heightUser ?? '';
-  if (domElements.boardScaleUnitInput) domElements.boardScaleUnitInput.value = boardProps.unitUser ?? 'in';
+  if (domElements.boardDimensionUnitInput) domElements.boardDimensionUnitInput.value = boardProps.unitForDimensions ?? 'in';
   if (domElements.boardScaleInput) domElements.boardScaleInput.value = boardProps.scaleRatio ?? 1;
+  if (domElements.boardScaleUnitInput) domElements.boardScaleUnitInput.value = boardProps.unitForRatio ?? 'mm'; 
   
   if (domElements.effectiveBoardSizeDisplay) {
     if (boardProps.widthPx && boardProps.heightPx) {
@@ -247,39 +250,48 @@ const updateBoardSettingsDisplay = (boardProps) => {
 };
 
 const handleApplyBoardProperties = () => {
-  if (!domElements.boardWidthInput || !domElements.boardHeightInput || !domElements.boardScaleUnitInput || !domElements.boardScaleInput) {
+  if (!domElements.boardWidthInput || 
+      !domElements.boardHeightInput || 
+      !domElements.boardDimensionUnitInput || // Added check
+      !domElements.boardScaleUnitInput || 
+      !domElements.boardScaleInput) {
     VTT_API.showMessage('Board property input elements not found in DOM.', 'error');
     return;
   }
 
   const width = parseFloat(domElements.boardWidthInput.value);
   const height = parseFloat(domElements.boardHeightInput.value);
-  const unit = domElements.boardScaleUnitInput.value;
+  const dimensionUnit = domElements.boardDimensionUnitInput.value; // Read from new dimension unit selector
   const scaleRatio = parseFloat(domElements.boardScaleInput.value);
+  const scaleRatioUnit = domElements.boardScaleUnitInput.value; // Read from map scale unit selector
 
   if (isNaN(width) || width <= 0 || isNaN(height) || height <= 0) {
     VTT_API.showMessage('Board width and height must be positive numbers.', 'error');
     return;
   }
-  if (isNaN(scaleRatio) || scaleRatio <= 0) {
-    // Allow scaleRatio to be 1 (e.g. 1:1 scale)
-    if (scaleRatio === 0 && domElements.boardScaleInput.value !== "0") { // check if it was truly zero or bad parse
-         VTT_API.showMessage('Scale ratio must be a positive number.', 'error');
+  // Validation for scaleRatio (allowing 0 if explicitly typed, but not negative or typical NaN)
+  if (isNaN(scaleRatio) || scaleRatio < 0) {
+    if (scaleRatio === 0 && domElements.boardScaleInput.value !== "0") {
+         VTT_API.showMessage('Scale ratio must be a positive number or zero.', 'error'); // Allow 0
          return;
     } else if (scaleRatio < 0) {
          VTT_API.showMessage('Scale ratio cannot be negative.', 'error');
          return;
     }
-    // If scaleRatio is 0, it means user typed "0". If it's NaN from empty, parseFloat makes it NaN.
-    // Let's ensure it's at least a valid number. If it's truly 0, it might be problematic for some interpretations.
-    // For now, allow 0 if explicitly typed, but guard against typical NaN.
-    if (isNaN(scaleRatio)) { // Catches empty or non-numeric
+    if (isNaN(scaleRatio)) { 
         VTT_API.showMessage('Scale ratio must be a valid number.', 'error');
         return;
     }
   }
   
-  const currentProps = VTT_API.setBoardProperties({ width, height, unit, scaleRatio });
+  const currentProps = VTT_API.setBoardProperties({ 
+    width, 
+    height, 
+    dimensionUnit, 
+    scaleRatio, 
+    scaleRatioUnit 
+  });
+
   if (currentProps) {
     updateBoardSettingsDisplay(currentProps);
     VTT_API.showMessage('Board properties applied.', 'success');

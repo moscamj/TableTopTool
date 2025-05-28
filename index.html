@@ -57,6 +57,18 @@
                     <input type="number" id="board-height-input" name="board-height-input" value="24" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
                 </div>
 
+                <!-- Unit for Board Dimensions -->
+                <div class="mb-2">
+                    <label for="board-dimension-unit-input" class="block text-sm font-medium text-gray-300">Unit for Board Dimensions:</label>
+                    <select id="board-dimension-unit-input" name="board-dimension-unit-input" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
+                        <option value="in" selected>inches</option>
+                        <option value="ft">feet</option>
+                        <option value="m">meters</option>
+                        <option value="cm">cm</option>
+                        <option value="mm">mm</option>
+                    </select>
+                </div>
+
                 <p class="mt-2 text-xs text-gray-400">Internal base unit: 1 pixel represents 1mm on the map.</p>
                 
                 <details class="mt-2 bg-gray-600 p-2 rounded-md">
@@ -74,10 +86,10 @@
                         <label for="board-scale-unit-input" class="block text-sm font-medium text-gray-300">Unit for Measurement Scale:</label>
                         <select id="board-scale-unit-input" name="board-scale-unit-input" class="mt-1 block w-full p-1 bg-gray-500 border border-gray-400 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
                             <option value="in">inches (e.g., 1 map unit = X inches)</option>
-                            <option value="ft" selected>feet (e.g., 1 map unit = X feet)</option>
+                            <option value="ft">feet (e.g., 1 map unit = X feet)</option>
                             <option value="m">meters (e.g., 1 map unit = X meters)</option>
                             <option value="cm">cm (e.g., 1 map unit = X cm)</option>
-                            <option value="mm">mm (e.g., 1 map unit = X mm)</option>
+                            <option value="mm" selected>mm (e.g., 1 map unit = X mm)</option>
                         </select>
                     </div>
                 </details>

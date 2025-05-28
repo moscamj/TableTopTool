@@ -14,18 +14,18 @@ let tableBackground = { type: 'color', value: '#cccccc' }; // Default background
 let selectedObjectId = null;
 
 let boardPhysical = {
-  widthUser: 36,      // Default value from HTML board-width-input
-  heightUser: 24,     // Default value from HTML board-height-input
-  unitUser: 'ft',     // Default value from HTML board-scale-unit-input
-  // Calculated pixel dimensions (1px = 1mm internally for canvas drawing)
-  widthPx: 36 * MM_PER_UNIT['ft'], // Calculated from defaults
-  heightPx: 24 * MM_PER_UNIT['ft'],// Calculated from defaults
+  widthUser: 36,    // Default physical width
+  heightUser: 24,   // Default physical height
+  unitForDimensions: 'in', // Default unit for the above dimensions
+  // Calculated pixel dimensions (1px = 1mm)
+  widthPx: 36 * MM_PER_UNIT['in'], // Initial calculation based on 'in'
+  heightPx: 24 * MM_PER_UNIT['in'], // Initial calculation based on 'in'
 };
 
 // This scale is for interpreting map features, not setting board pixel size directly.
-// The unit for 'ratio' is effectively boardPhysical.unitUser based on current HTML structure.
 let mapInterpretationScale = {
-  ratio: 1, // Default from HTML board-scale-input (e.g., if map is 1:1 with unitUser)
+  ratio: 1,          // Default ratio for "1 map unit = X units"
+  unitForRatio: 'mm', // Default unit for this ratio
 };
 // let isPanning = false; // isPanning and lastMousePosition are not used in this file, managed by main.js
 // let lastMousePosition = { x: 0, y: 0 };
@@ -542,48 +542,54 @@ export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
 };
 
 export const updateBoardProperties = (newProps) => {
-  // newProps expected to have: width, height, unit, scaleRatio
-  let changed = false;
+  // newProps can contain: width, height, dimensionUnit, scaleRatio, scaleRatioUnit
+  let physicalPropertiesChanged = false; // Determines if board boundary redraw is needed
+
+  // Update physical board dimensions and their unit
   const newWidthUser = parseFloat(newProps.width);
   if (newProps.width !== undefined && !isNaN(newWidthUser) && boardPhysical.widthUser !== newWidthUser) {
     boardPhysical.widthUser = newWidthUser;
-    changed = true;
+    physicalPropertiesChanged = true;
   }
   const newHeightUser = parseFloat(newProps.height);
   if (newProps.height !== undefined && !isNaN(newHeightUser) && boardPhysical.heightUser !== newHeightUser) {
     boardPhysical.heightUser = newHeightUser;
-    changed = true;
+    physicalPropertiesChanged = true;
   }
-  if (newProps.unit && MM_PER_UNIT[newProps.unit] && boardPhysical.unitUser !== newProps.unit) {
-    boardPhysical.unitUser = newProps.unit;
-    changed = true;
+  if (newProps.dimensionUnit && MM_PER_UNIT[newProps.dimensionUnit] && boardPhysical.unitForDimensions !== newProps.dimensionUnit) {
+    boardPhysical.unitForDimensions = newProps.dimensionUnit;
+    physicalPropertiesChanged = true;
   }
-  
+
+  // Update map interpretation scale properties
   const newScaleRatio = parseFloat(newProps.scaleRatio);
   if (newProps.scaleRatio !== undefined && !isNaN(newScaleRatio) && mapInterpretationScale.ratio !== newScaleRatio) {
     mapInterpretationScale.ratio = newScaleRatio;
-    // This change doesn't directly trigger a redraw of the board boundary,
-    // but other UI elements might depend on it, so we note it.
-    // If in the future scale markers are drawn, this would trigger redraw.
     console.log('Map interpretation scale ratio updated:', mapInterpretationScale.ratio);
   }
+  if (newProps.scaleRatioUnit && MM_PER_UNIT[newProps.scaleRatioUnit] && mapInterpretationScale.unitForRatio !== newProps.scaleRatioUnit) {
+    mapInterpretationScale.unitForRatio = newProps.scaleRatioUnit;
+    console.log('Map interpretation scale unit updated:', mapInterpretationScale.unitForRatio);
+  }
 
-  if (changed) {
-    const unitMultiplier = MM_PER_UNIT[boardPhysical.unitUser] || MM_PER_UNIT['in']; // Fallback to inches
+  if (physicalPropertiesChanged) {
+    const unitMultiplier = MM_PER_UNIT[boardPhysical.unitForDimensions] || MM_PER_UNIT['in']; // Fallback
     boardPhysical.widthPx = boardPhysical.widthUser * unitMultiplier;
     boardPhysical.heightPx = boardPhysical.heightUser * unitMultiplier;
     
-    console.log('Board physical properties updated:', boardPhysical);
-    onDrawNeededCallback(); // Request a redraw
+    console.log('Board physical properties updated, triggering redraw:', boardPhysical);
+    onDrawNeededCallback(); // Request a redraw for board boundary changes
   }
-  // Return all properties for UI update
+
+  // Return the comprehensive current state of all board-related properties
   return {
      widthUser: boardPhysical.widthUser,
      heightUser: boardPhysical.heightUser,
-     unitUser: boardPhysical.unitUser,
+     unitForDimensions: boardPhysical.unitForDimensions,
      widthPx: boardPhysical.widthPx,
      heightPx: boardPhysical.heightPx,
-     scaleRatio: mapInterpretationScale.ratio
+     scaleRatio: mapInterpretationScale.ratio,
+     unitForRatio: mapInterpretationScale.unitForRatio
   };
 };
 
@@ -591,9 +597,10 @@ export const getBoardProperties = () => {
   return {
      widthUser: boardPhysical.widthUser,
      heightUser: boardPhysical.heightUser,
-     unitUser: boardPhysical.unitUser,
+     unitForDimensions: boardPhysical.unitForDimensions,
      widthPx: boardPhysical.widthPx,
      heightPx: boardPhysical.heightPx,
-     scaleRatio: mapInterpretationScale.ratio
+     scaleRatio: mapInterpretationScale.ratio,
+     unitForRatio: mapInterpretationScale.unitForRatio
   };
 };
