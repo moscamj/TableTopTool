@@ -2,11 +2,12 @@
 import {
   initCanvas,
   drawVTT,
-  setSelectedObjectId,
-  getSelectedObjectId,
-  setPanZoomState, 
-  getPanZoomState,
-  getTableBackground,
+  // setSelectedObjectId, // Removed, was moved to model.js
+  // getSelectedObjectId, // Removed, was moved to model.js
+  // setPanZoomState,  // Removed, was moved to model.js
+  // getPanZoomState, // Removed, was moved to model.js
+  // getTableBackground, // Removed, was moved to model.js
+  getObjectAtPosition, 
 } from '../canvas.js';
 
 // Mock the global Image constructor
@@ -102,8 +103,8 @@ describe('Canvas Rendering Logic', () => {
     mockCanvasEl.parentElement.clientHeight = 600;
     
     initCanvas(mockCanvasEl, jest.fn());
-    setSelectedObjectId(null);
-    setPanZoomState({ panX:0, panY:0, zoom: 1.0});
+    // setSelectedObjectId(null); // Moved to model.js, state handled via drawVTT args
+    // setPanZoomState({ panX:0, panY:0, zoom: 1.0}); // Moved to model.js, state handled via drawVTT args
 
     // Enhance fillText mock for all tests within this describe block
     fillTextCallsWithContext = []; 
@@ -134,7 +135,11 @@ describe('Canvas Rendering Logic', () => {
       objectsMap.set(objWithEmptyName.id, objWithEmptyName);
       objectsMap.set(objWithWhitespaceName.id, objWithWhitespaceName);
       
-      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), getSelectedObjectId());
+      const mockPZS = { panX: 0, panY: 0, zoom: 1.0 };
+      const mockTblBg = { type: 'color', value: '#DDDDDD' };
+      const mockSelectedId = null;
+      const mockBoardProps = { widthUser: 30, heightUser: 20, unitForDimensions: 'in', widthPx: 762, heightPx: 508, scaleRatio: 1, unitForRatio: 'mm' };
+      drawVTT(objectsMap, mockPZS, mockTblBg, mockSelectedId, mockBoardProps);
 
       const nameRenderCall = fillTextCallsWithContext.find(call => call.text === 'TestName');
       expect(nameRenderCall).toBeDefined();
@@ -167,7 +172,10 @@ describe('Canvas Rendering Logic', () => {
 
     test('should NOT render internal label if showLabel is false', () => {
       const objectsMap = new Map([[defaultObjectProps.id, { ...defaultObjectProps, appearance: { text: 'HiddenLabelText', showLabel: false } }]]);
-      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const mockPZS = { panX: 0, panY: 0, zoom: 1.0 };
+      const mockTblBg = { type: 'color', value: '#DDDDDD' };
+      const mockBoardProps = { widthUser: 30, heightUser: 20, unitForDimensions: 'in', widthPx: 762, heightPx: 508, scaleRatio: 1, unitForRatio: 'mm' };
+      drawVTT(objectsMap, mockPZS, mockTblBg, null, mockBoardProps);
       const labelCall = fillTextCallsWithContext.find(call => call.text === 'HiddenLabelText');
       expect(labelCall).toBeUndefined();
     });
@@ -176,7 +184,10 @@ describe('Canvas Rendering Logic', () => {
       const appearance = { text: 'VisibleLabelText', showLabel: true, textColor: '#00FF00', fontSize: 16, fontFamily: 'Verdana' };
       const testObj = { ...defaultObjectProps, appearance };
       const objectsMap = new Map([[testObj.id, testObj]]);
-      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const mockPZS = { panX: 0, panY: 0, zoom: 1.0 };
+      const mockTblBg = { type: 'color', value: '#DDDDDD' };
+      const mockBoardProps = { widthUser: 30, heightUser: 20, unitForDimensions: 'in', widthPx: 762, heightPx: 508, scaleRatio: 1, unitForRatio: 'mm' };
+      drawVTT(objectsMap, mockPZS, mockTblBg, null, mockBoardProps);
 
       const labelCall = fillTextCallsWithContext.find(call => call.text === 'VisibleLabelText');
       expect(labelCall).toBeDefined();
@@ -192,7 +203,10 @@ describe('Canvas Rendering Logic', () => {
 
     test('should NOT render internal label if text is empty, even if showLabel is true', () => {
       const objectsMap = new Map([[defaultObjectProps.id, { ...defaultObjectProps, appearance: { text: '', showLabel: true } }]]);
-      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const mockPZS = { panX: 0, panY: 0, zoom: 1.0 };
+      const mockTblBg = { type: 'color', value: '#DDDDDD' };
+      const mockBoardProps = { widthUser: 30, heightUser: 20, unitForDimensions: 'in', widthPx: 762, heightPx: 508, scaleRatio: 1, unitForRatio: 'mm' };
+      drawVTT(objectsMap, mockPZS, mockTblBg, null, mockBoardProps);
       // Check that no fillText call was made for the internal label (y position height/2)
       const internalLabelCall = fillTextCallsWithContext.find(call => call.y === defaultObjectProps.height / 2);
       expect(internalLabelCall).toBeUndefined();
@@ -200,7 +214,10 @@ describe('Canvas Rendering Logic', () => {
 
     test('should NOT render internal label if text is only whitespace, even if showLabel is true', () => {
       const objectsMap = new Map([[defaultObjectProps.id, { ...defaultObjectProps, appearance: { text: '   ', showLabel: true } }]]);
-      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const mockPZS = { panX: 0, panY: 0, zoom: 1.0 };
+      const mockTblBg = { type: 'color', value: '#DDDDDD' };
+      const mockBoardProps = { widthUser: 30, heightUser: 20, unitForDimensions: 'in', widthPx: 762, heightPx: 508, scaleRatio: 1, unitForRatio: 'mm' };
+      drawVTT(objectsMap, mockPZS, mockTblBg, null, mockBoardProps);
       const internalLabelCall = fillTextCallsWithContext.find(call => call.text.trim() === '' && call.y === defaultObjectProps.height / 2);
       expect(internalLabelCall).toBeUndefined(); // No call should have text that's only whitespace for internal label
     });
@@ -213,7 +230,10 @@ describe('Canvas Rendering Logic', () => {
         appearance: { text: 'LabelText', showLabel: true, textColor: '#FF0000', fontSize: 10, fontFamily: 'Impact' }
       };
       const objectsMap = new Map([[objWithBoth.id, objWithBoth]]);
-      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const mockPZS = { panX: 0, panY: 0, zoom: 1.0 };
+      const mockTblBg = { type: 'color', value: '#DDDDDD' };
+      const mockBoardProps = { widthUser: 30, heightUser: 20, unitForDimensions: 'in', widthPx: 762, heightPx: 508, scaleRatio: 1, unitForRatio: 'mm' };
+      drawVTT(objectsMap, mockPZS, mockTblBg, null, mockBoardProps);
 
       const nameCall = fillTextCallsWithContext.find(call => call.text === 'ObjectName');
       expect(nameCall).toBeDefined();
@@ -241,7 +261,10 @@ describe('Canvas Rendering Logic', () => {
         appearance: { text: 'ShouldBeHidden', showLabel: false, textColor: '#FF0000' }
       };
       const objectsMap = new Map([[objNameOnly.id, objNameOnly]]);
-      drawVTT(objectsMap, getPanZoomState(), getTableBackground(), null);
+      const mockPZS = { panX: 0, panY: 0, zoom: 1.0 };
+      const mockTblBg = { type: 'color', value: '#DDDDDD' };
+      const mockBoardProps = { widthUser: 30, heightUser: 20, unitForDimensions: 'in', widthPx: 762, heightPx: 508, scaleRatio: 1, unitForRatio: 'mm' };
+      drawVTT(objectsMap, mockPZS, mockTblBg, null, mockBoardProps);
 
       const nameCall = fillTextCallsWithContext.find(call => call.text === 'ObjectNameOnly');
       expect(nameCall).toBeDefined();

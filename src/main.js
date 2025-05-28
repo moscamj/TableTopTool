@@ -1,9 +1,10 @@
 // src/main.js
-import * as objects from './objects.js';
+import * as model from './model.js';
 import * as canvas from './canvas.js';
 import * as ui from './ui.js';
 import { setBackgroundUrlInputText, setObjectImageUrlText, getModalContentElement } from './ui.js'; // Import the new functions
 import * as api from './api.js'; // VTT Scripting API
+import Controller from './controller.js'; // Import Controller
 // Firebase is imported for its stubbed functions in offline mode
 import * as firebase from './firebase.js';
 
@@ -16,11 +17,18 @@ let localUserId = 'offline-user';
 
 // --- Main Redraw Function ---
 const requestRedraw = () => {
+  const allObjects = api.VTT_API.getAllObjects(); // This is fine, uses API -> model
+  const panZoomState = api.VTT_API.getPanZoomState();
+  const tableBackground = api.VTT_API.getTableBackground();
+  const selectedObjectId = api.VTT_API.getSelectedObjectId();
+  const boardProperties = api.VTT_API.getBoardProperties(); // Fetch board properties
+
   canvas.drawVTT(
-    api.VTT_API.getAllObjects(), // Expects an array
-    canvas.getPanZoomState(),
-    canvas.getTableBackground(),
-    canvas.getSelectedObjectId()
+    allObjects,
+    panZoomState,
+    tableBackground,
+    selectedObjectId,
+    boardProperties // Pass board properties as the new 5th argument
   );
 };
 
@@ -43,8 +51,9 @@ const handleSaveTableState = () => {
     sessionId: currentSessionId,
     savedAt: new Date().toISOString(),
     objects: api.VTT_API.getAllObjects(), // Already returns array of copies
-    background: canvas.getTableBackground(),
-    viewState: canvas.getPanZoomState(),
+    background: api.VTT_API.getTableBackground(), // Use VTT_API
+    viewState: api.VTT_API.getPanZoomState(), // Use VTT_API
+    boardProperties: api.VTT_API.getBoardProperties(), // Also save board properties from VTT_API
     appVersion: 'TableTopTool-MVP-Offline-v1', // Optional versioning
   };
   const filename = `session_${currentSessionId}_${new Date().toISOString().slice(0, 10)}.ttt.json`;
@@ -78,7 +87,7 @@ const handleLoadTableState = (fileContent) => {
     // After loading objects from file, iterate and explicitly trigger image loading
     // for any objects that have an image URL. This ensures images are displayed.
     loadedObjectsArray.forEach((obj) => {
-      objects.currentObjects.set(obj.id, obj);
+      model.currentObjects.set(obj.id, obj); // This is for object data, separate from canvas state
       if (obj.appearance && obj.appearance.imageUrl) {
         canvas.loadImage(
           obj.appearance.imageUrl,
@@ -88,8 +97,12 @@ const handleLoadTableState = (fileContent) => {
       }
     });
 
-    if (loadedBackground) canvas.setTableBackground(loadedBackground);
-    if (loadedViewState) canvas.setPanZoomState(loadedViewState);
+    // Use VTT_API setters for canvas states
+    if (loadedBackground) api.VTT_API.setTableBackground(loadedBackground); // Use VTT_API
+    if (loadedViewState) api.VTT_API.setPanZoomState(loadedViewState); // Use VTT_API
+    // Handle board properties loading
+    if (loadedState.boardProperties) api.VTT_API.setBoardProperties(loadedState.boardProperties); // Use VTT_API
+
     if (loadedSessionId) currentSessionId = loadedSessionId;
 
     // ui.updateSessionIdDisplay(currentSessionId); // Already hidden, but if re-enabled
@@ -111,9 +124,9 @@ export const handleSaveMemoryState = () => {
     timestamp: new Date().toISOString(), // For identification
     name: `State saved at ${new Date().toLocaleTimeString()}`, // Default name
     objects: api.VTT_API.getAllObjects(),
-    background: canvas.getTableBackground(),
-    viewState: canvas.getPanZoomState(),
-    boardProperties: api.VTT_API.getBoardProperties() // Also save board properties
+    background: api.VTT_API.getTableBackground(), // Use VTT_API
+    viewState: api.VTT_API.getPanZoomState(), // Use VTT_API
+    boardProperties: api.VTT_API.getBoardProperties() // Also save board properties from VTT_API
   };
 
   inMemoryStates.unshift(state); // Add to the beginning
@@ -135,16 +148,17 @@ const applyLoadedMemoryState = (stateObject) => {
   api.VTT_API.clearAllObjects();
 
   stateObject.objects.forEach(obj => {
-    objects.currentObjects.set(obj.id, obj); // Direct manipulation, ensure this is desired or use API if exists
+    model.currentObjects.set(obj.id, obj); // Direct manipulation, ensure this is desired or use API if exists
     if (obj.appearance && obj.appearance.imageUrl) {
       canvas.loadImage(obj.appearance.imageUrl, obj.appearance.imageUrl, requestRedraw);
     }
   });
 
-  if (stateObject.background) canvas.setTableBackground(stateObject.background);
-  if (stateObject.viewState) canvas.setPanZoomState(stateObject.viewState);
+  // Use VTT_API setters for canvas states
+  if (stateObject.background) api.VTT_API.setTableBackground(stateObject.background); // Use VTT_API
+  if (stateObject.viewState) api.VTT_API.setPanZoomState(stateObject.viewState); // Use VTT_API
   if (stateObject.boardProperties) {
-    api.VTT_API.setBoardProperties(stateObject.boardProperties);
+    api.VTT_API.setBoardProperties(stateObject.boardProperties); // Use VTT_API
     // Also update the UI display for board settings if they are visible
     ui.updateBoardSettingsDisplay(stateObject.boardProperties);
   }
@@ -230,6 +244,8 @@ const initializeApplication = async () => {
   // ADD THIS LOG:
   // console.log('[main.js] uiCallbacks object before calling ui.initUIEventListeners:', uiCallbacks);
 
+  Controller.init(api.VTT_API); // Initialize Controller
+
   ui.initUIEventListeners(uiCallbacks);
   // Pass requestRedraw and ui.displayMessage to canvas module
   canvas.initCanvas(
@@ -268,7 +284,7 @@ const initializeApplication = async () => {
   let lastPanY = 0;
 
   canvasEl.addEventListener('mousedown', (e) => {
-    const currentPZSState = canvas.getPanZoomState(); // Get PZS once for this event
+    const currentPZSState = api.VTT_API.getPanZoomState(); // Use VTT_API
     const { x: mouseX, y: mouseY } = canvas.getMousePositionOnCanvas(
       e,
       currentPZSState
@@ -276,74 +292,66 @@ const initializeApplication = async () => {
     const clickedObjectId = canvas.getObjectAtPosition(
       mouseX,
       mouseY,
-      objects.currentObjects
+      model.currentObjects // This is for object data, not canvas state
     );
 
     if (clickedObjectId) {
-      // Destructure object properties.
-      // 'objIsMovable', 'objX', 'objY' are used for drag logic.
-      // '...objDetails' captures all other properties to pass to the inspector.
       const { isMovable: objIsMovable, x: objX, y: objY, ...objDetails } = api.VTT_API.getObject(clickedObjectId);
       if (objIsMovable) {
         isDragging = true;
-        dragOffsetX = mouseX - objX; // Calculate offset from mouse to object's top-left
+        dragOffsetX = mouseX - objX;
         dragOffsetY = mouseY - objY;
       }
-      if (canvas.getSelectedObjectId() !== clickedObjectId) {
-        canvas.setSelectedObjectId(clickedObjectId);
-        // Populate inspector with all object details, including those captured by '...objDetails'.
+      if (api.VTT_API.getSelectedObjectId() !== clickedObjectId) { // Use VTT_API
+        api.VTT_API.setSelectedObjectId(clickedObjectId); // Use VTT_API
         ui.populateObjectInspector({ isMovable: objIsMovable, x: objX, y: objY, ...objDetails });
-        // No redraw here; selection change will be visually updated on mouseup or drag.
+        // requestRedraw(); // modelChanged event will trigger this
       }
     } else {
-      // Clicked on empty space
       isPanning = true;
       lastPanX = e.clientX;
       lastPanY = e.clientY;
-      if (canvas.getSelectedObjectId() !== null) {
-        // Deselect if clicking empty space
-        canvas.setSelectedObjectId(null);
+      if (api.VTT_API.getSelectedObjectId() !== null) { // Use VTT_API
+        api.VTT_API.setSelectedObjectId(null); // Use VTT_API
         ui.populateObjectInspector(null);
-        requestRedraw(); // Redraw to remove selection highlight immediately
+        // requestRedraw(); // modelChanged event will trigger this
       }
     }
   });
 
   canvasEl.addEventListener('mousemove', (e) => {
-    const currentPZS = canvas.getPanZoomState(); // Get PZS for this event
+    const currentPZS = api.VTT_API.getPanZoomState(); // Use VTT_API
     const { x: mouseX, y: mouseY } = canvas.getMousePositionOnCanvas(e, currentPZS);
 
-    if (isDragging && canvas.getSelectedObjectId()) {
-      const selectedObjId = canvas.getSelectedObjectId();
+    if (isDragging && api.VTT_API.getSelectedObjectId()) { // Use VTT_API
+      const selectedObjId = api.VTT_API.getSelectedObjectId(); // Use VTT_API
       api.VTT_API.updateObject(selectedObjId, {
         x: mouseX - dragOffsetX,
         y: mouseY - dragOffsetY,
       });
-      // requestRedraw(); // Redundant: updateObject triggers stateChangedForRedraw
-      // Add this line:
       ui.populateObjectInspector(api.VTT_API.getObject(selectedObjId));
     } else if (isPanning) {
-      const { panX, panY, zoom } = currentPZS; // Destructure PZS for panning
+      const { panX, panY, zoom } = currentPZS;
       const dx = e.clientX - lastPanX;
       const dy = e.clientY - lastPanY;
       lastPanX = e.clientX;
       lastPanY = e.clientY;
-      canvas.setPanZoomState({
+      api.VTT_API.setPanZoomState({ // Use VTT_API
         panX: panX + dx,
         panY: panY + dy,
-        zoom: zoom, // zoom doesn't change here
+        zoom: zoom,
       });
-      // requestRedraw is called by setPanZoomState
+      // requestRedraw(); // modelChanged event will trigger this
     }
   });
 
   canvasEl.addEventListener('mouseup', (e) => {
-    const currentPZS = canvas.getPanZoomState();
+    const currentPZS = api.VTT_API.getPanZoomState(); // Use VTT_API
     const { x: mouseX, y: mouseY } = canvas.getMousePositionOnCanvas(e, currentPZS);
     const clickedObjectId = canvas.getObjectAtPosition(
       mouseX,
       mouseY,
-      objects.currentObjects
+      model.currentObjects
     );
 
     let objectWasActuallyClicked = false;
@@ -363,7 +371,7 @@ const initializeApplication = async () => {
           // This allows dynamic code execution but should be used with caution
           // due to potential security risks if scripts come from untrusted sources.
           // The script has access to 'VTT' (the VTT_API) and 'object' (a direct reference to the object in the store).
-          const objectRefForScript = objects.currentObjects.get(objId);
+          const objectRefForScript = model.currentObjects.get(objId);
           new Function('VTT', 'object', scripts.onClick)(
             api.VTT_API,
             objectRefForScript
@@ -399,8 +407,8 @@ const initializeApplication = async () => {
 
   canvasEl.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const { zoom, panX, panY } = canvas.getPanZoomState(); // Destructure PZS
-    const { left, top } = canvasEl.getBoundingClientRect(); // Destructure rect
+    const { zoom, panX, panY } = api.VTT_API.getPanZoomState(); // Use VTT_API
+    const { left, top } = canvasEl.getBoundingClientRect();
 
     const mouseXCanvas = e.clientX - left;
     const mouseYCanvas = e.clientY - top;
@@ -419,12 +427,25 @@ const initializeApplication = async () => {
     const newPanY =
       mouseYCanvas - (newZoom / zoom) * (mouseYCanvas - panY);
 
-    canvas.setPanZoomState({ panX: newPanX, panY: newPanY, zoom: newZoom });
-    // requestRedraw is called by setPanZoomState if changes occur
+    api.VTT_API.setPanZoomState({ panX: newPanX, panY: newPanY, zoom: newZoom }); // Use VTT_API
+    // requestRedraw is called by modelChanged event
   });
 
-  // Custom event listener for API-triggered state changes
+  // Custom event listener for API-triggered state changes (can remain for now)
   document.addEventListener('stateChangedForRedraw', requestRedraw);
+
+  // Add new event listener for model changes
+  document.addEventListener('modelChanged', (event) => {
+    // console.log('modelChanged event received in main.js:', event.detail); // Optional: for debugging
+    // Special handling for background image loading
+    if (event.detail && event.detail.type === 'backgroundChanged') {
+      const newBackground = event.detail.payload;
+      if (newBackground.type === 'image' && newBackground.value) {
+        canvas.loadImage(newBackground.value, newBackground.value, requestRedraw);
+      }
+    }
+    requestRedraw();
+  });
 
   // Initial draw
   requestRedraw();

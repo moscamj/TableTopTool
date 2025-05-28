@@ -1,7 +1,7 @@
 // src/api.js
-import * as objects from './objects.js';
+import * as model from './model.js';
 import * as ui from './ui.js'; // Optional: for displaying logs as UI messages
-import { setTableBackground, updateBoardProperties, getBoardProperties } from './canvas.js';
+// Removed canvas imports for setTableBackground, updateBoardProperties, getBoardProperties
 
 /**
  * Dispatches a custom event to signal that a redraw is needed.
@@ -22,7 +22,7 @@ export const VTT_API = {
    */
   getObject: (objectId, contextObject) => {
     // getLocalObject already returns a copy
-    return objects.getLocalObject(objectId);
+    return model.getObject(objectId);
   },
 
   /**
@@ -32,13 +32,13 @@ export const VTT_API = {
    * @param {VTTObject} [contextObject] - The object whose script is currently executing.
    */
   updateObjectState: (objectId, newData, contextObject) => {
-    const obj = objects.getLocalObject(objectId); // Gets a copy
+    const obj = model.getObject(objectId); // Gets a copy
     if (obj) {
       // It's crucial that updateLocalObject handles the merge correctly,
       // especially for the 'data' field.
       // We are updating only the 'data' field here as per the spec.
       const updatedData = { ...obj.data, ...newData };
-      objects.updateLocalObject(objectId, { data: updatedData });
+      model.updateObject(objectId, { data: updatedData });
 
       // If the update was on the contextObject itself, its reference might be stale.
       // However, scripts are short-lived. The main concern is the central store being updated.
@@ -68,36 +68,37 @@ export const VTT_API = {
   // --- Future API methods (examples, not for current MVP implementation) ---
 
   createObject: (shape, initialProps) => {
-    const newObj = objects.createGenericObject(shape, initialProps);
+    const newObj = model.createObject(shape, initialProps);
     requestRedrawEvent();
     return newObj;
   },
 
   updateObject: (objectId, updatedProps) => {
-    const updatedObj = objects.updateLocalObject(objectId, updatedProps);
+    const updatedObj = model.updateObject(objectId, updatedProps);
     requestRedrawEvent();
     return updatedObj;
   },
 
   deleteObject: (objectId) => {
-    const result = objects.deleteLocalObject(objectId);
+    const result = model.deleteObject(objectId);
     requestRedrawEvent();
     return result;
   },
 
   getAllObjects: () => {
-    return objects.getAllLocalObjects();
+    return model.getAllObjects();
   },
 
   clearAllObjects: () => {
-    objects.clearLocalObjects();
+    model.clearAllObjects();
     requestRedrawEvent();
   },
 
   setTableBackground: (backgroundProps) => {
-    // canvas.setTableBackground will call onDrawNeededCallback,
+    // model.setTableBackground will dispatch a modelChanged event,
     // which is handled by main.js to trigger a redraw event.
-    setTableBackground(backgroundProps);
+    model.setTableBackground(backgroundProps);
+    // requestRedrawEvent(); // Removed, modelChanged event handles this
   },
 
   showMessage: (text, type, duration) => {
@@ -105,15 +106,37 @@ export const VTT_API = {
   },
 
   setBoardProperties: (properties) => {
-    // properties is an object e.g., { width: 36, height: 24, unit: 'in', scaleRatio: 1 }
-    const currentBoardProps = updateBoardProperties(properties);
-    // updateBoardProperties in canvas.js handles triggering redraw.
+    // properties is an object e.g., { widthUser: 36, heightUser: 24, unitForDimensions: 'in', scaleRatio: 1, unitForRatio: 'mm' }
+    const currentBoardProps = model.updateBoardProperties(properties);
+    // model.updateBoardProperties will dispatch a modelChanged event.
+    // requestRedrawEvent(); // Removed, modelChanged event handles this
     return currentBoardProps; // Return the confirmed, possibly recalculated, properties.
   },
 
   getBoardProperties: () => {
-    return getBoardProperties();
+    return model.getBoardProperties();
   },
+
+  getPanZoomState: () => {
+    return model.getPanZoomState();
+  },
+  setPanZoomState: (newState) => {
+    model.setPanZoomState(newState);
+    // No requestRedrawEvent() here; model.setPanZoomState dispatches 'modelChanged'
+  },
+  getTableBackground: () => {
+    return model.getTableBackground();
+  },
+  // setTableBackground already exists and calls model.setTableBackground
+
+  getSelectedObjectId: () => {
+    return model.getSelectedObjectId();
+  },
+  setSelectedObjectId: (id) => {
+    model.setSelectedObjectId(id);
+    // No requestRedrawEvent() here; model.setSelectedObjectId dispatches 'modelChanged'
+  },
+  // getBoardProperties and setBoardProperties already exist
 
   // getSelectedObjects: (contextObject) => { /* ... */ },
   // createObject: (shape, properties, contextObject) => { /* ... */ },

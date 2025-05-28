@@ -1,34 +1,8 @@
 // src/canvas.js
-const MM_PER_UNIT = {
-  'in': 25.4,
-  'ft': 304.8,
-  'm': 1000,
-  'cm': 10,
-  'mm': 1,
-};
+// MM_PER_UNIT, panZoomState, tableBackground, selectedObjectId, boardPhysical, mapInterpretationScale moved to model.js
 
 let canvas;
 let ctx;
-let panZoomState = { panX: 0, panY: 0, zoom: 1.0 };
-let tableBackground = { type: 'color', value: '#cccccc' }; // Default background for objects/tokens, if needed, or for table itself if not overridden by boardPhysical
-let selectedObjectId = null;
-
-let boardPhysical = {
-  widthUser: 36,    // Default physical width
-  heightUser: 24,   // Default physical height
-  unitForDimensions: 'in', // Default unit for the above dimensions
-  // Calculated pixel dimensions (1px = 1mm)
-  widthPx: 36 * MM_PER_UNIT['in'], // Initial calculation based on 'in'
-  heightPx: 24 * MM_PER_UNIT['in'], // Initial calculation based on 'in'
-};
-
-// This scale is for interpreting map features, not setting board pixel size directly.
-let mapInterpretationScale = {
-  ratio: 1,          // Default ratio for "1 map unit = X units"
-  unitForRatio: 'mm', // Default unit for this ratio
-};
-// let isPanning = false; // isPanning and lastMousePosition are not used in this file, managed by main.js
-// let lastMousePosition = { x: 0, y: 0 };
 
 // Cache for loaded images (for object appearances and table background)
 const loadedImages = new Map(); // url -> { img: Image, status: 'loading' | 'loaded' | 'error' }
@@ -89,79 +63,12 @@ export const setCanvasSize = () => {
   onDrawNeededCallback();
 };
 
-// --- Getters and Setters ---
-export const getPanZoomState = () => {
-  return { ...panZoomState };
-};
-
-export const setPanZoomState = (newState) => {
-  const { panX: newPanX, panY: newPanY, zoom: newZoom } = newState;
-  let changed = false;
-
-  if (newPanX !== undefined && newPanX !== panZoomState.panX) {
-    panZoomState.panX = newPanX;
-    changed = true;
-  }
-  if (newPanY !== undefined && newPanY !== panZoomState.panY) {
-    panZoomState.panY = newPanY;
-    changed = true;
-  }
-  if (newZoom !== undefined && newZoom !== panZoomState.zoom) {
-    panZoomState.zoom = Math.max(0.1, Math.min(newZoom, 10));
-    changed = true;
-  }
-
-  if (changed) {
-    onDrawNeededCallback();
-  }
-};
-
-export const getTableBackground = () => {
-  return { ...tableBackground };
-};
-
-export const setTableBackground = (newBackground) => {
-  if (newBackground && typeof newBackground === 'object') {
-    const { type: newType, value: newValue } = newBackground;
-    const oldType = tableBackground.type;
-    const oldValue = tableBackground.value;
-
-    tableBackground.type = newType;
-    tableBackground.value = newValue;
-
-    if (newType === 'image') {
-      if (newValue) { // If a new image URL/dataURI is provided
-        loadImage(newValue, newValue, onDrawNeededCallback);
-      }
-      // Always request a redraw when the type is 'image',
-      // either to draw the new image, a loading state, an error state, or to clear a previous image if newValue is null.
-      onDrawNeededCallback(); 
-    } else if (newType === 'color') {
-      // Only redraw if color actually changed or type changed from image to color
-      if (oldType !== newType || oldValue !== newValue) {
-        onDrawNeededCallback();
-      }
-    } else {
-      // If type is not image or color but changed (e.g. background removed completely)
-      if (oldType !== newType || oldValue !== newValue) {
-        onDrawNeededCallback();
-      }
-    }
-  }
-};
-
-export const getSelectedObjectId = () => {
-  return selectedObjectId;
-};
-
-export const setSelectedObjectId = (id) => {
-  if (selectedObjectId !== id) {
-    selectedObjectId = id;
-    onDrawNeededCallback();
-  }
-};
-
 // --- Image Loading ---
+// Getters and Setters for panZoomState, tableBackground, selectedObjectId, boardPhysical, mapInterpretationScale
+// have been moved to model.js. canvas.js will now rely on model.js for these states.
+// The onDrawNeededCallback for setters is now handled by the modelChanged event listener in main.js.
+// The loadImage call within setTableBackground is a special case; if model.setTableBackground
+// changes the background to an image, main.js's modelChanged listener will need to call canvas.loadImage.
 export const loadImage = (url, cacheKey, callback) => {
   if (!url) {
     if (loadedImages.has(cacheKey)) {
@@ -213,7 +120,8 @@ export const drawVTT = (
   objectsMap,
   currentPZS,
   currentTblBg,
-  currentSelectedId
+  currentSelectedId, // This will be passed from model.getSelectedObjectId()
+  currentBoardProps  // This will be passed from model.getBoardProperties()
 ) => {
   if (!ctx || !canvas) return;
 
@@ -242,20 +150,21 @@ export const drawVTT = (
 
   // (panX, panY, zoom are from currentPZS argument to drawVTT)
   // (currentTblBg is also from arguments to drawVTT)
-  // const { type: bgType, value: bgValue } = currentTblBg || {}; // Already destructured above
+  // boardPhysical state is now in currentBoardProps, passed from model.getBoardProperties()
+  const { widthPx: currentBoardWidthPx, heightPx: currentBoardHeightPx } = currentBoardProps || { widthPx: 0, heightPx: 0};
 
   // Draw the board's actual background (color or image)
-  // This background covers boardPhysical.widthPx by boardPhysical.heightPx.
+  // This background covers currentBoardWidthPx by currentBoardHeightPx.
   if (bgType === 'color' && bgValue) {
       ctx.fillStyle = bgValue;
-      ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+      ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
   } else if (bgType === 'image' && bgValue) {
       const bgImageEntry = loadedImages.get(bgValue);
       if (bgImageEntry && bgImageEntry.status === 'loaded' && bgImageEntry.img) {
-          ctx.drawImage(bgImageEntry.img, 0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+          ctx.drawImage(bgImageEntry.img, 0, 0, currentBoardWidthPx, currentBoardHeightPx);
       } else { // Loading or error for board background image
           ctx.fillStyle = (bgImageEntry && bgImageEntry.status === 'error') ? '#A08080' : '#C0C0C0'; // Error or Loading color
-          ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+          ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
           if (!bgImageEntry || bgImageEntry.status === 'loading') { // Check if undefined or still loading
               if(!loadedImages.has(bgValue) || loadedImages.get(bgValue).status !== 'loading') { // Avoid re-triggering load if already loading
                   loadImage(bgValue, bgValue, onDrawNeededCallback); // Start loading
@@ -264,13 +173,13 @@ export const drawVTT = (
       }
   } else { // Default board background if no specific one is set from currentTblBg
       ctx.fillStyle = '#888888'; // Default board color if nothing else is set
-      ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+      ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
   }
 
   // Draw a border for the board itself
   ctx.strokeStyle = '#111111'; // Dark border for the board
   ctx.lineWidth = Math.max(0.5, 1 / zoom); // Ensure border is visible but not too thick on zoom
-  ctx.strokeRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+  ctx.strokeRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
 
   // 2. Draw Objects (sorted by zIndex)
   const sortedObjects = Array.from(objectsMap.values()).sort(
@@ -541,66 +450,5 @@ export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
   return null;
 };
 
-export const updateBoardProperties = (newProps) => {
-  // newProps can contain: width, height, dimensionUnit, scaleRatio, scaleRatioUnit
-  let physicalPropertiesChanged = false; // Determines if board boundary redraw is needed
-
-  // Update physical board dimensions and their unit
-  const newWidthUser = parseFloat(newProps.width);
-  if (newProps.width !== undefined && !isNaN(newWidthUser) && boardPhysical.widthUser !== newWidthUser) {
-    boardPhysical.widthUser = newWidthUser;
-    physicalPropertiesChanged = true;
-  }
-  const newHeightUser = parseFloat(newProps.height);
-  if (newProps.height !== undefined && !isNaN(newHeightUser) && boardPhysical.heightUser !== newHeightUser) {
-    boardPhysical.heightUser = newHeightUser;
-    physicalPropertiesChanged = true;
-  }
-  if (newProps.dimensionUnit && MM_PER_UNIT[newProps.dimensionUnit] && boardPhysical.unitForDimensions !== newProps.dimensionUnit) {
-    boardPhysical.unitForDimensions = newProps.dimensionUnit;
-    physicalPropertiesChanged = true;
-  }
-
-  // Update map interpretation scale properties
-  const newScaleRatio = parseFloat(newProps.scaleRatio);
-  if (newProps.scaleRatio !== undefined && !isNaN(newScaleRatio) && mapInterpretationScale.ratio !== newScaleRatio) {
-    mapInterpretationScale.ratio = newScaleRatio;
-    console.log('Map interpretation scale ratio updated:', mapInterpretationScale.ratio);
-  }
-  if (newProps.scaleRatioUnit && MM_PER_UNIT[newProps.scaleRatioUnit] && mapInterpretationScale.unitForRatio !== newProps.scaleRatioUnit) {
-    mapInterpretationScale.unitForRatio = newProps.scaleRatioUnit;
-    console.log('Map interpretation scale unit updated:', mapInterpretationScale.unitForRatio);
-  }
-
-  if (physicalPropertiesChanged) {
-    const unitMultiplier = MM_PER_UNIT[boardPhysical.unitForDimensions] || MM_PER_UNIT['in']; // Fallback
-    boardPhysical.widthPx = boardPhysical.widthUser * unitMultiplier;
-    boardPhysical.heightPx = boardPhysical.heightUser * unitMultiplier;
-    
-    console.log('Board physical properties updated, triggering redraw:', boardPhysical);
-    onDrawNeededCallback(); // Request a redraw for board boundary changes
-  }
-
-  // Return the comprehensive current state of all board-related properties
-  return {
-     widthUser: boardPhysical.widthUser,
-     heightUser: boardPhysical.heightUser,
-     unitForDimensions: boardPhysical.unitForDimensions,
-     widthPx: boardPhysical.widthPx,
-     heightPx: boardPhysical.heightPx,
-     scaleRatio: mapInterpretationScale.ratio,
-     unitForRatio: mapInterpretationScale.unitForRatio
-  };
-};
-
-export const getBoardProperties = () => {
-  return {
-     widthUser: boardPhysical.widthUser,
-     heightUser: boardPhysical.heightUser,
-     unitForDimensions: boardPhysical.unitForDimensions,
-     widthPx: boardPhysical.widthPx,
-     heightPx: boardPhysical.heightPx,
-     scaleRatio: mapInterpretationScale.ratio,
-     unitForRatio: mapInterpretationScale.unitForRatio
-  };
-};
+// updateBoardProperties and getBoardProperties have been moved to model.js
+// canvas.js will receive board properties via drawVTT arguments.
