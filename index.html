@@ -57,27 +57,33 @@
                     <input type="number" id="board-height-input" name="board-height-input" value="24" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
                 </div>
 
-                <!-- Board Scale Value -->
-                <div class="mb-2">
-                    <label for="board-scale-input" class="block text-sm font-medium text-gray-300">Map Scale is 1:</label>
-                    <input type="number" id="board-scale-input" name="board-scale-input" value="1" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm" title="e.g., if map is 1 inch = 5 feet, enter 5 if 'feet' is selected below. If 1:1, enter 1.">
-                </div>
+                <p class="mt-2 text-xs text-gray-400">Internal base unit: 1 pixel represents 1mm on the map.</p>
+                
+                <details class="mt-2 bg-gray-600 p-2 rounded-md">
+                    <summary class="text-sm font-medium text-gray-300 cursor-pointer hover:text-white">Map Measurement Scale (Optional)</summary>
+                    <p class="text-xs text-gray-400 mt-1 mb-2">Define how drawn map units translate to game-world distances (e.g., for measurement tools). This does not change the board's visual size.</p>
+                    
+                    <!-- Board Scale Value -->
+                    <div class="mb-2 mt-2">
+                        <label for="board-scale-input" class="block text-sm font-medium text-gray-300">1 Map Unit = X of Selected Unit:</label>
+                        <input type="number" id="board-scale-input" name="board-scale-input" value="1" class="mt-1 block w-full p-1 bg-gray-500 border border-gray-400 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm" title="e.g., if map is 1 inch = 5 feet, enter 5 if 'feet' is selected below. If 1:1, enter 1.">
+                    </div>
 
-                <!-- Board Scale Unit -->
-                <div class="mb-2">
-                    <label for="board-scale-unit-input" class="block text-sm font-medium text-gray-300">Unit for Scale:</label>
-                    <select id="board-scale-unit-input" name="board-scale-unit-input" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
-                        <option value="in">inches (1 unit = 25.4mm)</option>
-                        <option value="ft" selected>feet (1 unit = 304.8mm)</option>
-                        <option value="m">meters (1 unit = 1000mm)</option>
-                        <option value="cm">cm (1 unit = 10mm)</option>
-                        <option value="mm">mm (1 unit = 1mm)</option>
-                    </select>
-                    <p class="mt-1 text-xs text-gray-400">Internal base unit: 1 pixel represents 1mm on the map.</p>
-                </div>
+                    <!-- Board Scale Unit -->
+                    <div class="mb-2">
+                        <label for="board-scale-unit-input" class="block text-sm font-medium text-gray-300">Unit for Measurement Scale:</label>
+                        <select id="board-scale-unit-input" name="board-scale-unit-input" class="mt-1 block w-full p-1 bg-gray-500 border border-gray-400 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
+                            <option value="in">inches (e.g., 1 map unit = X inches)</option>
+                            <option value="ft" selected>feet (e.g., 1 map unit = X feet)</option>
+                            <option value="m">meters (e.g., 1 map unit = X meters)</option>
+                            <option value="cm">cm (e.g., 1 map unit = X cm)</option>
+                            <option value="mm">mm (e.g., 1 map unit = X mm)</option>
+                        </select>
+                    </div>
+                </details>
                 
                 <!-- Effective Size Display (Optional, can be populated by JS) -->
-                <div class="mb-2">
+                <div class="mb-2 mt-2">
                     <p class="text-sm text-gray-400">Effective Board Size (pixels): <span id="effective-board-size-display">N/A</span></p>
                 </div>
 
