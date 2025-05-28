@@ -26,6 +26,7 @@
     "@babel/preset-env": "^7.27.2",
     "autoprefixer": "^10.4.21",
     "babel-jest": "^30.0.0-beta.3",
+    "babel-plugin-transform-vite-meta-env": "^1.0.3",
     "eslint": "^8.57.0",
     "jest": "^30.0.0-beta.3",
     "jest-environment-jsdom": "^30.0.0-beta.3",

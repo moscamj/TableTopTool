@@ -7,6 +7,7 @@ import {
   setPanZoomState, 
   getPanZoomState,
   getTableBackground,
+  getObjectAtPosition,
 } from '../canvas.js';
 
 // Mock the global Image constructor

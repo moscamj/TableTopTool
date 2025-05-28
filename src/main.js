@@ -262,6 +262,8 @@ const initializeApplication = async () => {
   // ADD THIS LOG:
   // console.log('[main.js] uiCallbacks object before calling ui.initUIEventListeners:', uiCallbacks);
 
+  console.log('[main.js initializeApplication] Attempting to call ui.initUIEventListeners. typeof ui.initUIEventListeners:', typeof ui.initUIEventListeners);
+  console.log('[main.js initializeApplication] uiCallbacks:', JSON.stringify(Object.keys(uiCallbacks))); // Log keys to see if it's formed
   ui.initUIEventListeners(uiCallbacks);
   // Pass requestRedraw and ui.displayMessage to canvas module
   canvas.initCanvas(
@@ -464,8 +466,10 @@ const initializeApplication = async () => {
 }
 
 // Start the application
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', initializeApplication);
-} else {
-  initializeApplication();
-}
+// if (document.readyState === 'loading') { // REMOVED THIS BLOCK
+//   document.addEventListener('DOMContentLoaded', initializeApplication);
+// } else {
+//   initializeApplication();
+// }
+
+export default initializeApplication;

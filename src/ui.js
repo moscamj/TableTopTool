@@ -66,9 +66,9 @@ const domElements = {
 /**
  * Call this once at startup to cache all DOM element references.
  */
-const cacheDOMElements = () => {
+const _cacheDOMElements = () => {
   if (domElementsCached) {
-    console.log('[ui.js] cacheDOMElements: Already cached. Skipping.');
+    // console.log('[ui.js] cacheDOMElements: Already cached. Skipping.'); // Keep console logs minimal for now
     return;
   }
   // console.log('[ui.js] Caching DOM elements (first run).');
@@ -99,7 +99,6 @@ const cacheDOMElements = () => {
   domElements.chooseBackgroundImageButton = document.getElementById(
     'choose-background-image-button' // Added
   );
-  // console.log('[ui.js] chooseBackgroundImageButton found:', domElements.chooseBackgroundImageButton ? 'Yes' : 'No');
 
   domElements.canvasContainer = document.getElementById('canvas-container');
   domElements.vttCanvas = document.getElementById('vtt-canvas');
@@ -138,52 +137,27 @@ const cacheDOMElements = () => {
 
   domElements.messageArea = document.getElementById('message-area');
 
-  // Create a hidden file input for loading
   domElements.fileInput = document.createElement('input');
   domElements.fileInput.type = 'file';
-  domElements.fileInput.accept = '.json,.ttt.json'; // Accept .ttt.json and .json
+  domElements.fileInput.accept = '.json,.ttt.json'; 
   domElements.fileInput.style.display = 'none';
   document.body.appendChild(domElements.fileInput);
 
-  // Create a hidden file input for background images
   domElements.backgroundImageFileInput = document.createElement('input');
   domElements.backgroundImageFileInput.type = 'file';
-  domElements.backgroundImageFileInput.accept = 'image/*'; // Accept all image types
-  // domElements.backgroundImageFileInput.style.display = 'none'; // Remove this line
-
-  // Add these lines:
+  domElements.backgroundImageFileInput.accept = 'image/*'; 
   domElements.backgroundImageFileInput.style.position = 'absolute';
   domElements.backgroundImageFileInput.style.left = '-9999px';
-  domElements.backgroundImageFileInput.style.top = '-9999px'; // Optional, but good practice
-  domElements.backgroundImageFileInput.style.width = '1px';   // Make it minimally sized
-  domElements.backgroundImageFileInput.style.height = '1px';  // Make it minimally sized
-  domElements.backgroundImageFileInput.style.opacity = '0';   // Make it transparent
-  domElements.backgroundImageFileInput.style.overflow = 'hidden'; // Ensure no part of it is accidentally visible
+  domElements.backgroundImageFileInput.style.top = '-9999px'; 
+  domElements.backgroundImageFileInput.style.width = '1px';   
+  domElements.backgroundImageFileInput.style.height = '1px';  
+  domElements.backgroundImageFileInput.style.opacity = '0';   
+  domElements.backgroundImageFileInput.style.overflow = 'hidden'; 
   document.body.appendChild(domElements.backgroundImageFileInput);
-  // console.log('[ui.js] backgroundImageFileInput created:', domElements.backgroundImageFileInput ? 'Yes' : 'No');
 
   domElements.chooseObjectImageButton = document.getElementById('choose-object-image-button');
   domElements.objectImageFileInput = document.getElementById('objectImageFileInput');
 
-  // Ensure objectImageFileInput is handled like backgroundImageFileInput (created if not directly in HTML, styled hidden)
-  // However, in this case, it IS in the HTML, so we just need to ensure it's correctly referenced.
-  // If it were to be created dynamically, the following would be used:
-  // if (!domElements.objectImageFileInput) { // If not found (e.g. not in HTML)
-  //   domElements.objectImageFileInput = document.createElement('input');
-  //   domElements.objectImageFileInput.type = 'file';
-  //   domElements.objectImageFileInput.accept = 'image/*';
-  //   domElements.objectImageFileInput.style.position = 'absolute';
-  //   domElements.objectImageFileInput.style.left = '-9999px';
-  //   domElements.objectImageFileInput.style.width = '1px';
-  //   domElements.objectImageFileInput.style.height = '1px';
-  //   domElements.objectImageFileInput.style.opacity = '0';
-  //   domElements.objectImageFileInput.style.overflow = 'hidden';
-  //   document.body.appendChild(domElements.objectImageFileInput);
-  // }
-  // Since it's already in index.html with style="display: none;", we don't need to recreate or restyle it here.
-  // We just need to ensure the reference is cached.
-
-  // Update button texts and visibility for offline mode
   if (domElements.sessionSaveButton)
     domElements.sessionSaveButton.textContent = 'Save to File';
   if (domElements.sessionLoadButton)
@@ -192,35 +166,29 @@ const cacheDOMElements = () => {
     domElements.sessionIdDisplay.style.display = 'none';
   if (domElements.sessionLoadInput)
     domElements.sessionLoadInput.style.display = 'none';
-  // Also hide the "User:" display as it's Firebase auth related
   if (domElements.userIdDisplay && domElements.userIdDisplay.parentElement) {
     domElements.userIdDisplay.parentElement.style.display = 'none';
   }
-}
+};
 
 // Call cacheDOMElements when the DOM is ready
-document.addEventListener('DOMContentLoaded', cacheDOMElements);
+document.addEventListener('DOMContentLoaded', () => uiController.cacheDOMElements());
 
-export const initUIEventListeners = (callbacks) => {
-  // Destructure callback functions passed from main.js for easier reference.
+const _initUIEventListeners = (callbacks) => {
   const {
-    // onCreateRectangle, // Removed
-    // onCreateCircle, // Removed
     onSetBackground,
     onInspectorPropertyChange,
     onApplyObjectChanges,
     onDeleteObject,
     onSaveToFile,
-    onLoadFromFileRequest, // Renamed for clarity in original code, kept here
+    onLoadFromFileRequest, 
     onLoadFromFileInputChange,
-    onCreateObjectRequested, // Added for the new "Create Object" modal
-    onBackgroundImageFileSelected, // New callback for background image file selection
-    onObjectImageFileSelected, // New callback for object image file selection
+    onCreateObjectRequested, 
+    onBackgroundImageFileSelected, 
+    onObjectImageFileSelected, 
   } = callbacks;
 
-  // Ensure DOM elements are cached before attaching listeners.
-  // This is a fallback if initUIEventListeners is called before DOMContentLoaded.
-  if (!domElements.toolsSidebar) cacheDOMElements(); // Changed from createRectButton
+  if (!domElements.toolsSidebar) uiController.cacheDOMElements();
 
   if (onCreateObjectRequested && domElements.createObjectButton) {
     domElements.createObjectButton.addEventListener('click', onCreateObjectRequested);
@@ -230,17 +198,13 @@ export const initUIEventListeners = (callbacks) => {
     domElements.setBackgroundButton.addEventListener('click', onSetBackground);
   }
 
-  // Inspector property changes
   const inspectorInputs = domElements.inspectorContent
     ? domElements.inspectorContent.querySelectorAll('.prop-input')
     : [];
-  // Setup event listeners for each input field in the inspector.
-  // If an onInspectorPropertyChange callback is provided (for live updates),
-  // it's called when any inspector input's 'change' event fires.
   inspectorInputs.forEach((input) => {
     if (onInspectorPropertyChange) {
       input.addEventListener('change', () =>
-        onInspectorPropertyChange(readObjectInspector())
+        onInspectorPropertyChange(uiController.readObjectInspector()) 
       );
     }
   });
@@ -255,14 +219,13 @@ export const initUIEventListeners = (callbacks) => {
     domElements.deleteObjectButton.addEventListener('click', onDeleteObject);
   }
 
-  // File Save/Load
   if (onSaveToFile && domElements.sessionSaveButton) {
     domElements.sessionSaveButton.addEventListener('click', onSaveToFile);
   }
   if (onLoadFromFileRequest && domElements.sessionLoadButton) {
     domElements.sessionLoadButton.addEventListener('click', () => {
-      domElements.fileInput.value = null; // Clear previous selection
-      domElements.fileInput.click(); // Trigger hidden file input
+      domElements.fileInput.value = null; 
+      domElements.fileInput.click(); 
     });
   }
   if (onLoadFromFileInputChange && domElements.fileInput) {
@@ -272,34 +235,24 @@ export const initUIEventListeners = (callbacks) => {
     );
   }
 
-  // Event listener for the "Choose File" button for background image
   if (domElements.chooseBackgroundImageButton) {
     domElements.chooseBackgroundImageButton.addEventListener('click', () => {
-      // console.log('[ui.js] "Choose File" button clicked.'); 
       if (domElements.backgroundImageFileInput) {
-        domElements.backgroundImageFileInput.value = null; // Clear previous selection
-        domElements.backgroundImageFileInput.click(); // Trigger hidden file input
-        // console.log('[ui.js] Triggered click on hidden backgroundImageFileInput.'); 
+        domElements.backgroundImageFileInput.value = null; 
+        domElements.backgroundImageFileInput.click(); 
       } else {
-        // Keep this error log as it indicates a problem if the input isn't found.
         console.error('[ui.js] backgroundImageFileInput not found on button click.'); 
       }
     });
   } else {
-    // Keep this error log as it indicates a problem if the button isn't found.
     console.error('[ui.js] chooseBackgroundImageButton not found, cannot attach click listener.'); 
   }
-
-  // Event listener for the actual file input change (for background image)
-  // console.log('[ui.js] Attempting to attach "change" listener to backgroundImageFileInput.'); 
+ 
   if (onBackgroundImageFileSelected && domElements.backgroundImageFileInput) {
-    // console.log('[ui.js] "onBackgroundImageFileSelected" callback IS defined and backgroundImageFileInput IS found. Attaching listener.'); 
     domElements.backgroundImageFileInput.addEventListener('change', (event) => {
-      // console.log('[ui.js] "change" event detected on backgroundImageFileInput.'); 
       onBackgroundImageFileSelected(event);
     });
   } else {
-    // Keep these error logs as they indicate a setup problem.
     if (!onBackgroundImageFileSelected) {
       console.error('[ui.js] "onBackgroundImageFileSelected" callback is NOT defined. Cannot attach change listener to backgroundImageFileInput.');
     }
@@ -308,13 +261,12 @@ export const initUIEventListeners = (callbacks) => {
     }
   }
 
-  // Event listener for the "Choose Local Image" button for object image
   if (domElements.chooseObjectImageButton) {
     domElements.chooseObjectImageButton.addEventListener('click', (event) => {
-      event.preventDefault(); // Good practice, though for a button it might not be strictly necessary
+      event.preventDefault(); 
       if (domElements.objectImageFileInput) {
-        domElements.objectImageFileInput.value = null; // Clear previous selection
-        domElements.objectImageFileInput.click(); // Trigger hidden file input
+        domElements.objectImageFileInput.value = null; 
+        domElements.objectImageFileInput.click(); 
       } else {
         console.error('[ui.js] objectImageFileInput not found on button click.');
       }
@@ -323,7 +275,6 @@ export const initUIEventListeners = (callbacks) => {
     console.error('[ui.js] chooseObjectImageButton not found, cannot attach click listener.');
   }
 
-  // Event listener for the actual file input change (for object image)
   if (onObjectImageFileSelected && domElements.objectImageFileInput) {
     domElements.objectImageFileInput.addEventListener('change', (event) => {
       onObjectImageFileSelected(event);
@@ -338,7 +289,7 @@ export const initUIEventListeners = (callbacks) => {
   }
 };
 
-export const populateObjectInspector = (objectData) => {
+const _populateObjectInspector = (objectData) => {
   if (!domElements.inspectorContent) return;
 
   const inspectorContentDiv =
@@ -346,27 +297,24 @@ export const populateObjectInspector = (objectData) => {
   const inspectorFieldsContainer = domElements.inspectorContent;
 
   if (objectData) {
-    // Destructure properties from objectData to populate inspector fields.
-    // Default values are provided for most properties to ensure robust population
-    // even if some fields are missing from objectData.
     const {
       id,
-      name = '', // Default to empty string if name is not provided
+      name = '', 
       x = 0,
       y = 0,
       width = 0,
       height = 0,
       rotation = 0,
       zIndex = 0,
-      isMovable = true, // Default to true if not specified
-      shape = 'rectangle', // Default shape
-      appearance, // Nested object, destructured below
-      data, // Custom data object
-      scripts, // Scripts object
+      isMovable = true, 
+      shape = 'rectangle', 
+      appearance, 
+      data, 
+      scripts, 
     } = objectData;
 
     if (inspectorContentDiv && inspectorContentDiv.querySelector('p'))
-      inspectorContentDiv.querySelector('p').style.display = 'none'; // Hide placeholder message
+      inspectorContentDiv.querySelector('p').style.display = 'none'; 
 
     domElements.objId.textContent = id || '';
     if (domElements.objName) domElements.objName.value = name || '';
@@ -397,23 +345,19 @@ export const populateObjectInspector = (objectData) => {
 
     if (domElements.inspectorActions)
       domElements.inspectorActions.classList.remove('hidden');
-    // Ensure all inspector field sections (except the placeholder message and actions footer) are visible.
     Array.from(inspectorFieldsContainer.children).forEach((child) => {
       if (
-        child !== inspectorContentDiv && // Don't hide/show the placeholder message div itself
-        child !== domElements.inspectorActions // Don't hide/show the actions footer
+        child !== inspectorContentDiv && 
+        child !== domElements.inspectorActions 
       )
-        child.style.display = ''; // Reset display to default (usually block or flex)
+        child.style.display = ''; 
     });
   } else {
-    // No objectData, so display the placeholder message and hide all inspector fields.
     if (inspectorContentDiv && inspectorContentDiv.querySelector('p')) {
       inspectorContentDiv.querySelector('p').textContent =
         'Select an object to inspect.';
       inspectorContentDiv.querySelector('p').style.display = '';
     }
-    // Hide all individual field containers (divs wrapping label+input)
-    // except the placeholder message div and the actions footer.
     Array.from(inspectorFieldsContainer.children).forEach((child) => {
       if (
         child !== inspectorContentDiv &&
@@ -422,30 +366,42 @@ export const populateObjectInspector = (objectData) => {
         child.style.display = 'none';
       }
     });
-    if (domElements.objName) domElements.objName.value = ''; // Clear name field
-    if (domElements.objLabelText) domElements.objLabelText.value = ''; // Clear label text
-    if (domElements.objShowLabel) domElements.objShowLabel.checked = false; // Uncheck show label
+    if (domElements.objName) domElements.objName.value = '';
+    if (domElements.objLabelText) domElements.objLabelText.value = '';
+    if (domElements.objShowLabel) domElements.objShowLabel.checked = false;
+    if (domElements.objId) domElements.objId.textContent = ''; 
 
+    if (domElements.objX) domElements.objX.value = ''; 
+    if (domElements.objY) domElements.objY.value = '';
+    if (domElements.objWidth) domElements.objWidth.value = '';
+    if (domElements.objHeight) domElements.objHeight.value = '';
+    if (domElements.objRotation) domElements.objRotation.value = '';
+    if (domElements.objBgColor) domElements.objBgColor.value = '#CCCCCC'; 
+    if (domElements.objImageUrl) domElements.objImageUrl.value = '';
+    if (domElements.objZIndex) domElements.objZIndex.value = '';
+    if (domElements.objIsMovable) domElements.objIsMovable.checked = false; 
+    if (domElements.objShape) domElements.objShape.value = 'rectangle'; 
+    if (domElements.objData) domElements.objData.value = '{}';
+    if (domElements.objScriptOnClick) domElements.objScriptOnClick.value = '';
+    
     if (domElements.inspectorActions)
       domElements.inspectorActions.classList.add('hidden');
   }
 };
 
-export const readObjectInspector = () => {
-  if (!domElements.objId || !domElements.objId.textContent) return null; // No object selected or ID missing
+const _readObjectInspector = () => {
+  if (!domElements.objId || !domElements.objId.textContent) return null; 
 
   const dataStr = domElements.objData.value;
   let data = {};
   try {
     data = JSON.parse(dataStr);
   } catch (e) {
-    displayMessage('Error: Custom Data is not valid JSON.', 'error');
-    // console.error("Invalid JSON in data field:", e);
-    // Potentially return null or throw to indicate error
+    uiController.displayMessage('Error: Custom Data is not valid JSON.', 'error'); 
   }
 
   return {
-    id: domElements.objId.textContent, // ID is read-only from display
+    id: domElements.objId.textContent, 
     name: domElements.objName ? domElements.objName.value.trim() : '',
     x: parseFloat(domElements.objX.value) || 0,
     y: parseFloat(domElements.objY.value) || 0,
@@ -466,7 +422,6 @@ export const readObjectInspector = () => {
       imageUrl: domElements.objImageUrl.value.trim(),
       text: domElements.objLabelText ? domElements.objLabelText.value : '',
       showLabel: domElements.objShowLabel ? domElements.objShowLabel.checked : false,
-      // Potentially other existing appearance props like borderColor, borderWidth if they are in inspector
     },
     data: data,
     scripts: {
@@ -475,12 +430,12 @@ export const readObjectInspector = () => {
   };
 };
 
-export const displayMessage = (text, type = 'info', duration = 3000) => {
+const _displayMessage = (text, type = 'info', duration = 3000) => {
   if (!domElements.messageArea) return;
 
   const messageEl = document.createElement('div');
   messageEl.textContent = text;
-  messageEl.className = 'p-3 rounded-md shadow-lg text-sm mb-2'; // Base classes
+  messageEl.className = 'p-3 rounded-md shadow-lg text-sm mb-2'; 
 
   switch (type) {
     case 'error':
@@ -492,7 +447,7 @@ export const displayMessage = (text, type = 'info', duration = 3000) => {
     case 'warning':
       messageEl.classList.add('bg-yellow-500', 'text-black');
       break;
-    default: // info
+    default: 
       messageEl.classList.add('bg-blue-500', 'text-white');
       break;
   }
@@ -500,14 +455,14 @@ export const displayMessage = (text, type = 'info', duration = 3000) => {
   domElements.messageArea.appendChild(messageEl);
 
   setTimeout(() => {
-    messageEl.style.opacity = '0'; // Start fade out
+    messageEl.style.opacity = '0'; 
     setTimeout(() => {
       messageEl.remove();
-    }, 500); // Remove after fade
+    }, 500); 
   }, duration);
 }
 
-export const showModal = (
+const _showModal = (
   title,
   contentHtml,
   buttonsArray = [{ text: 'OK', type: 'primary' }]
@@ -516,22 +471,19 @@ export const showModal = (
 
   domElements.modalTitle.textContent = title;
   domElements.modalContent.innerHTML = contentHtml;
-  domElements.modalButtons.innerHTML = ''; // Clear existing buttons
+  domElements.modalButtons.innerHTML = ''; 
 
-  // Dynamically create buttons based on the buttonsArray configuration.
   buttonsArray.forEach((btnConfig) => {
-    // Destructure button configuration with a default for preventHide.
-    // btnConfig is an object like: { text: 'OK', type: 'primary', onClickCallback: () => {...} }
     const {
       text,
       type,
       onClickCallback,
-      preventHide = false, // If true, modal won't auto-hide on this button's click.
+      preventHide = false, 
     } = btnConfig;
 
     const button = document.createElement('button');
     button.textContent = text;
-    button.className = 'px-4 py-2 rounded text-sm'; // Base
+    button.className = 'px-4 py-2 rounded text-sm'; 
     switch (type) {
       case 'secondary':
         button.classList.add('bg-gray-500', 'hover:bg-gray-600', 'text-white');
@@ -539,16 +491,16 @@ export const showModal = (
       case 'danger':
         button.classList.add('bg-red-500', 'hover:bg-red-600', 'text-white');
         break;
-      default: // primary
+      default: 
         button.classList.add('bg-blue-500', 'hover:bg-blue-600', 'text-white');
     }
     if (onClickCallback) {
       button.addEventListener('click', () => {
         onClickCallback();
-        if (!preventHide) hideModal();
+        if (!preventHide) uiController.hideModal(); 
       });
     } else {
-      button.addEventListener('click', hideModal);
+      button.addEventListener('click', () => uiController.hideModal()); 
     }
     domElements.modalButtons.appendChild(button);
   });
@@ -556,7 +508,7 @@ export const showModal = (
   domElements.modalContainer.classList.remove('hidden');
 };
 
-export const hideModal = () => {
+const _hideModal = () => {
   if (!domElements.modalContainer) return;
   domElements.modalContainer.classList.add('hidden');
   domElements.modalTitle.textContent = '';
@@ -564,7 +516,7 @@ export const hideModal = () => {
   domElements.modalButtons.innerHTML = '';
 };
 
-export const displayCreateObjectModal = (createCallback) => {
+const _displayCreateObjectModal = (createCallback) => {
   const modalContentHtml = `
     <style>
       .modal-label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #E2E8F0; }
@@ -618,21 +570,19 @@ export const displayCreateObjectModal = (createCallback) => {
         if (createCallback) {
           createCallback(shape, props);
         }
-        // hideModal() is called by default by showModal's button handler
       },
     },
     {
       text: 'Cancel',
       type: 'secondary',
-      // onClickCallback: hideModal, // Default behavior, explicitly stating is fine too
     },
   ];
-
-  showModal('Create New Object', modalContentHtml, buttonsArray);
+  
+  uiController.showModal('Create New Object', modalContentHtml, buttonsArray); 
 };
 
-export const getToolbarValues = () => {
-  if (!domElements.backgroundUrlInput) cacheDOMElements();
+const _getToolbarValues = () => {
+  if (!domElements.backgroundUrlInput) uiController.cacheDOMElements(); 
   return {
     backgroundUrl: domElements.backgroundUrlInput
       ? domElements.backgroundUrlInput.value.trim()
@@ -643,33 +593,39 @@ export const getToolbarValues = () => {
   };
 }
 
-// Initial call to populateObjectInspector with null to set default inspector state
 document.addEventListener('DOMContentLoaded', () => {
-  populateObjectInspector(null);
+  uiController.populateObjectInspector(null); 
 });
 
-/**
- * Sets the text content of the background URL input field.
- * @param {string} text - The text to set.
- */
-export const setBackgroundUrlInputText = (text) => {
+const __resetUIDOMCache = () => { 
+  domElementsCached = false;
+};
+
+const _setBackgroundUrlInputText = (text) => {
   if (domElements.backgroundUrlInput) {
     domElements.backgroundUrlInput.value = text;
   }
 };
 
-/**
- * Sets the text content of the object image URL input field in the inspector.
- * @param {string} text - The text to set (typically a Data URL or web URL).
- */
-export const setObjectImageUrlText = (text) => {
+const _setObjectImageUrlText = (text) => {
   if (domElements.objImageUrl) {
     domElements.objImageUrl.value = text;
-    // Optionally, trigger a change event if live updates depend on it,
-    // though direct application via "Apply Changes" is the primary mechanism.
-    // const event = new Event('change', { bubbles: true });
-    // domElements.objImageUrl.dispatchEvent(event);
   } else {
     console.error('[ui.js] objImageUrl element not found. Cannot set text.');
   }
+};
+
+export const uiController = {
+  showModal: _showModal,
+  hideModal: _hideModal,
+  displayCreateObjectModal: _displayCreateObjectModal,
+  cacheDOMElements: _cacheDOMElements,
+  populateObjectInspector: _populateObjectInspector,
+  readObjectInspector: _readObjectInspector,
+  displayMessage: _displayMessage,
+  initUIEventListeners: _initUIEventListeners,
+  getToolbarValues: _getToolbarValues,
+  _resetUIDOMCache: __resetUIDOMCache, 
+  setBackgroundUrlInputText: _setBackgroundUrlInputText,
+  setObjectImageUrlText: _setObjectImageUrlText
 };

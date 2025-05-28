@@ -114,7 +114,7 @@ export const createGenericObject = (shape, initialProps = {}) => {
 export const updateLocalObject = (objectId, updatedProps) => {
   if (!currentObjects.has(objectId)) {
     console.warn(`Object with ID ${objectId} not found for update.`);
-    return null;
+    return undefined; // <<< Change this line
   }
 
   const existingObject = currentObjects.get(objectId);

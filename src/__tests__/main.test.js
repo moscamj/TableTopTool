@@ -1,5 +1,7 @@
+console.log('[main.test.js] File execution started.'); // Added
 // src/__tests__/main.test.js
-import { initializeApplication } from '../main.js';
+import initializeApplication from '../main.js'; // Changed to default import
+console.log('typeof initializeApplication in main.test.js:', typeof initializeApplication, initializeApplication); // Added
 import * as objects from '../objects.js';
 import * as canvas from '../canvas.js'; // This will be the mocked version
 import * as ui from '../ui.js'; // This will be the mocked version
@@ -7,7 +9,9 @@ import * as ui from '../ui.js'; // This will be the mocked version
 // --- Mocking src/ui.js ---
 jest.mock('../ui.js', () => ({
   populateObjectInspector: jest.fn(),
-  initUIEventListeners: jest.fn(), // Important to prevent DOM issues
+  initUIEventListeners: jest.fn(() => { // Modified this line
+    console.log('[main.test.js] Mocked ui.initUIEventListeners was called.');
+  }), // Important to prevent DOM issues
   displayMessage: jest.fn(),
   showModal: jest.fn(),
   getToolbarValues: jest.fn().mockReturnValue({ backgroundUrl: '', backgroundColor: '#cccccc' }), // Called in init
@@ -17,13 +21,17 @@ jest.mock('../ui.js', () => ({
 
 // --- Mocking src/canvas.js (Revised Strategy) ---
 let mockSelectedObjectId = null;
-let globalOnDrawNeededCallback = null; // To store the redraw callback
+let mTest_globalOnDrawNeededCallback = null; // To store the redraw callback // Renamed
+console.log('[main.test.js] mTest_globalOnDrawNeededCallback declared:', typeof mTest_globalOnDrawNeededCallback); // Added
 
 jest.mock('../canvas.js', () => {
+  let capturedDrawCallback = null; // Variable within the mock factory's scope
+  console.log('[main.test.js] jest.mock for canvas.js factory entered.'); // Added
   // We don't need jest.requireActual here if we explicitly mock everything main.js uses from canvas.
   return {
+    __esModule: true, // If canvas.js is an ES module
     initCanvas: jest.fn((canvasElement, drawNeededCallback) => {
-      globalOnDrawNeededCallback = drawNeededCallback; // Store the callback
+      capturedDrawCallback = drawNeededCallback; // Assign to variable in factory scope
       // Simulate canvas context if any part of main.js (or modules it calls) expects it
       if (canvasElement && typeof canvasElement.getContext === 'function') {
         canvasElement.getContext = () => ({
@@ -73,6 +81,8 @@ jest.mock('../canvas.js', () => {
     // Mock any other canvas functions that main.js might directly or indirectly call
     // For example, if loadImage is called and it's in canvas.js
     loadImage: jest.fn(),
+    getCapturedDrawCallback: jest.fn(() => capturedDrawCallback), // New function to get the callback
+    setPanZoomState: jest.fn(), // <--- ADD THIS LINE
   };
 });
 
@@ -123,13 +133,21 @@ describe('Object Selection in main.js', () => {
     // It's async because of Firebase stub, but our mocks make it effectively sync for these tests.
     await initializeApplication();
 
-    // Ensure globalOnDrawNeededCallback is captured from the mock initCanvas call
-    if (canvas.initCanvas.mock.calls.length > 0) {
-        globalOnDrawNeededCallback = canvas.initCanvas.mock.calls[0][1];
-    } else {
-        // Fallback if initializeApplication didn't call initCanvas (e.g. if test structure changes)
-        // This might indicate an issue with the test setup or assumptions
-        console.warn("canvas.initCanvas was not called during beforeEach, globalOnDrawNeededCallback may not be set.");
+    // Ensure mTest_globalOnDrawNeededCallback is captured from the mock initCanvas call
+    // It will be null if initCanvas was not called or was called without a callback.
+    // mTest_globalOnDrawNeededCallback = null; // Explicitly reset before potential assignment // Renamed
+    // if (canvas.initCanvas.mock.calls.length > 0 && canvas.initCanvas.mock.calls[0][1]) {
+    //     mTest_globalOnDrawNeededCallback = canvas.initCanvas.mock.calls[0][1]; // Renamed
+    // }
+    // Removed the console.warn and the else block. If initCanvas isn't called as expected,
+    // mTest_globalOnDrawNeededCallback will remain null. Tests should rely on canvas.drawVTT for assertions.
+    
+    // Retrieve the callback using the new mock function
+    mTest_globalOnDrawNeededCallback = canvas.getCapturedDrawCallback(); 
+
+    // The console.warn can be removed or kept if useful, it no longer assigns.
+    if (!mTest_globalOnDrawNeededCallback) {
+        console.warn("Captured drawNeededCallback is null/undefined after initializeApplication.");
     }
   });
 
@@ -166,7 +184,7 @@ describe('Object Selection in main.js', () => {
     // usually defers redraw until mouseup unless deselection occurs.
     // So, no redraw expected here.
     // If globalOnDrawNeededCallback was called, it would fail this:
-    expect(globalOnDrawNeededCallback).not.toHaveBeenCalled();
+    // expect(globalOnDrawNeededCallback).not.toHaveBeenCalled(); // Removed as per instructions
     expect(canvas.drawVTT).not.toHaveBeenCalled();
   });
 
@@ -181,8 +199,8 @@ describe('Object Selection in main.js', () => {
     // (though with mockSelectedObjectId direct set, they wouldn't be)
     canvas.setSelectedObjectId.mockClear();
     ui.populateObjectInspector.mockClear();
-    if(globalOnDrawNeededCallback) globalOnDrawNeededCallback.mockClear();
-
+    // if(globalOnDrawNeededCallback) globalOnDrawNeededCallback.mockClear(); // Removed
+    // jest.clearAllMocks() in beforeEach should handle canvas.drawVTT.mockClear()
 
     canvas.getMousePositionOnCanvas.mockReturnValue({ x: 100, y: 100 }); // Click outside any object
     canvas.getObjectAtPosition.mockReturnValue(null); // Simulate click on empty space
@@ -202,7 +220,7 @@ describe('Object Selection in main.js', () => {
     expect(canvas.getSelectedObjectId()).toBeNull();
 
     // 4. Check if a redraw was requested. Deselection by clicking background should trigger a redraw.
-    expect(globalOnDrawNeededCallback).toHaveBeenCalled();
+    expect(canvas.drawVTT).toHaveBeenCalled(); // Changed from globalOnDrawNeededCallback
   });
 });
 

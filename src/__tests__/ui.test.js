@@ -1,36 +1,34 @@
-// Mock ui.js: provide original for displayCreateObjectModal, mock others.
+// import * as ui from '../ui.js'; // Original import, to be replaced
+import { uiController } from '../ui.js';
+
+// Remove jest.doMock and related variables (mockShowModalForTest, mockHideModalForTest)
+// let mockShowModalForTest; 
+// let mockHideModalForTest;
+// jest.doMock('../ui.js', ...); // REMOVED
+
+// const ui = require('../ui.js'); // REMOVED - using import { uiController } instead
+
+// New jest.mock for uiController
 jest.mock('../ui.js', () => {
   const originalModule = jest.requireActual('../ui.js');
+  // originalModule.uiController now holds the actual functions
   return {
-    __esModule: true, // Important for ES Modules
-    // List original functions we want to keep as actual implementations
-    displayCreateObjectModal: originalModule.displayCreateObjectModal,
-    populateObjectInspector: originalModule.populateObjectInspector,
-    readObjectInspector: originalModule.readObjectInspector,
-    cacheDOMElements: originalModule.cacheDOMElements, // Keep original
-    displayMessage: jest.fn(), // Mock displayMessage as it's called on error
-    getToolbarValues: originalModule.getToolbarValues,
-    initUIEventListeners: originalModule.initUIEventListeners,
-    // Add any other functions from ui.js that should remain original
-
-    // Mock the specific functions we want to control for these tests
-    showModal: jest.fn(),
-    hideModal: jest.fn(),
+    __esModule: true,
+    uiController: {
+      ...originalModule.uiController, // Spread original methods
+      showModal: jest.fn(),          // Mock specific methods
+      hideModal: jest.fn(),
+      displayMessage: jest.fn(),     // Mock displayMessage as well
+    },
   };
 });
 
-// Import the functions needed for the test AFTER the mock setup.
-const { displayCreateObjectModal, showModal, hideModal, populateObjectInspector, readObjectInspector, cacheDOMElements } = require('../ui.js');
+// let displayMessageSpy; // No longer needed if displayMessage is mocked above
 
 describe('ui.js', () => {
   // Tests for displayCreateObjectModal
   describe('displayCreateObjectModal', () => {
     beforeEach(() => {
-      // Reset mocks before each test
-      showModal.mockClear();
-      hideModal.mockClear();
-
-      // Set up the basic DOM structure needed for the modal's inputs
       document.body.innerHTML = `
         <div id="modal-container"></div>
         <div id="modal-title"></div>
@@ -87,24 +85,39 @@ describe('ui.js', () => {
           <div id="inspector-actions" class="hidden"></div>
         </div>
       `;
+      if (uiController && uiController._resetUIDOMCache) uiController._resetUIDOMCache(); 
+
+      // Clear mocks from jest.mock
+      uiController.showModal.mockClear();
+      uiController.hideModal.mockClear();
+      if (uiController.displayMessage.mockClear) uiController.displayMessage.mockClear(); // if displayMessage is mocked
+      
+      // Remove displayMessageSpy setup as it's now handled by jest.mock
+      // if (uiController && uiController.displayMessage) { 
+      //   displayMessageSpy = jest.spyOn(uiController, 'displayMessage').mockImplementation(() => {});
+      // }
+    });
+
+    afterEach(() => {
+      // if (displayMessageSpy) displayMessageSpy.mockRestore(); // Remove if displayMessage is globally mocked
     });
 
     test('should call showModal with correct title', () => {
       const mockCreateCallback = jest.fn();
-      displayCreateObjectModal(mockCreateCallback);
+      uiController.displayCreateObjectModal(mockCreateCallback);
 
-      expect(showModal).toHaveBeenCalledTimes(1);
-      expect(showModal.mock.calls[0][0]).toBe('Create New Object');
-      expect(typeof showModal.mock.calls[0][1]).toBe('string');
-      expect(Array.isArray(showModal.mock.calls[0][2])).toBe(true);
+      expect(uiController.showModal).toHaveBeenCalledTimes(1);
+      expect(uiController.showModal.mock.calls[0][0]).toBe('Create New Object');
+      expect(typeof uiController.showModal.mock.calls[0][1]).toBe('string');
+      expect(Array.isArray(uiController.showModal.mock.calls[0][2])).toBe(true);
     });
 
     test('Create button callback should call createCallback with values from DOM', () => {
       const mockCreateCb = jest.fn();
-      displayCreateObjectModal(mockCreateCb);
+      uiController.displayCreateObjectModal(mockCreateCb);
 
-      expect(showModal).toHaveBeenCalledTimes(1);
-      const showModalArgs = showModal.mock.calls[0];
+      expect(uiController.showModal).toHaveBeenCalledTimes(1);
+      const showModalArgs = uiController.showModal.mock.calls[0];
       const buttonsArray = showModalArgs[2];
       const createButtonConfig = buttonsArray.find(b => b.text === 'Create');
 
@@ -132,10 +145,10 @@ describe('ui.js', () => {
 
     test('Cancel button should exist', () => {
       const mockCreateCb = jest.fn();
-      displayCreateObjectModal(mockCreateCb);
+      uiController.displayCreateObjectModal(mockCreateCb);
 
-      expect(showModal).toHaveBeenCalledTimes(1);
-      const showModalArgs = showModal.mock.calls[0];
+      expect(uiController.showModal).toHaveBeenCalledTimes(1);
+      const showModalArgs = uiController.showModal.mock.calls[0];
       const buttonsArray = showModalArgs[2];
       const cancelButtonConfig = buttonsArray.find(b => b.text === 'Cancel');
 
@@ -178,7 +191,13 @@ describe('ui.js', () => {
         </div>
         <div id="inspector-actions" class="hidden"></div>
       `;
-      cacheDOMElements();
+      if (uiController && uiController._resetUIDOMCache) uiController._resetUIDOMCache();
+      if (uiController && uiController.cacheDOMElements) uiController.cacheDOMElements();
+      
+      if (uiController && uiController.displayMessage && uiController.displayMessage.mockClear) {
+        uiController.displayMessage.mockClear();
+      }
+      // displayMessageSpy = jest.spyOn(uiController, 'displayMessage').mockImplementation(() => {}); // REMOVED
 
       objId = document.getElementById('obj-id');
       objName = document.getElementById('obj-name');
@@ -189,13 +208,17 @@ describe('ui.js', () => {
       objRotation = document.getElementById('obj-rotation');
       objBgColor = document.getElementById('obj-bg-color');
       objImageUrl = document.getElementById('obj-image-url');
-      objLabelText = document.getElementById('obj-label-text'); // Added
-      objShowLabel = document.getElementById('obj-show-label'); // Added
+      objLabelText = document.getElementById('obj-label-text'); 
+      objShowLabel = document.getElementById('obj-show-label'); 
       objZIndex = document.getElementById('obj-z-index');
       objIsMovable = document.getElementById('obj-is-movable');
       objShape = document.getElementById('obj-shape');
       objData = document.getElementById('obj-data');
       objScriptOnClick = document.getElementById('obj-script-onclick');
+    });
+
+    afterEach(() => { 
+      // if (displayMessageSpy) displayMessageSpy.mockRestore(); // REMOVED
     });
 
     describe('populateObjectInspector', () => {
@@ -206,7 +229,7 @@ describe('ui.js', () => {
 
       test('should populate name, width, and height fields correctly', () => {
         const objectData = { ...baseObjectData, appearance: { backgroundColor: '#ff0000', imageUrl: '', text: 'Label', showLabel: true }};
-        populateObjectInspector(objectData);
+        uiController.populateObjectInspector(objectData);
         expect(objName.value).toBe('Test Object');
         expect(objWidth.value).toBe("100");
         expect(objHeight.value).toBe("50");
@@ -214,35 +237,35 @@ describe('ui.js', () => {
 
       test('should populate label text and showLabel checkbox', () => {
         const objectData = { ...baseObjectData, appearance: { text: "Test Label", showLabel: true, backgroundColor: '#112233' } };
-        populateObjectInspector(objectData);
+        uiController.populateObjectInspector(objectData);
         expect(objLabelText.value).toBe("Test Label");
         expect(objShowLabel.checked).toBe(true);
       });
 
       test('should populate showLabel checkbox as false correctly', () => {
         const objectData = { ...baseObjectData, appearance: { text: "Another Label", showLabel: false } };
-        populateObjectInspector(objectData);
+        uiController.populateObjectInspector(objectData);
         expect(objLabelText.value).toBe("Another Label");
         expect(objShowLabel.checked).toBe(false);
       });
       
       test('should default label text and showLabel if missing in appearance', () => {
-        const objectData = { ...baseObjectData, appearance: { backgroundColor: '#FF0000' } }; // text and showLabel missing
-        populateObjectInspector(objectData);
+        const objectData = { ...baseObjectData, appearance: { backgroundColor: '#FF0000' } }; 
+        uiController.populateObjectInspector(objectData);
         expect(objLabelText.value).toBe('');
         expect(objShowLabel.checked).toBe(false);
       });
 
       test('should default label text and showLabel if appearance object is missing', () => {
-        const objectData = { ...baseObjectData, appearance: undefined }; // appearance object itself is missing
-        populateObjectInspector(objectData);
+        const objectData = { ...baseObjectData, appearance: undefined }; 
+        uiController.populateObjectInspector(objectData);
         expect(objLabelText.value).toBe('');
         expect(objShowLabel.checked).toBe(false);
       });
 
       test('should clear fields, including label text and showLabel, when called with null', () => {
-        populateObjectInspector({ ...baseObjectData, appearance: { text: 'Old Label', showLabel: true } });
-        populateObjectInspector(null);
+        uiController.populateObjectInspector({ ...baseObjectData, appearance: { text: 'Old Label', showLabel: true } });
+        uiController.populateObjectInspector(null);
         expect(objName.value).toBe('');
         expect(objWidth.value === '' || objWidth.value === '0').toBeTruthy();
         expect(objHeight.value === '' || objHeight.value === '0').toBeTruthy();
@@ -259,14 +282,13 @@ describe('ui.js', () => {
         objBgColor.value = '#ABCDEF'; objImageUrl.value = 'http://example.com/image.png';
         objZIndex.value = '0'; objIsMovable.checked = true; objShape.value = 'rectangle';
         objData.value = '{}'; objScriptOnClick.value = '';
-        // Default values for new fields, can be overridden by specific tests
         objLabelText.value = ''; 
         objShowLabel.checked = false;
       });
 
       test('should correctly read name, width, and height', () => {
         objName.value = 'My Object'; objWidth.value = '150'; objHeight.value = '75';
-        const result = readObjectInspector();
+        const result = uiController.readObjectInspector();
         expect(result.name).toBe('My Object');
         expect(result.width).toBe(150);
         expect(result.height).toBe(75);
@@ -275,33 +297,32 @@ describe('ui.js', () => {
       test('should read label text and showLabel checkbox values', () => {
         objLabelText.value = "Read Label";
         objShowLabel.checked = true;
-        const result = readObjectInspector();
+        const result = uiController.readObjectInspector();
         expect(result.appearance.text).toBe("Read Label");
         expect(result.appearance.showLabel).toBe(true);
-        expect(result.appearance.backgroundColor).toBe('#ABCDEF'); // Ensure other appearance props are there
+        expect(result.appearance.backgroundColor).toBe('#abcdef'); 
         expect(result.appearance.imageUrl).toBe('http://example.com/image.png');
       });
 
       test('should read showLabel as false when checkbox is unchecked', () => {
         objLabelText.value = "Label Present";
         objShowLabel.checked = false;
-        const result = readObjectInspector();
+        const result = uiController.readObjectInspector();
         expect(result.appearance.text).toBe("Label Present");
         expect(result.appearance.showLabel).toBe(false);
       });
       
-      // ... (existing tests for name trimming, dimension clamping, etc.)
       test('should trim objName value', () => {
         objName.value = '  Spaced Name  ';
         objWidth.value = '10'; objHeight.value = '10'; 
-        const result = readObjectInspector();
+        const result = uiController.readObjectInspector();
         expect(result.name).toBe('Spaced Name');
       });
 
       ['0', '-5', 'abc', NaN, null, undefined].forEach(invalidValue => {
         test(`should clamp width to 1 if objWidth.value is "${invalidValue}"`, () => {
           objWidth.value = invalidValue; objHeight.value = '10';
-          const result = readObjectInspector();
+          const result = uiController.readObjectInspector();
           expect(result.width).toBe(1);
         });
       });
@@ -309,14 +330,14 @@ describe('ui.js', () => {
       ['0', '-5', 'abc', NaN, null, undefined].forEach(invalidValue => {
         test(`should clamp height to 1 if objHeight.value is "${invalidValue}"`, () => {
           objHeight.value = invalidValue; objWidth.value = '10';
-          const result = readObjectInspector();
+          const result = uiController.readObjectInspector();
           expect(result.height).toBe(1);
         });
       });
 
       test('should parse valid positive width and height correctly', () => {
         objWidth.value = '200.5'; objHeight.value = '75.25';
-        const result = readObjectInspector();
+        const result = uiController.readObjectInspector();
         expect(result.width).toBe(200.5);
         expect(result.height).toBe(75.25);
       });

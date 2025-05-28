@@ -163,7 +163,16 @@ describe('objects.js', () => {
       expect(updated.y).toBe(initialProps.y);
       expect(updated.width).toBe(initialProps.width);
       expect(updated.height).toBe(initialProps.height);
-      expect(updated.appearance).toEqual(initialProps.appearance);
+      // Check specific appearance properties
+      expect(updated.appearance.backgroundColor).toBe(initialProps.appearance.backgroundColor); // 'red'
+      expect(updated.appearance.text).toBe(initialProps.appearance.text); // 'Hello'
+      // Check that default properties that were not in initialProps.appearance are still present
+      expect(updated.appearance.borderColor).toBe('#333333');
+      expect(updated.appearance.borderWidth).toBe(1);
+      expect(updated.appearance.textColor).toBe('#000000');
+      expect(updated.appearance.fontFamily).toBe('Arial');
+      expect(updated.appearance.fontSize).toBe(14);
+      expect(updated.appearance.showLabel).toBe(false);
       expect(updated.zIndex).toBe(initialProps.zIndex);
     });
 
@@ -174,7 +183,16 @@ describe('objects.js', () => {
       expect(updated.height).toBe(75);
       expect(updated.name).toBe(initialProps.name);
       expect(updated.x).toBe(initialProps.x);
-      expect(updated.appearance).toEqual(initialProps.appearance);
+      // Check specific appearance properties
+      expect(updated.appearance.backgroundColor).toBe(initialProps.appearance.backgroundColor); // 'red'
+      expect(updated.appearance.text).toBe(initialProps.appearance.text); // 'Hello'
+      // Check that default properties that were not in initialProps.appearance are still present
+      expect(updated.appearance.borderColor).toBe('#333333');
+      expect(updated.appearance.borderWidth).toBe(1);
+      expect(updated.appearance.textColor).toBe('#000000');
+      expect(updated.appearance.fontFamily).toBe('Arial');
+      expect(updated.appearance.fontSize).toBe(14);
+      expect(updated.appearance.showLabel).toBe(false);
     });
 
     test('should update name, width, and height simultaneously', () => {
@@ -211,7 +229,17 @@ describe('objects.js', () => {
       expect(updated.height).toBe(initialProps.height); // Height should remain unchanged
       expect(updated.x).toBe(100);
       expect(updated.y).toBe(initialProps.y); // Y should remain unchanged
-      expect(updated.appearance).toEqual(newAppearance);
+      // Check specific appearance properties from newAppearance
+      expect(updated.appearance.backgroundColor).toBe(newAppearance.backgroundColor); // 'blue'
+      expect(updated.appearance.text).toBe(newAppearance.text); // 'World'
+      // Check that default properties that were not in newAppearance are still present
+      // (these were part of the initial object's appearance, merged from defaults)
+      expect(updated.appearance.borderColor).toBe('#333333');
+      expect(updated.appearance.borderWidth).toBe(1);
+      expect(updated.appearance.textColor).toBe('#000000');
+      expect(updated.appearance.fontFamily).toBe('Arial');
+      expect(updated.appearance.fontSize).toBe(14);
+      expect(updated.appearance.showLabel).toBe(false);
     });
 
     test('should deeply merge appearance properties', () => {
@@ -223,10 +251,19 @@ describe('objects.js', () => {
     });
 
     test('should not update if ID does not exist, and return undefined', () => {
+      const consoleWarnSpy = jest.spyOn(console, 'warn').mockImplementation(() => {}); // Spy and silence
+
       const result = updateLocalObject('non-existent-id', { name: 'Ghost' });
       expect(result).toBeUndefined();
-      const originalObject = getLocalObject(testObjId); // Check original object is unchanged
-      expect(originalObject.name).toBe(initialProps.name);
+
+      // It's good practice to check if the warning was called as expected, if desired,
+      // though for this task, silencing is the main goal.
+      // expect(consoleWarnSpy).toHaveBeenCalledWith('Object with ID non-existent-id not found for update.');
+
+      const originalObject = getLocalObject(testObjId); // Make sure testObjId is in scope
+      expect(originalObject.name).toBe(initialProps.name); // Make sure initialProps is in scope
+
+      consoleWarnSpy.mockRestore(); // Restore original console.warn
     });
   });
 });
