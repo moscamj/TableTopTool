@@ -13,7 +13,7 @@ let localUserId = 'offline-user';
 // --- Main Redraw Function ---
 const requestRedraw = () => {
   canvas.drawVTT(
-    objects.getAllLocalObjects(), // Expects an array
+    api.VTT_API.getAllObjects(), // Expects an array
     canvas.getPanZoomState(),
     canvas.getTableBackground(),
     canvas.getSelectedObjectId()
@@ -38,7 +38,7 @@ const handleSaveTableState = () => {
   const state = {
     sessionId: currentSessionId,
     savedAt: new Date().toISOString(),
-    objects: objects.getAllLocalObjects(), // Already returns array of copies
+    objects: api.VTT_API.getAllObjects(), // Already returns array of copies
     background: canvas.getTableBackground(),
     viewState: canvas.getPanZoomState(),
     appVersion: 'TableTopTool-MVP-Offline-v1', // Optional versioning
@@ -70,7 +70,7 @@ const handleLoadTableState = (fileContent) => {
       throw new Error('Invalid file format: objects is not an array.');
     }
 
-    objects.clearLocalObjects();
+    api.VTT_API.clearAllObjects();
     // After loading objects from file, iterate and explicitly trigger image loading
     // for any objects that have an image URL. This ensures images are displayed.
     loadedObjectsArray.forEach((obj) => {
@@ -101,79 +101,6 @@ const handleLoadTableState = (fileContent) => {
   }
 };
 
-// --- Object Creation Modal Callbacks ---
-export const handleObjectCreationSubmit = (shape, props) => {
-  const newObject = objects.createGenericObject(shape, props);
-  if (newObject) {
-    console.log('New object created via modal:', newObject);
-    // Future enhancement: Automatically select the new object
-    // canvas.setSelectedObjectId(newObject.id);
-    // ui.populateObjectInspector(objects.getLocalObject(newObject.id));
-  }
-  requestRedraw();
-};
-
-export const handleCreateObjectRequested = () => {
-  ui.displayCreateObjectModal(handleObjectCreationSubmit);
-};
-
-// --- Background Image File Handling ---
-const handleBackgroundImageFileSelected = (event) => {
-  const file = event.target.files[0];
-  if (file) {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const dataURL = e.target.result;
-      // console.log(`main.js: File '${file.name}' loaded as data URI. First 100 chars: ${dataURL.substring(0,100)}...`);
-      // console.log(`main.js: Calling canvas.setTableBackground with type 'image' for file '${file.name}'.`);
-      canvas.setTableBackground({
-        type: 'image',
-        value: dataURL,
-      });
-      // console.log(`main.js: canvas.setTableBackground called for '${file.name}'.`);
-      // Update the backgroundUrlInput field with the file name
-      setBackgroundUrlInputText(`Local file: ${file.name}`); // Use the imported function
-      ui.displayMessage(`Background image set to: ${file.name}`, 'success');
-      // requestRedraw() is called by setTableBackground if needed
-    };
-    reader.onerror = (e) => {
-      console.error('Error reading file for background:', e);
-      ui.showModal('File Read Error', 'Could not read the selected file for the background image.');
-      ui.displayMessage('Failed to load background image from file.', 'error');
-    };
-    reader.readAsDataURL(file);
-  }
-};
-
-// --- Object Image File Handling ---
-// Should be placed before initializeApplication, for example,
-// near the definition of handleBackgroundImageFileSelected
-const handleObjectImageFileSelected = (event) => {
-  const file = event.target.files[0];
-  if (!file) {
-    return; // No file selected
-  }
-
-  if (!file.type.startsWith('image/')) {
-    ui.displayMessage('Please select an image file for the object.', 'error');
-    return;
-  }
-
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    const dataURL = e.target.result;
-    setObjectImageUrlText(dataURL); // setObjectImageUrlText is already imported from ui.js
-    ui.displayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
-    // If live updates were desired, one might call handleInspectorChange() here
-    // or trigger an equivalent of onApplyObjectChanges for the selected object.
-  };
-  reader.onerror = () => {
-    ui.displayMessage('Error reading object image file.', 'error');
-    console.error('Error reading object image file:', reader.error);
-  };
-  reader.readAsDataURL(file);
-};
-
 // --- Application Initialization ---
 const initializeApplication = async () => {
   // Attempt to initialize Firebase (it will run in offline mode)
@@ -183,66 +110,10 @@ const initializeApplication = async () => {
 
   // Define UI Callbacks
   const uiCallbacks = {
-    onCreateObjectRequested: handleCreateObjectRequested, // New callback for "Create Object"
-    onSetBackground: () => {
-      let { backgroundUrl, backgroundColor } = ui.getToolbarValues(); // Use let for backgroundUrl
-
-      // If the input field shows "Local file: ...", it means a local file was already loaded.
-      // Pressing "Set Background" with this text should not try to load it as a URL.
-      // Clear the input and use color if it's a placeholder.
-      if (backgroundUrl.startsWith('Local file:')) {
-        setBackgroundUrlInputText(''); // Clear the placeholder text // Uses imported setBackgroundUrlInputText
-        backgroundUrl = ''; // Treat as empty for logic below
-      }
-
-      if (backgroundUrl) { // This will now be true only for actual URLs
-        canvas.setTableBackground({
-          type: 'image',
-          value: backgroundUrl,
-        });
-      } else {
-        canvas.setTableBackground({
-          type: 'color',
-          value: backgroundColor,
-        });
-      }
-      // requestRedraw is called by setTableBackground if needed
-    },
-    onApplyObjectChanges: () => {
-      const selectedId = canvas.getSelectedObjectId();
-      if (selectedId) {
-        const updatedProps = ui.readObjectInspector();
-        if (updatedProps) {
-          objects.updateLocalObject(selectedId, updatedProps);
-          requestRedraw(); // Redraw with changes
-          // Re-populate inspector to show sanitized/final data and reflect any model changes
-          ui.populateObjectInspector(objects.getLocalObject(selectedId));
-        }
-      }
-    },
-    onDeleteObject: () => {
-      const selectedId = canvas.getSelectedObjectId();
-      if (selectedId) {
-        ui.showModal(
-          'Confirm Delete',
-          `Are you sure you want to delete object ${selectedId}?`, // This line should already be correct
-          [
-            { text: 'Cancel', type: 'secondary' },
-            {
-              text: 'Delete',
-              type: 'danger',
-              onClickCallback: () => {
-                objects.deleteLocalObject(selectedId);
-                canvas.setSelectedObjectId(null);
-                ui.populateObjectInspector(null);
-                requestRedraw();
-                ui.displayMessage('Object deleted.', 'info');
-              },
-            },
-          ]
-        );
-      }
-    },
+    // onCreateObjectRequested: handleCreateObjectRequested, // Removed: ui.js handles directly
+    // onSetBackground: () => { ... }, // Removed: ui.js handles directly
+    // onApplyObjectChanges: () => { ... }, // Removed: ui.js handles directly
+    // onDeleteObject: () => { ... }, // Removed: ui.js handles directly
     onSaveToFile: handleSaveTableState,
     onLoadFromFileInputChange: (event) => {
       const file = event.target.files[0];
@@ -254,8 +125,8 @@ const initializeApplication = async () => {
         reader.readAsText(file);
       }
     },
-    onBackgroundImageFileSelected: handleBackgroundImageFileSelected, // Added callback
-    onObjectImageFileSelected: handleObjectImageFileSelected, // Added callback
+    // onBackgroundImageFileSelected: handleBackgroundImageFileSelected, // Removed: ui.js handles directly
+    // onObjectImageFileSelected: handleObjectImageFileSelected, // Removed: ui.js handles directly
     // onInspectorPropertyChange: (props) => { console.log("Inspector props changed (live):", props); } // For live updates
   };
 
@@ -271,7 +142,7 @@ const initializeApplication = async () => {
   );
 
   // Create default objects for testing
-  objects.createGenericObject('rectangle', {
+  api.VTT_API.createObject('rectangle', {
     x: 50,
     y: 50,
     width: 100,
@@ -280,7 +151,7 @@ const initializeApplication = async () => {
     name: 'Test Rectangle 1',
   });
 
-  objects.createGenericObject('circle', {
+  api.VTT_API.createObject('circle', {
     x: 200,
     y: 100,
     width: 60, // Diameter
@@ -315,7 +186,7 @@ const initializeApplication = async () => {
       // Destructure object properties.
       // 'objIsMovable', 'objX', 'objY' are used for drag logic.
       // '...objDetails' captures all other properties to pass to the inspector.
-      const { isMovable: objIsMovable, x: objX, y: objY, ...objDetails } = objects.getLocalObject(clickedObjectId);
+      const { isMovable: objIsMovable, x: objX, y: objY, ...objDetails } = api.VTT_API.getObject(clickedObjectId);
       if (objIsMovable) {
         isDragging = true;
         dragOffsetX = mouseX - objX; // Calculate offset from mouse to object's top-left
@@ -347,13 +218,13 @@ const initializeApplication = async () => {
 
     if (isDragging && canvas.getSelectedObjectId()) {
       const selectedObjId = canvas.getSelectedObjectId();
-      objects.updateLocalObject(selectedObjId, {
+      api.VTT_API.updateObject(selectedObjId, {
         x: mouseX - dragOffsetX,
         y: mouseY - dragOffsetY,
       });
-      requestRedraw();
+      // requestRedraw(); // Redundant: updateObject triggers stateChangedForRedraw
       // Add this line:
-      ui.populateObjectInspector(objects.getLocalObject(selectedObjId));
+      ui.populateObjectInspector(api.VTT_API.getObject(selectedObjId));
     } else if (isPanning) {
       const { panX, panY, zoom } = currentPZS; // Destructure PZS for panning
       const dx = e.clientX - lastPanX;
@@ -387,7 +258,7 @@ const initializeApplication = async () => {
       // Destructure object for script execution.
       // 'objId' (renamed from 'id') and 'scripts' are key.
       // '...objProps' gathers remaining properties, though not directly used in this script block.
-      const { scripts, id: objId, ...objProps } = objects.getLocalObject(clickedObjectId);
+      const { scripts, id: objId, ...objProps } = api.VTT_API.getObject(clickedObjectId);
       if (scripts && scripts.onClick) {
         console.log(`Executing onClick for ${objId}:`, scripts.onClick);
         try {
@@ -401,7 +272,7 @@ const initializeApplication = async () => {
             objectRefForScript
           );
           // After script execution, re-fetch and populate the inspector as the script might have changed the object.
-          ui.populateObjectInspector(objects.getLocalObject(objId));
+          ui.populateObjectInspector(api.VTT_API.getObject(objId));
         } catch (scriptError) {
           console.error('Script execution error:', scriptError);
           ui.showModal(

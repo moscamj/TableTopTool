@@ -1,6 +1,7 @@
 // src/api.js
 import * as objects from './objects.js';
 import * as ui from './ui.js'; // Optional: for displaying logs as UI messages
+import { setTableBackground } from './canvas.js';
 
 /**
  * Dispatches a custom event to signal that a redraw is needed.
@@ -65,6 +66,44 @@ export const VTT_API = {
   },
 
   // --- Future API methods (examples, not for current MVP implementation) ---
+
+  createObject: (shape, initialProps) => {
+    const newObj = objects.createGenericObject(shape, initialProps);
+    requestRedrawEvent();
+    return newObj;
+  },
+
+  updateObject: (objectId, updatedProps) => {
+    const updatedObj = objects.updateLocalObject(objectId, updatedProps);
+    requestRedrawEvent();
+    return updatedObj;
+  },
+
+  deleteObject: (objectId) => {
+    const result = objects.deleteLocalObject(objectId);
+    requestRedrawEvent();
+    return result;
+  },
+
+  getAllObjects: () => {
+    return objects.getAllLocalObjects();
+  },
+
+  clearAllObjects: () => {
+    objects.clearLocalObjects();
+    requestRedrawEvent();
+  },
+
+  setTableBackground: (backgroundProps) => {
+    // canvas.setTableBackground will call onDrawNeededCallback,
+    // which is handled by main.js to trigger a redraw event.
+    setTableBackground(backgroundProps);
+  },
+
+  showMessage: (text, type, duration) => {
+    ui.displayMessage(text, type, duration);
+  },
+
   // getSelectedObjects: (contextObject) => { /* ... */ },
   // createObject: (shape, properties, contextObject) => { /* ... */ },
   // deleteObject: (objectId, contextObject) => { /* ... */ },

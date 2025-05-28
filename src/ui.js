@@ -1,4 +1,5 @@
 // src/ui.js
+import { VTT_API } from './api.js';
 
 let domElementsCached = false; // Guard flag for cacheDOMElements
 
@@ -206,28 +207,30 @@ export const initUIEventListeners = (callbacks) => {
   const {
     // onCreateRectangle, // Removed
     // onCreateCircle, // Removed
-    onSetBackground,
+    // onSetBackground, // Removed - handled by handleSetBackgroundFromToolbar
     onInspectorPropertyChange,
-    onApplyObjectChanges,
-    onDeleteObject,
+    // onApplyObjectChanges, // Removed - handled by handleApplyObjectChangesFromInspector
+    // onDeleteObject, // Removed - handled by handleDeleteObjectFromInspector
     onSaveToFile,
     onLoadFromFileRequest, // Renamed for clarity in original code, kept here
     onLoadFromFileInputChange,
-    onCreateObjectRequested, // Added for the new "Create Object" modal
-    onBackgroundImageFileSelected, // New callback for background image file selection
-    onObjectImageFileSelected, // New callback for object image file selection
+    // onCreateObjectRequested, // Removed - createObjectButton now calls displayCreateObjectModal directly
+    // onBackgroundImageFileSelected, // Removed - handled by handleBackgroundImageFileChange
+    // onObjectImageFileSelected, // Removed - handled by handleObjectImageFileChange
   } = callbacks;
 
   // Ensure DOM elements are cached before attaching listeners.
   // This is a fallback if initUIEventListeners is called before DOMContentLoaded.
   if (!domElements.toolsSidebar) cacheDOMElements(); // Changed from createRectButton
 
-  if (onCreateObjectRequested && domElements.createObjectButton) {
-    domElements.createObjectButton.addEventListener('click', onCreateObjectRequested);
+  // Object Creation: Button now directly calls displayCreateObjectModal
+  if (domElements.createObjectButton) {
+    domElements.createObjectButton.addEventListener('click', () => displayCreateObjectModal());
   }
 
-  if (onSetBackground && domElements.setBackgroundButton) {
-    domElements.setBackgroundButton.addEventListener('click', onSetBackground);
+  // Set Background from Toolbar: Button now calls handleSetBackgroundFromToolbar
+  if (domElements.setBackgroundButton) {
+    domElements.setBackgroundButton.addEventListener('click', handleSetBackgroundFromToolbar);
   }
 
   // Inspector property changes
@@ -245,14 +248,17 @@ export const initUIEventListeners = (callbacks) => {
     }
   });
 
-  if (onApplyObjectChanges && domElements.updateObjectButton) {
+  // Object Updates: Button now calls handleApplyObjectChangesFromInspector
+  if (domElements.updateObjectButton) {
     domElements.updateObjectButton.addEventListener(
       'click',
-      onApplyObjectChanges
+      handleApplyObjectChangesFromInspector
     );
   }
-  if (onDeleteObject && domElements.deleteObjectButton) {
-    domElements.deleteObjectButton.addEventListener('click', onDeleteObject);
+
+  // Object Deletion: Button now calls handleDeleteObjectFromInspector
+  if (domElements.deleteObjectButton) {
+    domElements.deleteObjectButton.addEventListener('click', handleDeleteObjectFromInspector);
   }
 
   // File Save/Load
@@ -291,21 +297,10 @@ export const initUIEventListeners = (callbacks) => {
   }
 
   // Event listener for the actual file input change (for background image)
-  // console.log('[ui.js] Attempting to attach "change" listener to backgroundImageFileInput.'); 
-  if (onBackgroundImageFileSelected && domElements.backgroundImageFileInput) {
-    // console.log('[ui.js] "onBackgroundImageFileSelected" callback IS defined and backgroundImageFileInput IS found. Attaching listener.'); 
-    domElements.backgroundImageFileInput.addEventListener('change', (event) => {
-      // console.log('[ui.js] "change" event detected on backgroundImageFileInput.'); 
-      onBackgroundImageFileSelected(event);
-    });
+  if (domElements.backgroundImageFileInput) {
+    domElements.backgroundImageFileInput.addEventListener('change', handleBackgroundImageFileChange);
   } else {
-    // Keep these error logs as they indicate a setup problem.
-    if (!onBackgroundImageFileSelected) {
-      console.error('[ui.js] "onBackgroundImageFileSelected" callback is NOT defined. Cannot attach change listener to backgroundImageFileInput.');
-    }
-    if (!domElements.backgroundImageFileInput) {
-      console.error('[ui.js] backgroundImageFileInput element not found. Cannot attach change listener.');
-    }
+    console.error('[ui.js] backgroundImageFileInput element not found. Cannot attach change listener.');
   }
 
   // Event listener for the "Choose Local Image" button for object image
@@ -324,17 +319,10 @@ export const initUIEventListeners = (callbacks) => {
   }
 
   // Event listener for the actual file input change (for object image)
-  if (onObjectImageFileSelected && domElements.objectImageFileInput) {
-    domElements.objectImageFileInput.addEventListener('change', (event) => {
-      onObjectImageFileSelected(event);
-    });
+  if (domElements.objectImageFileInput) {
+    domElements.objectImageFileInput.addEventListener('change', handleObjectImageFileChange);
   } else {
-    if (!onObjectImageFileSelected) {
-      console.error('[ui.js] "onObjectImageFileSelected" callback is NOT defined. Cannot attach change listener to objectImageFileInput.');
-    }
-    if (!domElements.objectImageFileInput) {
-      console.error('[ui.js] objectImageFileInput element not found. Cannot attach change listener.');
-    }
+    console.error('[ui.js] objectImageFileInput element not found. Cannot attach change listener.');
   }
 };
 
@@ -564,7 +552,60 @@ export const hideModal = () => {
   domElements.modalButtons.innerHTML = '';
 };
 
-export const displayCreateObjectModal = (createCallback) => {
+// Function to handle applying changes from the object inspector
+const handleApplyObjectChangesFromInspector = () => {
+  const updatedProps = readObjectInspector();
+  if (updatedProps && updatedProps.id) {
+    const newObjState = VTT_API.updateObject(updatedProps.id, updatedProps);
+    if (newObjState) {
+      populateObjectInspector(newObjState);
+      VTT_API.showMessage('Object updated successfully.', 'success');
+    } else {
+      VTT_API.showMessage('Failed to update object. It might have been deleted elsewhere or an error occurred.', 'error');
+      // Optionally, refresh inspector if object is gone
+      // const currentObject = VTT_API.getObject(updatedProps.id);
+      // populateObjectInspector(currentObject); // This would show if it's still there or clear if not
+    }
+  } else {
+    VTT_API.showMessage('No object selected or ID missing for update.', 'warning');
+  }
+};
+
+// Function to handle deleting an object from the inspector
+const handleDeleteObjectFromInspector = () => {
+  const currentObject = readObjectInspector();
+  if (currentObject && currentObject.id) {
+    const objectId = currentObject.id;
+    const objectName = currentObject.name || objectId; // Use name if available, else ID
+
+    showModal(
+      'Confirm Delete',
+      `Are you sure you want to delete object "${objectName}" (ID: ${objectId})?`,
+      [
+        { text: 'Cancel', type: 'secondary' },
+        {
+          text: 'Delete',
+          type: 'danger',
+          onClickCallback: () => {
+            const success = VTT_API.deleteObject(objectId);
+            if (success) {
+              populateObjectInspector(null);
+              VTT_API.showMessage(`Object "${objectName}" deleted.`, 'info');
+            } else {
+              VTT_API.showMessage(`Failed to delete object "${objectName}". It might have been already deleted.`, 'error');
+            }
+            // hideModal() is called by default unless preventHide is true
+          },
+        },
+      ]
+    );
+  } else {
+    VTT_API.showMessage('No object selected to delete.', 'warning');
+  }
+};
+
+
+export const displayCreateObjectModal = () => { // createCallback parameter removed
   const modalContentHtml = `
     <style>
       .modal-label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #E2E8F0; }
@@ -615,8 +656,14 @@ export const displayCreateObjectModal = (createCallback) => {
             backgroundColor: document.getElementById('create-obj-bgcolor').value,
           },
         };
-        if (createCallback) {
-          createCallback(shape, props);
+        // Directly call VTT_API.createObject
+        const newObject = VTT_API.createObject(shape, props);
+        if (newObject) {
+          VTT_API.showMessage(`Object "${newObject.name || newObject.id}" created.`, 'success');
+          // Optionally, select the new object or update UI further
+          // populateObjectInspector(newObject); // This would show it in the inspector
+        } else {
+          VTT_API.showMessage('Failed to create object.', 'error');
         }
         // hideModal() is called by default by showModal's button handler
       },
@@ -630,6 +677,84 @@ export const displayCreateObjectModal = (createCallback) => {
 
   showModal('Create New Object', modalContentHtml, buttonsArray);
 };
+
+// --- New Handler Functions for Background and Image Files ---
+
+const handleSetBackgroundFromToolbar = () => {
+  let { backgroundUrl, backgroundColor } = getToolbarValues(); // Use let for backgroundUrl
+
+  // If the input field shows "Local file: ...", it means a local file was already loaded.
+  // Pressing "Set Background" with this text should not try to load it as a URL.
+  // Clear the input and use color if it's a placeholder.
+  if (backgroundUrl.startsWith('Local file:')) {
+    setBackgroundUrlInputText(''); // Clear the placeholder text
+    backgroundUrl = ''; // Treat as empty for logic below
+  }
+
+  if (backgroundUrl) { // This will now be true only for actual URLs
+    VTT_API.setTableBackground({
+      type: 'image',
+      value: backgroundUrl,
+    });
+    VTT_API.showMessage(`Background image set from URL: ${backgroundUrl}`, 'success');
+  } else {
+    VTT_API.setTableBackground({
+      type: 'color',
+      value: backgroundColor,
+    });
+    VTT_API.showMessage(`Background color set to: ${backgroundColor}`, 'success');
+  }
+  // VTT_API.setTableBackground itself will trigger redraw via event
+};
+
+const handleBackgroundImageFileChange = (event) => {
+  const file = event.target.files[0];
+  if (file) {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const dataURL = e.target.result;
+      VTT_API.setTableBackground({
+        type: 'image',
+        value: dataURL,
+      });
+      setBackgroundUrlInputText(`Local file: ${file.name}`);
+      VTT_API.showMessage(`Background image set to: ${file.name}`, 'success');
+    };
+    reader.onerror = (e) => {
+      console.error('Error reading file for background:', e);
+      VTT_API.showMessage('Failed to load background image from file.', 'error');
+      // Optionally use showModal for a more prominent error
+      // showModal('File Read Error', 'Could not read the selected file for the background image.');
+    };
+    reader.readAsDataURL(file);
+  }
+};
+
+const handleObjectImageFileChange = (event) => {
+  const file = event.target.files[0];
+  if (!file) {
+    return; // No file selected
+  }
+
+  if (!file.type.startsWith('image/')) {
+    VTT_API.showMessage('Please select an image file for the object.', 'error');
+    return;
+  }
+
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    const dataURL = e.target.result;
+    setObjectImageUrlText(dataURL); // Existing ui.js function to update inspector field
+    VTT_API.showMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
+  };
+  reader.onerror = () => {
+    VTT_API.showMessage('Error reading object image file.', 'error');
+    console.error('Error reading object image file:', reader.error);
+  };
+  reader.readAsDataURL(file);
+};
+
+// --- Existing Exported Functions ---
 
 export const getToolbarValues = () => {
   if (!domElements.backgroundUrlInput) cacheDOMElements();
