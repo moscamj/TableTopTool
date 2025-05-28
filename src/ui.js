@@ -62,6 +62,15 @@ const domElements = {
   backgroundImageFileInput: null, // Added for background image selection
   chooseObjectImageButton: null, // Added for "Choose Local Image" button for object
   objectImageFileInput: null, // Added for object image selection
+
+  // Board Setup Tools
+  boardWidthInput: null,
+  boardHeightInput: null,
+  boardDimensionUnitInput: null, // Added for the new selector
+  boardScaleInput: null,
+  boardScaleUnitInput: null,
+  effectiveBoardSizeDisplay: null,
+  applyBoardPropertiesButton: null,
 };
 
 /**
@@ -197,11 +206,101 @@ const cacheDOMElements = () => {
   if (domElements.userIdDisplay && domElements.userIdDisplay.parentElement) {
     domElements.userIdDisplay.parentElement.style.display = 'none';
   }
+
+  // Cache new board setup elements
+  domElements.boardWidthInput = document.getElementById('board-width-input');
+  domElements.boardHeightInput = document.getElementById('board-height-input');
+  domElements.boardDimensionUnitInput = document.getElementById('board-dimension-unit-input'); // Added
+  domElements.boardScaleInput = document.getElementById('board-scale-input');
+  domElements.boardScaleUnitInput = document.getElementById('board-scale-unit-input');
+  domElements.effectiveBoardSizeDisplay = document.getElementById('effective-board-size-display');
+  domElements.applyBoardPropertiesButton = document.getElementById('apply-board-properties-button');
+
+  // Populate board setup fields on load
+  try {
+    const initialBoardProps = VTT_API.getBoardProperties(); // VTT_API should be imported at the top of ui.js
+    if (initialBoardProps) {
+      // Call a function to update the display (defined next)
+      updateBoardSettingsDisplay(initialBoardProps);
+    }
+  } catch (e) {
+    console.error("Error fetching initial board properties for UI:", e);
+  }
 }
 
 // Call cacheDOMElements when the DOM is ready
 document.addEventListener('DOMContentLoaded', cacheDOMElements);
 
+// --- Board Settings Display and Handling ---
+const updateBoardSettingsDisplay = (boardProps) => {
+  if (!boardProps) return;
+  if (domElements.boardWidthInput) domElements.boardWidthInput.value = boardProps.widthUser ?? '';
+  if (domElements.boardHeightInput) domElements.boardHeightInput.value = boardProps.heightUser ?? '';
+  if (domElements.boardDimensionUnitInput) domElements.boardDimensionUnitInput.value = boardProps.unitForDimensions ?? 'in';
+  if (domElements.boardScaleInput) domElements.boardScaleInput.value = boardProps.scaleRatio ?? 1;
+  if (domElements.boardScaleUnitInput) domElements.boardScaleUnitInput.value = boardProps.unitForRatio ?? 'mm'; 
+  
+  if (domElements.effectiveBoardSizeDisplay) {
+    if (boardProps.widthPx && boardProps.heightPx) {
+      domElements.effectiveBoardSizeDisplay.textContent = `${Math.round(boardProps.widthPx)}px by ${Math.round(boardProps.heightPx)}px (mm)`;
+    } else {
+      domElements.effectiveBoardSizeDisplay.textContent = 'N/A';
+    }
+  }
+};
+
+const handleApplyBoardProperties = () => {
+  if (!domElements.boardWidthInput || 
+      !domElements.boardHeightInput || 
+      !domElements.boardDimensionUnitInput || // Added check
+      !domElements.boardScaleUnitInput || 
+      !domElements.boardScaleInput) {
+    VTT_API.showMessage('Board property input elements not found in DOM.', 'error');
+    return;
+  }
+
+  const width = parseFloat(domElements.boardWidthInput.value);
+  const height = parseFloat(domElements.boardHeightInput.value);
+  const dimensionUnit = domElements.boardDimensionUnitInput.value; // Read from new dimension unit selector
+  const scaleRatio = parseFloat(domElements.boardScaleInput.value);
+  const scaleRatioUnit = domElements.boardScaleUnitInput.value; // Read from map scale unit selector
+
+  if (isNaN(width) || width <= 0 || isNaN(height) || height <= 0) {
+    VTT_API.showMessage('Board width and height must be positive numbers.', 'error');
+    return;
+  }
+  // Validation for scaleRatio (allowing 0 if explicitly typed, but not negative or typical NaN)
+  if (isNaN(scaleRatio) || scaleRatio < 0) {
+    if (scaleRatio === 0 && domElements.boardScaleInput.value !== "0") {
+         VTT_API.showMessage('Scale ratio must be a positive number or zero.', 'error'); // Allow 0
+         return;
+    } else if (scaleRatio < 0) {
+         VTT_API.showMessage('Scale ratio cannot be negative.', 'error');
+         return;
+    }
+    if (isNaN(scaleRatio)) { 
+        VTT_API.showMessage('Scale ratio must be a valid number.', 'error');
+        return;
+    }
+  }
+  
+  const currentProps = VTT_API.setBoardProperties({ 
+    width, 
+    height, 
+    dimensionUnit, 
+    scaleRatio, 
+    scaleRatioUnit 
+  });
+
+  if (currentProps) {
+    updateBoardSettingsDisplay(currentProps);
+    VTT_API.showMessage('Board properties applied.', 'success');
+  } else {
+    VTT_API.showMessage('Failed to apply board properties through API.', 'error');
+  }
+};
+
+// --- Main UI Event Listener Setup ---
 export const initUIEventListeners = (callbacks) => {
   // Destructure callback functions passed from main.js for easier reference.
   const {
@@ -323,6 +422,13 @@ export const initUIEventListeners = (callbacks) => {
     domElements.objectImageFileInput.addEventListener('change', handleObjectImageFileChange);
   } else {
     console.error('[ui.js] objectImageFileInput element not found. Cannot attach change listener.');
+  }
+
+  // Board Setup Apply Button
+  if (domElements.applyBoardPropertiesButton) {
+    domElements.applyBoardPropertiesButton.addEventListener('click', handleApplyBoardProperties);
+  } else {
+    console.error('[ui.js] applyBoardPropertiesButton not found in DOM, cannot attach listener.');
   }
 };
 

@@ -41,6 +41,68 @@
                 <input type="color" id="background-color-input" value="#cccccc" class="w-full h-8 px-1 py-1 bg-gray-600 border border-gray-500 rounded mb-2">
                 <button id="set-background-button" class="w-full px-3 py-2 text-sm bg-teal-500 hover:bg-teal-600 rounded">Set Background</button>
             </div>
+            <!-- Board Dimensions and Scale Section -->
+            <div class="mt-4 p-2 bg-gray-700 rounded-md">
+                <h4 class="text-md font-semibold mb-2 text-gray-200">Board Setup</h4>
+
+                <!-- Board Width -->
+                <div class="mb-2">
+                    <label for="board-width-input" class="block text-sm font-medium text-gray-300">Board Width:</label>
+                    <input type="number" id="board-width-input" name="board-width-input" value="36" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
+                </div>
+
+                <!-- Board Height -->
+                <div class="mb-2">
+                    <label for="board-height-input" class="block text-sm font-medium text-gray-300">Board Height:</label>
+                    <input type="number" id="board-height-input" name="board-height-input" value="24" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
+                </div>
+
+                <!-- Unit for Board Dimensions -->
+                <div class="mb-2">
+                    <label for="board-dimension-unit-input" class="block text-sm font-medium text-gray-300">Unit for Board Dimensions:</label>
+                    <select id="board-dimension-unit-input" name="board-dimension-unit-input" class="mt-1 block w-full p-1 bg-gray-600 border border-gray-500 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
+                        <option value="in" selected>inches</option>
+                        <option value="ft">feet</option>
+                        <option value="m">meters</option>
+                        <option value="cm">cm</option>
+                        <option value="mm">mm</option>
+                    </select>
+                </div>
+
+                <p class="mt-2 text-xs text-gray-400">Internal base unit: 1 pixel represents 1mm on the map.</p>
+                
+                <details class="mt-2 bg-gray-600 p-2 rounded-md">
+                    <summary class="text-sm font-medium text-gray-300 cursor-pointer hover:text-white">Map Measurement Scale (Optional)</summary>
+                    <p class="text-xs text-gray-400 mt-1 mb-2">Define how drawn map units translate to game-world distances (e.g., for measurement tools). This does not change the board's visual size.</p>
+                    
+                    <!-- Board Scale Value -->
+                    <div class="mb-2 mt-2">
+                        <label for="board-scale-input" class="block text-sm font-medium text-gray-300">1 Map Unit = X of Selected Unit:</label>
+                        <input type="number" id="board-scale-input" name="board-scale-input" value="1" class="mt-1 block w-full p-1 bg-gray-500 border border-gray-400 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm" title="e.g., if map is 1 inch = 5 feet, enter 5 if 'feet' is selected below. If 1:1, enter 1.">
+                    </div>
+
+                    <!-- Board Scale Unit -->
+                    <div class="mb-2">
+                        <label for="board-scale-unit-input" class="block text-sm font-medium text-gray-300">Unit for Measurement Scale:</label>
+                        <select id="board-scale-unit-input" name="board-scale-unit-input" class="mt-1 block w-full p-1 bg-gray-500 border border-gray-400 rounded-md text-white shadow-sm focus:border-indigo-500 focus:ring focus:ring-indigo-500 focus:ring-opacity-50 text-sm">
+                            <option value="in">inches (e.g., 1 map unit = X inches)</option>
+                            <option value="ft">feet (e.g., 1 map unit = X feet)</option>
+                            <option value="m">meters (e.g., 1 map unit = X meters)</option>
+                            <option value="cm">cm (e.g., 1 map unit = X cm)</option>
+                            <option value="mm" selected>mm (e.g., 1 map unit = X mm)</option>
+                        </select>
+                    </div>
+                </details>
+                
+                <!-- Effective Size Display (Optional, can be populated by JS) -->
+                <div class="mb-2 mt-2">
+                    <p class="text-sm text-gray-400">Effective Board Size (pixels): <span id="effective-board-size-display">N/A</span></p>
+                </div>
+
+                <button id="apply-board-properties-button" class="w-full mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-md shadow-sm text-sm">
+                    Apply Board Properties
+                </button>
+            </div>
         </aside>
 
         <!-- Canvas Container -->

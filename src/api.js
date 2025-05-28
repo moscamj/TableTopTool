@@ -1,7 +1,7 @@
 // src/api.js
 import * as objects from './objects.js';
 import * as ui from './ui.js'; // Optional: for displaying logs as UI messages
-import { setTableBackground } from './canvas.js';
+import { setTableBackground, updateBoardProperties, getBoardProperties } from './canvas.js';
 
 /**
  * Dispatches a custom event to signal that a redraw is needed.
@@ -102,6 +102,17 @@ export const VTT_API = {
 
   showMessage: (text, type, duration) => {
     ui.displayMessage(text, type, duration);
+  },
+
+  setBoardProperties: (properties) => {
+    // properties is an object e.g., { width: 36, height: 24, unit: 'in', scaleRatio: 1 }
+    const currentBoardProps = updateBoardProperties(properties);
+    // updateBoardProperties in canvas.js handles triggering redraw.
+    return currentBoardProps; // Return the confirmed, possibly recalculated, properties.
+  },
+
+  getBoardProperties: () => {
+    return getBoardProperties();
   },
 
   // getSelectedObjects: (contextObject) => { /* ... */ },
