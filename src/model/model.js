@@ -1,9 +1,9 @@
 // src/model.js
-import log from 'loglevel';
-import debug from 'debug';
+import log from "loglevel";
+import debug from "debug";
 
-const dModel = debug('app:model');
-dModel('model.js module loaded');
+const dModel = debug("app:model");
+dModel("model.js module loaded");
 
 /**
  * Dispatches a 'modelChanged' custom event with the given detail.
@@ -12,22 +12,20 @@ dModel('model.js module loaded');
  */
 const dispatchModelChangeEvent = (detail) => {
         // Ensure 'document' is available (might not be in pure Node.js test environments without JSDOM)
-        if (typeof document !== 'undefined' && document.dispatchEvent) {
+        if (typeof document !== "undefined" && document.dispatchEvent) {
                 dModel(
-                        'Dispatching modelChanged event: Type - %s, Payload: %o',
+                        "Dispatching modelChanged event: Type - %s, Payload: %o",
                         detail.type,
-                        detail.payload
+                        detail.payload,
                 );
-                document.dispatchEvent(
-                        new CustomEvent('modelChanged', { detail })
-                );
+                document.dispatchEvent(new CustomEvent("modelChanged", { detail }));
         } else {
                 log.warn(
-                        'Cannot dispatch modelChanged event: `document` is not available.'
+                        "Cannot dispatch modelChanged event: `document` is not available.",
                 );
                 dModel(
-                        'Cannot dispatch modelChanged event: `document` is not available. Detail: %o',
-                        detail
+                        "Cannot dispatch modelChanged event: `document` is not available. Detail: %o",
+                        detail,
                 );
         }
 };
@@ -43,9 +41,9 @@ function objectsAreEqual(obj1, obj2) {
         if (obj1 === obj2) return true;
         if (
                 obj1 == null ||
-                obj2 == null ||
-                typeof obj1 !== 'object' ||
-                typeof obj2 !== 'object'
+    obj2 == null ||
+    typeof obj1 !== "object" ||
+    typeof obj2 !== "object"
         ) {
                 return false;
         }
@@ -116,11 +114,11 @@ const generateUUID = () => {
         // Standard RFC4122 version 4 compliant UUID generator.
         // 'x' characters are replaced with random hexadecimal digits.
         // 'y' characters are replaced with '8', '9', 'a', or 'b' (to satisfy version 4 requirements).
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
                 let r = (Math.random() * 16) | 0; // Generate a random number between 0 and 15.
                 // For 'y', ensure the bits are 10xx (as per RFC4122 section 4.4).
                 // For 'x', use the random number directly.
-                let v = c === 'x' ? r : (r & 0x3) | 0x8;
+                let v = c === "x" ? r : (r & 0x3) | 0x8;
                 return v.toString(16); // Convert to hexadecimal.
         });
 };
@@ -135,36 +133,33 @@ const generateUUID = () => {
 export const createObject = (shapeArgument, initialProps = {}) => {
         // Renamed 'shape' to 'shapeArgument'
         dModel(
-                'createObject called with shapeArgument: %s, initialProps: %o',
+                "createObject called with shapeArgument: %s, initialProps: %o",
                 shapeArgument,
-                initialProps
+                initialProps,
         );
         // Determine ID: Use ID from initialProps if available, otherwise generate a new one.
         const idToUse = initialProps.id || generateUUID();
-        dModel('Using ID for new object: %s', idToUse);
+        dModel("Using ID for new object: %s", idToUse);
 
         // Determine Shape: Use shape from initialProps if available, otherwise use shapeArgument.
         const shapeToUse = initialProps.shape || shapeArgument;
 
         const defaults = {
-                type:
-                        shapeToUse === 'rectangle'
-                                ? 'generic-rectangle'
-                                : 'generic-circle', // Use shapeToUse
+                type: shapeToUse === "rectangle" ? "generic-rectangle" : "generic-circle", // Use shapeToUse
                 x: 50,
                 y: 50,
                 zIndex: 0,
-                width: shapeToUse === 'rectangle' ? 100 : 50, // Corrected: Use shapeToUse
-                height: shapeToUse === 'rectangle' ? 100 : 50, // Default height, use shapeToUse
+                width: shapeToUse === "rectangle" ? 100 : 50, // Corrected: Use shapeToUse
+                height: shapeToUse === "rectangle" ? 100 : 50, // Default height, use shapeToUse
                 rotation: 0,
                 // shape is set below using shapeToUse
                 appearance: {
-                        backgroundColor: '#CCCCCC', // Default appearance
-                        borderColor: '#333333',
+                        backgroundColor: "#CCCCCC", // Default appearance
+                        borderColor: "#333333",
                         borderWidth: 1,
-                        textColor: '#000000',
-                        text: '', // Default label text is empty
-                        fontFamily: 'Arial',
+                        textColor: "#000000",
+                        text: "", // Default label text is empty
+                        fontFamily: "Arial",
                         fontSize: 14,
                         showLabel: false, // Default to not showing the label
                 },
@@ -198,16 +193,16 @@ export const createObject = (shapeArgument, initialProps = {}) => {
 
         currentObjects.set(idToUse, newObject);
         dModel(
-                'New object added to currentObjects map. ID: %s, Object: %o',
+                "New object added to currentObjects map. ID: %s, Object: %o",
                 idToUse,
-                newObject
+                newObject,
         );
         dispatchModelChangeEvent({
-                type: 'objectAdded',
+                type: "objectAdded",
                 payload: { ...newObject },
         }); // Dispatch event
         // console.log(`Object created/loaded: ${idToUse}`, newObject); // Removed for cleaner logs
-        dModel('createObject returning copy: %o', newObject);
+        dModel("createObject returning copy: %o", newObject);
         return { ...newObject }; // Return a copy
 };
 
@@ -221,18 +216,18 @@ export const createObject = (shapeArgument, initialProps = {}) => {
  */
 export const updateObject = (objectId, updatedProps) => {
         dModel(
-                'updateObject called for id: %s, updatedProps: %o',
+                "updateObject called for id: %s, updatedProps: %o",
                 objectId,
-                updatedProps
+                updatedProps,
         );
         if (!currentObjects.has(objectId)) {
                 log.warn(`Object with ID ${objectId} not found for update.`);
-                dModel('updateObject failed: Object %s not found', objectId);
+                dModel("updateObject failed: Object %s not found", objectId);
                 return null;
         }
 
         const existingObject = currentObjects.get(objectId);
-        dModel('Existing object state for %s: %o', objectId, existingObject);
+        dModel("Existing object state for %s: %o", objectId, existingObject);
 
         // Perform the deep merge to create the potential new state
         const newObjectState = {
@@ -258,31 +253,31 @@ export const updateObject = (objectId, updatedProps) => {
         if (!objectsAreEqual(existingObject, newObjectState)) {
                 currentObjects.set(objectId, newObjectState);
                 dModel(
-                        'Object %s updated in currentObjects map. New state: %o',
+                        "Object %s updated in currentObjects map. New state: %o",
                         objectId,
-                        newObjectState
+                        newObjectState,
                 );
                 log.info(
-                        `Object [${objectId}] updated. Name: '${newObjectState.name || 'N/A'}'`,
-                        newObjectState
+                        `Object [${objectId}] updated. Name: '${newObjectState.name || "N/A"}'`,
+                        newObjectState,
                 );
                 dispatchModelChangeEvent({
-                        type: 'objectUpdated',
+                        type: "objectUpdated",
                         payload: { ...newObjectState },
                 });
                 // console.log(`Object updated: ${objectId}`, newObjectState); // Removed for cleaner logs
         } else {
                 dModel(
-                        'Object update for %s resulted in no changes. Not dispatching event.',
-                        objectId
+                        "Object update for %s resulted in no changes. Not dispatching event.",
+                        objectId,
                 );
                 // Optional: Log that no change occurred, for debugging, or do nothing.
                 // console.log(`Object update for ${objectId} resulted in no changes.`);
         }
         dModel(
-                'updateObject returning (potentially unchanged) state for %s: %o',
+                "updateObject returning (potentially unchanged) state for %s: %o",
                 objectId,
-                newObjectState
+                newObjectState,
         );
         return { ...newObjectState }; // Always return the (potentially unchanged) new state as a copy
 };
@@ -294,32 +289,26 @@ export const updateObject = (objectId, updatedProps) => {
  * @returns {boolean} True if the object was found and deleted, false otherwise.
  */
 export const deleteObject = (objectId) => {
-        dModel('deleteObject called for id: %s', objectId);
+        dModel("deleteObject called for id: %s", objectId);
         if (currentObjects.has(objectId)) {
                 const deleted = currentObjects.delete(objectId);
                 // console.log(`Object deleted: ${objectId}`); // Removed for cleaner logs
                 if (deleted) {
-                        dModel(
-                                'Object %s deleted from currentObjects map.',
-                                objectId
-                        );
+                        dModel("Object %s deleted from currentObjects map.", objectId);
                         dispatchModelChangeEvent({
-                                type: 'objectDeleted',
+                                type: "objectDeleted",
                                 payload: { id: objectId },
                         });
                 } else {
                         dModel(
-                                'Object %s was in map, but delete operation returned false.',
-                                objectId
+                                "Object %s was in map, but delete operation returned false.",
+                                objectId,
                         );
                 }
                 return deleted;
         }
         log.warn(`Object with ID ${objectId} not found for deletion.`);
-        dModel(
-                'deleteObject failed: Object %s not found for deletion.',
-                objectId
-        );
+        dModel("deleteObject failed: Object %s not found for deletion.", objectId);
         return false;
 };
 
@@ -329,13 +318,13 @@ export const deleteObject = (objectId) => {
  * @returns {VTTObject | undefined} A copy of the object if found, otherwise undefined.
  */
 export const getObject = (objectId) => {
-        dModel('getObject called for id: %s', objectId);
+        dModel("getObject called for id: %s", objectId);
         if (!currentObjects.has(objectId)) {
-                dModel('getObject: Object %s not found.', objectId);
+                dModel("getObject: Object %s not found.", objectId);
                 return undefined;
         }
         const obj = currentObjects.get(objectId);
-        dModel('getObject returning copy for %s: %o', objectId, obj);
+        dModel("getObject returning copy for %s: %o", objectId, obj);
         return { ...obj };
 };
 
@@ -344,11 +333,11 @@ export const getObject = (objectId) => {
  * @returns {VTTObject[]} An array of VTTObject copies.
  */
 export const getAllObjects = () => {
-        dModel('getAllObjects called');
+        dModel("getAllObjects called");
         const allObjects = Array.from(currentObjects.values()).map((obj) => ({
                 ...obj,
         }));
-        dModel('getAllObjects returning %d objects.', allObjects.length);
+        dModel("getAllObjects returning %d objects.", allObjects.length);
         return allObjects;
 };
 
@@ -357,11 +346,11 @@ export const getAllObjects = () => {
  * Dispatches a 'modelChanged' event of type 'allObjectsCleared'.
  */
 export const clearAllObjects = () => {
-        dModel('clearAllObjects called');
+        dModel("clearAllObjects called");
         currentObjects.clear();
-        dModel('currentObjects map cleared.');
+        dModel("currentObjects map cleared.");
         // console.log('All local objects cleared.'); // Removed for cleaner logs
-        dispatchModelChangeEvent({ type: 'allObjectsCleared', payload: null });
+        dispatchModelChangeEvent({ type: "allObjectsCleared", payload: null });
 };
 
 // --- Board State Management ---
@@ -383,7 +372,7 @@ export const MM_PER_UNIT = {
 let panZoomState = { panX: 0, panY: 0, zoom: 1.0 };
 
 /** @type {{type: 'color' | 'image', value: string}} Current table background configuration. */
-let tableBackground = { type: 'color', value: '#cccccc' }; // Default background
+let tableBackground = { type: "color", value: "#cccccc" }; // Default background
 
 /** @type {string | null} ID of the currently selected object, or null if no object is selected. */
 let selectedObjectId = null;
@@ -397,9 +386,9 @@ let selectedObjectId = null;
 let boardPhysical = {
         widthUser: 36, // User-defined width (e.g., 36 inches)
         heightUser: 24, // User-defined height (e.g., 24 inches)
-        unitForDimensions: 'in', // Unit for user-defined dimensions
-        widthPx: 36 * MM_PER_UNIT['in'], // Calculated width in mm (pixels)
-        heightPx: 24 * MM_PER_UNIT['in'], // Calculated height in mm (pixels)
+        unitForDimensions: "in", // Unit for user-defined dimensions
+        widthPx: 36 * MM_PER_UNIT["in"], // Calculated width in mm (pixels)
+        heightPx: 24 * MM_PER_UNIT["in"], // Calculated height in mm (pixels)
 };
 
 /**
@@ -410,7 +399,7 @@ let boardPhysical = {
  */
 let mapInterpretationScale = {
         ratio: 1, // Default scale ratio (e.g., 1 if 1px = 1mm on the map)
-        unitForRatio: 'mm', // Unit that the ratio applies to (e.g., 'mm', 'ft')
+        unitForRatio: "mm", // Unit that the ratio applies to (e.g., 'mm', 'ft')
 };
 
 // Getters
@@ -419,7 +408,7 @@ let mapInterpretationScale = {
  * @returns {{panX: number, panY: number, zoom: number}} The current pan and zoom state.
  */
 export const getPanZoomState = () => {
-        dModel('getPanZoomState called, returning: %o', panZoomState);
+        dModel("getPanZoomState called, returning: %o", panZoomState);
         return { ...panZoomState };
 };
 
@@ -428,7 +417,7 @@ export const getPanZoomState = () => {
  * @returns {{type: 'color' | 'image', value: string}} The current background configuration.
  */
 export const getTableBackground = () => {
-        dModel('getTableBackground called, returning: %o', tableBackground);
+        dModel("getTableBackground called, returning: %o", tableBackground);
         return { ...tableBackground };
 };
 
@@ -437,7 +426,7 @@ export const getTableBackground = () => {
  * @returns {string | null} The ID of the selected object, or null if no object is selected.
  */
 export const getSelectedObjectId = () => {
-        dModel('getSelectedObjectId called, returning: %s', selectedObjectId);
+        dModel("getSelectedObjectId called, returning: %s", selectedObjectId);
         return selectedObjectId;
 };
 
@@ -467,25 +456,17 @@ export const getBoardProperties = () => {
  * @param {{panX?: number, panY?: number, zoom?: number}} newState - An object containing new panX, panY, or zoom values.
  */
 export const setPanZoomState = (newState) => {
-        dModel('setPanZoomState called with newState: %o', newState);
+        dModel("setPanZoomState called with newState: %o", newState);
         const { panX: newPanX, panY: newPanY, zoom: newZoom } = newState;
         let changed = false;
 
         if (newPanX !== undefined && newPanX !== panZoomState.panX) {
-                dModel(
-                        'panX changed from %d to %d',
-                        panZoomState.panX,
-                        newPanX
-                );
+                dModel("panX changed from %d to %d", panZoomState.panX, newPanX);
                 panZoomState.panX = newPanX;
                 changed = true;
         }
         if (newPanY !== undefined && newPanY !== panZoomState.panY) {
-                dModel(
-                        'panY changed from %d to %d',
-                        panZoomState.panY,
-                        newPanY
-                );
+                dModel("panY changed from %d to %d", panZoomState.panY, newPanY);
                 panZoomState.panY = newPanY;
                 changed = true;
         }
@@ -494,33 +475,33 @@ export const setPanZoomState = (newState) => {
                 const clampedZoom = Math.max(0.1, Math.min(newZoom, 10));
                 if (clampedZoom !== panZoomState.zoom) {
                         dModel(
-                                'zoom changed from %f to %f (clamped from %f)',
+                                "zoom changed from %f to %f (clamped from %f)",
                                 panZoomState.zoom,
                                 clampedZoom,
-                                newZoom
+                                newZoom,
                         );
                         panZoomState.zoom = clampedZoom;
                         changed = true;
                 } else {
                         dModel(
-                                'zoom change from %f to %f ignored due to clamping resulting in same value.',
+                                "zoom change from %f to %f ignored due to clamping resulting in same value.",
                                 panZoomState.zoom,
-                                newZoom
+                                newZoom,
                         );
                 }
         }
 
         if (changed) {
                 dModel(
-                        'PanZoom state changed, dispatching event. New state: %o',
-                        panZoomState
+                        "PanZoom state changed, dispatching event. New state: %o",
+                        panZoomState,
                 );
                 dispatchModelChangeEvent({
-                        type: 'panZoomChanged',
+                        type: "panZoomChanged",
                         payload: { ...panZoomState },
                 });
         } else {
-                dModel('PanZoom state did not change.');
+                dModel("PanZoom state did not change.");
         }
 };
 
@@ -530,24 +511,21 @@ export const setPanZoomState = (newState) => {
  * @param {{type: 'color' | 'image', value: string}} newBackground - The new background configuration object.
  */
 export const setTableBackground = (newBackground) => {
-        dModel(
-                'setTableBackground called with newBackground: %o',
-                newBackground
-        );
-        if (newBackground && typeof newBackground === 'object') {
+        dModel("setTableBackground called with newBackground: %o", newBackground);
+        if (newBackground && typeof newBackground === "object") {
                 const { type: newType, value: newValue } = newBackground;
                 let changed = false;
 
                 if (
                         tableBackground.type !== newType ||
-                        tableBackground.value !== newValue
+      tableBackground.value !== newValue
                 ) {
                         dModel(
                                 'Table background changed from type %s, value "%s" to type %s, value "%s"',
                                 tableBackground.type,
                                 tableBackground.value,
                                 newType,
-                                newValue
+                                newValue,
                         );
                         tableBackground.type = newType;
                         tableBackground.value = newValue;
@@ -556,20 +534,18 @@ export const setTableBackground = (newBackground) => {
 
                 if (changed) {
                         dModel(
-                                'Table background changed, dispatching event. New background: %o',
-                                tableBackground
+                                "Table background changed, dispatching event. New background: %o",
+                                tableBackground,
                         );
                         dispatchModelChangeEvent({
-                                type: 'backgroundChanged',
+                                type: "backgroundChanged",
                                 payload: { ...tableBackground },
                         });
                 } else {
-                        dModel('Table background did not change.');
+                        dModel("Table background did not change.");
                 }
         } else {
-                dModel(
-                        'setTableBackground: newBackground is invalid or not an object.'
-                );
+                dModel("setTableBackground: newBackground is invalid or not an object.");
         }
 };
 
@@ -579,20 +555,16 @@ export const setTableBackground = (newBackground) => {
  * @param {string | null} id - The ID of the object to select, or null to deselect.
  */
 export const setSelectedObjectId = (id) => {
-        dModel('setSelectedObjectId called with id: %s', id);
+        dModel("setSelectedObjectId called with id: %s", id);
         if (selectedObjectId !== id) {
-                dModel(
-                        'Selected object ID changed from %s to %s',
-                        selectedObjectId,
-                        id
-                );
+                dModel("Selected object ID changed from %s to %s", selectedObjectId, id);
                 selectedObjectId = id;
                 dispatchModelChangeEvent({
-                        type: 'selectionChanged',
+                        type: "selectionChanged",
                         payload: selectedObjectId,
                 });
         } else {
-                dModel('Selected object ID did not change (%s).', id);
+                dModel("Selected object ID did not change (%s).", id);
         }
 };
 
@@ -610,52 +582,52 @@ export const setSelectedObjectId = (id) => {
  * @returns {object} The consolidated current board properties after the update.
  */
 export const updateBoardProperties = (newProps) => {
-        dModel('updateBoardProperties called with newProps: %o', newProps);
+        dModel("updateBoardProperties called with newProps: %o", newProps);
         let anyPropertyChanged = false;
 
         // Store old pixel values for comparison later
         const oldWidthPx = boardPhysical.widthPx;
         const oldHeightPx = boardPhysical.heightPx;
         dModel(
-                'Old board pixel dimensions: widthPx=%f, heightPx=%f',
+                "Old board pixel dimensions: widthPx=%f, heightPx=%f",
                 oldWidthPx,
-                oldHeightPx
+                oldHeightPx,
         );
 
         // Update physical board dimensions and their unit
         const newWidthUser =
-                newProps.widthUser !== undefined
-                        ? parseFloat(newProps.widthUser)
-                        : boardPhysical.widthUser;
+    newProps.widthUser !== undefined
+            ? parseFloat(newProps.widthUser)
+            : boardPhysical.widthUser;
         // Ensure positive
         if (
                 !isNaN(newWidthUser) &&
-                boardPhysical.widthUser !== newWidthUser &&
-                newWidthUser > 0
+    boardPhysical.widthUser !== newWidthUser &&
+    newWidthUser > 0
         ) {
                 dModel(
-                        'boardPhysical.widthUser changed from %f to %f',
+                        "boardPhysical.widthUser changed from %f to %f",
                         boardPhysical.widthUser,
-                        newWidthUser
+                        newWidthUser,
                 );
                 boardPhysical.widthUser = newWidthUser;
                 anyPropertyChanged = true;
         }
 
         const newHeightUser =
-                newProps.heightUser !== undefined
-                        ? parseFloat(newProps.heightUser)
-                        : boardPhysical.heightUser;
+    newProps.heightUser !== undefined
+            ? parseFloat(newProps.heightUser)
+            : boardPhysical.heightUser;
         // Ensure positive
         if (
                 !isNaN(newHeightUser) &&
-                boardPhysical.heightUser !== newHeightUser &&
-                newHeightUser > 0
+    boardPhysical.heightUser !== newHeightUser &&
+    newHeightUser > 0
         ) {
                 dModel(
-                        'boardPhysical.heightUser changed from %f to %f',
+                        "boardPhysical.heightUser changed from %f to %f",
                         boardPhysical.heightUser,
-                        newHeightUser
+                        newHeightUser,
                 );
                 boardPhysical.heightUser = newHeightUser;
                 anyPropertyChanged = true;
@@ -663,13 +635,13 @@ export const updateBoardProperties = (newProps) => {
 
         if (
                 newProps.unitForDimensions &&
-                MM_PER_UNIT[newProps.unitForDimensions] &&
-                boardPhysical.unitForDimensions !== newProps.unitForDimensions
+    MM_PER_UNIT[newProps.unitForDimensions] &&
+    boardPhysical.unitForDimensions !== newProps.unitForDimensions
         ) {
                 dModel(
-                        'boardPhysical.unitForDimensions changed from %s to %s',
+                        "boardPhysical.unitForDimensions changed from %s to %s",
                         boardPhysical.unitForDimensions,
-                        newProps.unitForDimensions
+                        newProps.unitForDimensions,
                 );
                 boardPhysical.unitForDimensions = newProps.unitForDimensions;
                 anyPropertyChanged = true;
@@ -677,19 +649,19 @@ export const updateBoardProperties = (newProps) => {
 
         // Update map interpretation scale properties
         const newScaleRatio =
-                newProps.scaleRatio !== undefined
-                        ? parseFloat(newProps.scaleRatio)
-                        : mapInterpretationScale.ratio;
+    newProps.scaleRatio !== undefined
+            ? parseFloat(newProps.scaleRatio)
+            : mapInterpretationScale.ratio;
         // Allow scaleRatio = 0, but not negative.
         if (
                 !isNaN(newScaleRatio) &&
-                mapInterpretationScale.ratio !== newScaleRatio &&
-                newScaleRatio >= 0
+    mapInterpretationScale.ratio !== newScaleRatio &&
+    newScaleRatio >= 0
         ) {
                 dModel(
-                        'mapInterpretationScale.ratio changed from %f to %f',
+                        "mapInterpretationScale.ratio changed from %f to %f",
                         mapInterpretationScale.ratio,
-                        newScaleRatio
+                        newScaleRatio,
                 );
                 mapInterpretationScale.ratio = newScaleRatio;
                 anyPropertyChanged = true;
@@ -697,13 +669,13 @@ export const updateBoardProperties = (newProps) => {
 
         if (
                 newProps.unitForRatio &&
-                MM_PER_UNIT[newProps.unitForRatio] &&
-                mapInterpretationScale.unitForRatio !== newProps.unitForRatio
+    MM_PER_UNIT[newProps.unitForRatio] &&
+    mapInterpretationScale.unitForRatio !== newProps.unitForRatio
         ) {
                 dModel(
-                        'mapInterpretationScale.unitForRatio changed from %s to %s',
+                        "mapInterpretationScale.unitForRatio changed from %s to %s",
                         mapInterpretationScale.unitForRatio,
-                        newProps.unitForRatio
+                        newProps.unitForRatio,
                 );
                 mapInterpretationScale.unitForRatio = newProps.unitForRatio;
                 anyPropertyChanged = true;
@@ -711,39 +683,36 @@ export const updateBoardProperties = (newProps) => {
 
         // Always recalculate pixel dimensions using the potentially updated user values and units
         const unitMultiplier =
-                MM_PER_UNIT[boardPhysical.unitForDimensions] ||
-                MM_PER_UNIT['in'];
+    MM_PER_UNIT[boardPhysical.unitForDimensions] || MM_PER_UNIT["in"];
         boardPhysical.widthPx = boardPhysical.widthUser * unitMultiplier;
         boardPhysical.heightPx = boardPhysical.heightUser * unitMultiplier;
         dModel(
-                'Recalculated board pixel dimensions: widthPx=%f, heightPx=%f (multiplier: %f)',
+                "Recalculated board pixel dimensions: widthPx=%f, heightPx=%f (multiplier: %f)",
                 boardPhysical.widthPx,
                 boardPhysical.heightPx,
-                unitMultiplier
+                unitMultiplier,
         );
 
         // Check if pixel dimensions actually changed
         const pixelDimensionsChanged =
-                boardPhysical.widthPx !== oldWidthPx ||
-                boardPhysical.heightPx !== oldHeightPx;
-        if (pixelDimensionsChanged) dModel('Pixel dimensions changed.');
+    boardPhysical.widthPx !== oldWidthPx ||
+    boardPhysical.heightPx !== oldHeightPx;
+        if (pixelDimensionsChanged) dModel("Pixel dimensions changed.");
 
         // Dispatch event if any user-facing property changed OR if pixel dimensions changed
         if (anyPropertyChanged || pixelDimensionsChanged) {
-                dModel(
-                        'Board properties or pixel dimensions changed, dispatching event.'
-                );
+                dModel("Board properties or pixel dimensions changed, dispatching event.");
                 dispatchModelChangeEvent({
-                        type: 'boardPropertiesChanged',
+                        type: "boardPropertiesChanged",
                         payload: getBoardProperties(),
                 });
         } else {
                 dModel(
-                        'No user-facing board properties or calculated pixel dimensions changed.'
+                        "No user-facing board properties or calculated pixel dimensions changed.",
                 );
         }
 
         const finalBoardProps = getBoardProperties();
-        dModel('updateBoardProperties returning: %o', finalBoardProps);
+        dModel("updateBoardProperties returning: %o", finalBoardProps);
         return finalBoardProps; // Return the current state
 };

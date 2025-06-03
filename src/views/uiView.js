@@ -5,16 +5,16 @@
  * and sets up event listeners for UI elements not handled by individual components (e.g., header buttons).
  * It primarily delegates actions to the UiViewModel.
  */
-import log from 'loglevel';
-import debug from 'debug';
-import * as inspectorView from './components/inspectorView.js';
-import * as boardSettingsView from './components/boardSettingsView.js';
-import * as toolbarView from './components/toolbarView.js';
-import * as modalView from './components/modalView.js';
-import * as messageAreaView from './components/messageAreaView.js';
+import log from "loglevel";
+import debug from "debug";
+import * as inspectorView from "./components/inspectorView.js";
+import * as boardSettingsView from "./components/boardSettingsView.js";
+import * as toolbarView from "./components/toolbarView.js";
+import * as modalView from "./components/modalView.js";
+import * as messageAreaView from "./components/messageAreaView.js";
 
 /** @type {UiViewModel | null} Instance of the UiViewModel. */
-const dUiView = debug('app:view:ui');
+const dUiView = debug("app:view:ui");
 
 /** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
@@ -57,76 +57,66 @@ const domElements = {
 };
 
 const cacheDOMElements = () => {
-        dUiView(
-                'cacheDOMElements called. domElementsCached: %s',
-                domElementsCached
-        );
+        dUiView("cacheDOMElements called. domElementsCached: %s", domElementsCached);
         if (domElementsCached) return;
         domElementsCached = true;
 
-        domElements.headerTitle = document.getElementById('header-title');
-        domElements.userIdDisplay = document.getElementById('user-id-display');
-        domElements.sessionIdDisplay =
-                document.getElementById('session-id-display');
-        domElements.sessionLoadInput =
-                document.getElementById('session-load-input');
+        domElements.headerTitle = document.getElementById("header-title");
+        domElements.userIdDisplay = document.getElementById("user-id-display");
+        domElements.sessionIdDisplay = document.getElementById("session-id-display");
+        domElements.sessionLoadInput = document.getElementById("session-load-input");
         domElements.sessionLoadButton = document.getElementById(
-                'session-load-button'
+                "session-load-button",
         );
         domElements.sessionSaveButton = document.getElementById(
-                'session-save-button'
+                "session-save-button",
         );
-        domElements.clearBoardButton =
-                document.getElementById('clear-board-button');
+        domElements.clearBoardButton = document.getElementById("clear-board-button");
         domElements.saveMemoryStateButton = document.getElementById(
-                'save-memory-state-button'
+                "save-memory-state-button",
         );
         domElements.loadMemoryStateButton = document.getElementById(
-                'load-memory-state-button'
+                "load-memory-state-button",
         );
 
-        domElements.toolsSidebar = document.getElementById('tools-sidebar');
+        domElements.toolsSidebar = document.getElementById("tools-sidebar");
         // Toolbar elements (createObjectButton, backgroundUrlInput, etc.) are cached in toolbarView.js
 
-        domElements.canvasContainer =
-                document.getElementById('canvas-container');
-        domElements.vttCanvas = document.getElementById('vtt-canvas');
+        domElements.canvasContainer = document.getElementById("canvas-container");
+        domElements.vttCanvas = document.getElementById("vtt-canvas");
 
         // Modal elements are cached in modalView.js
 
         // Message area is cached in messageAreaView.js
 
-        domElements.fileInput = document.createElement('input');
-        domElements.fileInput.type = 'file';
-        domElements.fileInput.accept = '.json,.ttt.json';
-        domElements.fileInput.style.display = 'none';
+        domElements.fileInput = document.createElement("input");
+        domElements.fileInput.type = "file";
+        domElements.fileInput.accept = ".json,.ttt.json";
+        domElements.fileInput.style.display = "none";
         document.body.appendChild(domElements.fileInput);
 
         // backgroundImageFileInput is created and managed by toolbarView.js now
 
         // Update button texts and visibility for offline mode (remains the same for these elements)
         if (domElements.sessionSaveButton)
-                domElements.sessionSaveButton.textContent = 'Save to File';
+                domElements.sessionSaveButton.textContent = "Save to File";
         if (domElements.sessionLoadButton)
-                domElements.sessionLoadButton.textContent = 'Load from File';
+                domElements.sessionLoadButton.textContent = "Load from File";
         if (domElements.sessionIdDisplay)
-                domElements.sessionIdDisplay.style.display = 'none';
+                domElements.sessionIdDisplay.style.display = "none";
         if (domElements.sessionLoadInput)
-                domElements.sessionLoadInput.style.display = 'none';
-        if (
-                domElements.userIdDisplay &&
-                domElements.userIdDisplay.parentElement
-        ) {
-                domElements.userIdDisplay.parentElement.style.display = 'none';
+                domElements.sessionLoadInput.style.display = "none";
+        if (domElements.userIdDisplay && domElements.userIdDisplay.parentElement) {
+                domElements.userIdDisplay.parentElement.style.display = "none";
         }
-        log.debug('[uiView.js] Main DOM elements cached.'); // log.debug is fine here, not overly verbose
-        dUiView('Main DOM elements cached: %o', domElements);
+        log.debug("[uiView.js] Main DOM elements cached."); // log.debug is fine here, not overly verbose
+        dUiView("Main DOM elements cached: %o", domElements);
 };
 
 // document.addEventListener('DOMContentLoaded', cacheDOMElements); // Ensured below that it's called.
 // Let's ensure cacheDOMElements is called if not already.
-if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', cacheDOMElements);
+if (document.readyState === "loading") {
+        document.addEventListener("DOMContentLoaded", cacheDOMElements);
 } else {
         cacheDOMElements();
 }
@@ -138,43 +128,39 @@ if (document.readyState === 'loading') {
  * @param {object} vttApi - The VTT_API instance.
  */
 export const init = (uiViewModel, vttApi) => {
-        dUiView(
-                'init called with uiViewModel: %o, vttApi: %o',
-                uiViewModel,
-                vttApi
-        );
+        dUiView("init called with uiViewModel: %o, vttApi: %o", uiViewModel, vttApi);
         uiViewModelInstance = uiViewModel;
         vttApiInstance = vttApi; // vttApiInstance is used by some direct actions like clearBoardButton
 
         if (!uiViewModelInstance) {
-                log.error('[uiView.js] UiViewModel not provided during init!');
-                dUiView('init error: UiViewModel not provided.');
+                log.error("[uiView.js] UiViewModel not provided during init!");
+                dUiView("init error: UiViewModel not provided.");
                 return;
         }
         // vttApiInstance might be null if not passed, handle gracefully if some methods rely on it.
-        dUiView('UiViewModel and VTT_API instances stored.');
+        dUiView("UiViewModel and VTT_API instances stored.");
 
         // Initialize all UI sub-components, passing them the UiViewModel and VTT_API as needed
-        dUiView('Initializing sub-components...');
+        dUiView("Initializing sub-components...");
         inspectorView.init(uiViewModelInstance, vttApiInstance);
-        dUiView('inspectorView initialized.');
+        dUiView("inspectorView initialized.");
         boardSettingsView.init(uiViewModelInstance);
-        dUiView('boardSettingsView initialized.');
+        dUiView("boardSettingsView initialized.");
         toolbarView.init(uiViewModelInstance);
-        dUiView('toolbarView initialized.');
+        dUiView("toolbarView initialized.");
         modalView.init(uiViewModelInstance);
-        dUiView('modalView initialized.');
+        dUiView("modalView initialized.");
         messageAreaView.init(uiViewModelInstance); // Initialize MessageAreaView for displaying messages
-        dUiView('messageAreaView initialized.');
+        dUiView("messageAreaView initialized.");
 
         // Callbacks for inspector, board settings, and messages are registered by their respective components with UiViewModel.
 
         // showModal and hideModal are exported by modalView.js; uiView uses modalView.showModal for its own modal needs (e.g., clear board confirmation).
 
         log.debug(
-                '[uiView.js] Initialized with UiViewModel, VTT_API, and all sub-components.'
+                "[uiView.js] Initialized with UiViewModel, VTT_API, and all sub-components.",
         ); // log.debug fine here
-        dUiView('uiView initialization complete.');
+        dUiView("uiView initialization complete.");
 };
 
 // --- Functions moved to components ---
@@ -213,10 +199,10 @@ export const initUIEventListeners = (callbacks) => {
                 onSaveMemoryState,
                 // onLoadMemoryStateRequest, // This will now be handled by uiViewModelInstance.requestLoadMemoryState()
         } = callbacks;
-        dUiView('initUIEventListeners called with callbacks: %o', callbacks);
+        dUiView("initUIEventListeners called with callbacks: %o", callbacks);
 
         if (!domElementsCached) {
-                dUiView('DOM elements not cached, calling cacheDOMElements.');
+                dUiView("DOM elements not cached, calling cacheDOMElements.");
                 cacheDOMElements();
         }
 
@@ -224,36 +210,32 @@ export const initUIEventListeners = (callbacks) => {
         // are now handled within toolbarView.js
 
         if (onSaveToFile && domElements.sessionSaveButton) {
-                domElements.sessionSaveButton.addEventListener('click', () => {
-                        dUiView('Save to File button clicked.');
+                domElements.sessionSaveButton.addEventListener("click", () => {
+                        dUiView("Save to File button clicked.");
                         onSaveToFile();
                 });
         }
 
         if (domElements.sessionLoadButton) {
-                domElements.sessionLoadButton.addEventListener('click', () => {
-                        dUiView('Load from File button clicked.');
+                domElements.sessionLoadButton.addEventListener("click", () => {
+                        dUiView("Load from File button clicked.");
                         if (domElements.fileInput) {
                                 domElements.fileInput.value = null; // Reset file input
                                 domElements.fileInput.click();
-                                dUiView(
-                                        'Hidden file input clicked for session load.'
-                                );
+                                dUiView("Hidden file input clicked for session load.");
                         } else {
-                                log.error(
-                                        '[uiView.js] fileInput element not found.'
-                                );
+                                log.error("[uiView.js] fileInput element not found.");
                                 dUiView(
-                                        'initUIEventListeners error: fileInput element not found for session load.'
+                                        "initUIEventListeners error: fileInput element not found for session load.",
                                 );
                         }
                 });
         }
 
         if (onLoadFromFileInputChange && domElements.fileInput) {
-                domElements.fileInput.addEventListener('change', (event) => {
+                domElements.fileInput.addEventListener("change", (event) => {
                         dUiView(
-                                'File input changed, triggering onLoadFromFileInputChange callback.'
+                                "File input changed, triggering onLoadFromFileInputChange callback.",
                         );
                         onLoadFromFileInputChange(event);
                 });
@@ -262,61 +244,44 @@ export const initUIEventListeners = (callbacks) => {
         // chooseBackgroundImageButton and its backgroundImageFileInput are managed by toolbarView.js now.
 
         if (domElements.clearBoardButton) {
-                domElements.clearBoardButton.addEventListener('click', () => {
-                        dUiView(
-                                'Clear Board button clicked. Showing confirmation modal.'
-                        );
+                domElements.clearBoardButton.addEventListener("click", () => {
+                        dUiView("Clear Board button clicked. Showing confirmation modal.");
                         // Use modalView.showModal for consistency if uiView itself needs to show a modal
                         modalView.showModal(
-                                'Confirm Clear Board',
-                                '<p>Are you sure you want to clear all objects and reset the background?</p>',
+                                "Confirm Clear Board",
+                                "<p>Are you sure you want to clear all objects and reset the background?</p>",
                                 [
                                         {
-                                                text: 'Cancel',
-                                                type: 'secondary',
-                                                onClickCallback: () =>
-                                                        dUiView(
-                                                                'Clear board cancelled by user.'
-                                                        ),
+                                                text: "Cancel",
+                                                type: "secondary",
+                                                onClickCallback: () => dUiView("Clear board cancelled by user."),
                                         },
                                         {
-                                                text: 'Clear Board',
-                                                type: 'danger',
+                                                text: "Clear Board",
+                                                type: "danger",
                                                 onClickCallback: () => {
-                                                        dUiView(
-                                                                'Clear Board confirmed by user.'
-                                                        );
+                                                        dUiView("Clear Board confirmed by user.");
                                                         if (vttApiInstance) {
-                                                                dUiView(
-                                                                        'Calling vttApiInstance.clearAllObjects()'
-                                                                );
+                                                                dUiView("Calling vttApiInstance.clearAllObjects()");
                                                                 vttApiInstance.clearAllObjects();
                                                         }
-                                                        if (
-                                                                uiViewModelInstance
-                                                        ) {
+                                                        if (uiViewModelInstance) {
                                                                 dUiView(
-                                                                        'Calling uiViewModelInstance.setTableBackground() to default.'
+                                                                        "Calling uiViewModelInstance.setTableBackground() to default.",
                                                                 );
-                                                                uiViewModelInstance.setTableBackground(
-                                                                        {
-                                                                                type: 'color',
-                                                                                value: '#cccccc',
-                                                                        }
-                                                                );
-                                                        } else if (
-                                                                vttApiInstance
-                                                        ) {
+                                                                uiViewModelInstance.setTableBackground({
+                                                                        type: "color",
+                                                                        value: "#cccccc",
+                                                                });
+                                                        } else if (vttApiInstance) {
                                                                 // Fallback if uiViewModelInstance somehow not set
                                                                 dUiView(
-                                                                        'UiViewModel not available, calling vttApiInstance.setTableBackground() to default.'
+                                                                        "UiViewModel not available, calling vttApiInstance.setTableBackground() to default.",
                                                                 );
-                                                                vttApiInstance.setTableBackground(
-                                                                        {
-                                                                                type: 'color',
-                                                                                value: '#cccccc',
-                                                                        }
-                                                                );
+                                                                vttApiInstance.setTableBackground({
+                                                                        type: "color",
+                                                                        value: "#cccccc",
+                                                                });
                                                         }
                                                         // Toolbar's backgroundUrlInput and backgroundColorInput are not directly accessible here.
                                                         // This part of the clear board functionality might need rethinking.
@@ -324,60 +289,45 @@ export const initUIEventListeners = (callbacks) => {
                                                         // Toolbar inputs might not reflect this reset unless UiViewModel also notifies toolbarView.
                                                         // Or, uiView can call a method on toolbarView if one is exposed.
                                                         // For now, just call displayMessage.
-                                                        if (
-                                                                uiViewModelInstance
-                                                        ) {
+                                                        if (uiViewModelInstance) {
                                                                 // Check uiViewModelInstance itself
-                                                                uiViewModelInstance.displayMessage(
-                                                                        'Board cleared.',
-                                                                        'info'
-                                                                );
-                                                                dUiView(
-                                                                        'Board cleared message displayed.'
-                                                                );
+                                                                uiViewModelInstance.displayMessage("Board cleared.", "info");
+                                                                dUiView("Board cleared message displayed.");
                                                         }
                                                 },
                                         },
-                                ]
+                                ],
                         );
                 });
         }
 
         if (onSaveMemoryState && domElements.saveMemoryStateButton) {
                 // Changed from callbacks.onSaveMemoryState
-                domElements.saveMemoryStateButton.addEventListener(
-                        'click',
-                        () => {
-                                dUiView('Save Memory State button clicked.');
-                                onSaveMemoryState();
-                        }
-                );
+                domElements.saveMemoryStateButton.addEventListener("click", () => {
+                        dUiView("Save Memory State button clicked.");
+                        onSaveMemoryState();
+                });
         }
 
         // Updated: Load Memory State button now calls uiViewModelInstance.requestLoadMemoryState()
         if (domElements.loadMemoryStateButton) {
-                domElements.loadMemoryStateButton.addEventListener(
-                        'click',
-                        () => {
-                                dUiView('Load Memory State button clicked.');
-                                if (uiViewModelInstance) {
-                                        dUiView(
-                                                'Calling uiViewModelInstance.requestLoadMemoryState()'
-                                        );
-                                        uiViewModelInstance.requestLoadMemoryState();
-                                } else {
-                                        log.error(
-                                                '[uiView.js] UiViewModel not available for loading memory state.'
-                                        );
-                                        dUiView(
-                                                'initUIEventListeners error: UiViewModel not available for loading memory state.'
-                                        );
-                                        // Optionally, show an alert or a more user-facing error
-                                }
+                domElements.loadMemoryStateButton.addEventListener("click", () => {
+                        dUiView("Load Memory State button clicked.");
+                        if (uiViewModelInstance) {
+                                dUiView("Calling uiViewModelInstance.requestLoadMemoryState()");
+                                uiViewModelInstance.requestLoadMemoryState();
+                        } else {
+                                log.error(
+                                        "[uiView.js] UiViewModel not available for loading memory state.",
+                                );
+                                dUiView(
+                                        "initUIEventListeners error: UiViewModel not available for loading memory state.",
+                                );
+                                // Optionally, show an alert or a more user-facing error
                         }
-                );
+                });
         }
-        dUiView('Main UI event listeners initialized.');
+        dUiView("Main UI event listeners initialized.");
 };
 
 // displayMessage is now in messageAreaView.js

@@ -5,10 +5,10 @@
  * and allowing users to modify and apply these settings.
  * It interacts with UiViewModel to get board properties and to apply changes.
  */
-import log from 'loglevel'; // For general logging (errors, warnings)
-import debug from 'debug'; // For verbose, development-specific logging
+import log from "loglevel"; // For general logging (errors, warnings)
+import debug from "debug"; // For verbose, development-specific logging
 
-const dBoardSettings = debug('app:view:boardSettings');
+const dBoardSettings = debug("app:view:boardSettings");
 
 /** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
@@ -31,24 +31,21 @@ const domElements = {
  * Caches references to frequently used DOM elements within the board settings panel.
  */
 const cacheDOMElements = () => {
-        dBoardSettings('Caching DOM elements for board settings.');
-        domElements.boardWidthInput =
-                document.getElementById('board-width-input');
-        domElements.boardHeightInput =
-                document.getElementById('board-height-input');
+        dBoardSettings("Caching DOM elements for board settings.");
+        domElements.boardWidthInput = document.getElementById("board-width-input");
+        domElements.boardHeightInput = document.getElementById("board-height-input");
         domElements.boardDimensionUnitInput = document.getElementById(
-                'board-dimension-unit-input'
+                "board-dimension-unit-input",
         );
-        domElements.boardScaleInput =
-                document.getElementById('board-scale-input');
+        domElements.boardScaleInput = document.getElementById("board-scale-input");
         domElements.boardScaleUnitInput = document.getElementById(
-                'board-scale-unit-input'
+                "board-scale-unit-input",
         );
         domElements.effectiveBoardSizeDisplay = document.getElementById(
-                'effective-board-size-display'
+                "effective-board-size-display",
         );
         domElements.applyBoardPropertiesButton = document.getElementById(
-                'apply-board-properties-button'
+                "apply-board-properties-button",
         );
 };
 
@@ -59,35 +56,30 @@ const cacheDOMElements = () => {
  */
 const updateBoardSettingsDisplay = (boardProps) => {
         dBoardSettings(
-                'updateBoardSettingsDisplay called with boardProps: %o',
-                boardProps
+                "updateBoardSettingsDisplay called with boardProps: %o",
+                boardProps,
         );
         if (!boardProps) {
-                dBoardSettings(
-                        'No boardProps provided to updateBoardSettingsDisplay.'
-                );
+                dBoardSettings("No boardProps provided to updateBoardSettingsDisplay.");
                 return;
         }
         if (domElements.boardWidthInput)
-                domElements.boardWidthInput.value = boardProps.widthUser ?? '';
+                domElements.boardWidthInput.value = boardProps.widthUser ?? "";
         if (domElements.boardHeightInput)
-                domElements.boardHeightInput.value =
-                        boardProps.heightUser ?? '';
+                domElements.boardHeightInput.value = boardProps.heightUser ?? "";
         if (domElements.boardDimensionUnitInput)
                 domElements.boardDimensionUnitInput.value =
-                        boardProps.unitForDimensions ?? 'in';
+      boardProps.unitForDimensions ?? "in";
         if (domElements.boardScaleInput)
                 domElements.boardScaleInput.value = boardProps.scaleRatio ?? 1;
         if (domElements.boardScaleUnitInput)
-                domElements.boardScaleUnitInput.value =
-                        boardProps.unitForRatio ?? 'mm';
+                domElements.boardScaleUnitInput.value = boardProps.unitForRatio ?? "mm";
 
         if (domElements.effectiveBoardSizeDisplay) {
                 if (boardProps.widthPx && boardProps.heightPx) {
                         domElements.effectiveBoardSizeDisplay.textContent = `${Math.round(boardProps.widthPx)}px by ${Math.round(boardProps.heightPx)}px (mm)`;
                 } else {
-                        domElements.effectiveBoardSizeDisplay.textContent =
-                                'N/A';
+                        domElements.effectiveBoardSizeDisplay.textContent = "N/A";
                 }
         }
 };
@@ -98,19 +90,18 @@ const updateBoardSettingsDisplay = (boardProps) => {
  * and then calls `uiViewModelInstance.applyBoardSettings` to update the model.
  */
 const handleApplyBoardProperties = () => {
-        dBoardSettings('handleApplyBoardProperties called.');
+        dBoardSettings("handleApplyBoardProperties called.");
         if (
                 !domElements.boardWidthInput ||
-                !domElements.boardHeightInput ||
-                !domElements.boardDimensionUnitInput ||
-                !domElements.boardScaleUnitInput ||
-                !domElements.boardScaleInput
+    !domElements.boardHeightInput ||
+    !domElements.boardDimensionUnitInput ||
+    !domElements.boardScaleUnitInput ||
+    !domElements.boardScaleInput
         ) {
-                const errorMsg =
-                        'Board property input elements not found in DOM.';
-                dBoardSettings('Error: %s', errorMsg);
+                const errorMsg = "Board property input elements not found in DOM.";
+                dBoardSettings("Error: %s", errorMsg);
                 if (uiViewModelInstance) {
-                        uiViewModelInstance.displayMessage(errorMsg, 'error');
+                        uiViewModelInstance.displayMessage(errorMsg, "error");
                 } else {
                         log.error(errorMsg); // Fallback
                         alert(errorMsg);
@@ -124,45 +115,40 @@ const handleApplyBoardProperties = () => {
         const scaleRatioValue = parseFloat(domElements.boardScaleInput.value);
         const scaleUnitValue = domElements.boardScaleUnitInput.value;
         dBoardSettings(
-                'Read board properties from form: width=%f, height=%f, dimUnit=%s, scaleRatio=%f, scaleUnit=%s',
+                "Read board properties from form: width=%f, height=%f, dimUnit=%s, scaleRatio=%f, scaleUnit=%s",
                 widthValue,
                 heightValue,
                 dimUnitValue,
                 scaleRatioValue,
-                scaleUnitValue
+                scaleUnitValue,
         );
 
         let validationError = null;
         if (
                 isNaN(widthValue) ||
-                widthValue <= 0 ||
-                isNaN(heightValue) ||
-                heightValue <= 0
+    widthValue <= 0 ||
+    isNaN(heightValue) ||
+    heightValue <= 0
         ) {
-                validationError =
-                        'Board width and height must be positive numbers.';
+                validationError = "Board width and height must be positive numbers.";
         } else if (isNaN(scaleRatioValue) || scaleRatioValue < 0) {
                 if (
                         scaleRatioValue === 0 &&
-                        domElements.boardScaleInput.value.trim() !== '0'
+      domElements.boardScaleInput.value.trim() !== "0"
                 ) {
                         validationError =
-                                'Scale ratio must be a positive number or zero. Non-numeric input for scale is invalid.';
+        "Scale ratio must be a positive number or zero. Non-numeric input for scale is invalid.";
                 } else if (scaleRatioValue < 0) {
-                        validationError = 'Scale ratio cannot be negative.';
+                        validationError = "Scale ratio cannot be negative.";
                 } else if (isNaN(scaleRatioValue)) {
-                        validationError =
-                                'Scale ratio must be a valid number or zero.';
+                        validationError = "Scale ratio must be a valid number or zero.";
                 }
         }
 
         if (validationError) {
-                dBoardSettings('Validation error: %s', validationError);
+                dBoardSettings("Validation error: %s", validationError);
                 if (uiViewModelInstance) {
-                        uiViewModelInstance.displayMessage(
-                                validationError,
-                                'error'
-                        );
+                        uiViewModelInstance.displayMessage(validationError, "error");
                 } else {
                         alert(validationError); // Fallback
                 }
@@ -176,22 +162,20 @@ const handleApplyBoardProperties = () => {
                 scaleRatio: scaleRatioValue,
                 unitForRatio: scaleUnitValue,
         };
-        dBoardSettings('Applying new board settings: %o', newBoardProps);
+        dBoardSettings("Applying new board settings: %o", newBoardProps);
 
         if (uiViewModelInstance) {
                 uiViewModelInstance.applyBoardSettings(newBoardProps);
                 // User feedback messages are handled by UiViewModel
-                dBoardSettings(
-                        'Called uiViewModelInstance.applyBoardSettings.'
-                );
+                dBoardSettings("Called uiViewModelInstance.applyBoardSettings.");
         } else {
                 log.error(
-                        '[boardSettingsView.js] UiViewModel not initialized. Cannot apply board settings.'
+                        "[boardSettingsView.js] UiViewModel not initialized. Cannot apply board settings.",
                 );
                 dBoardSettings(
-                        'Error: UiViewModel not initialized. Cannot apply board settings.'
+                        "Error: UiViewModel not initialized. Cannot apply board settings.",
                 );
-                alert('Error: Cannot apply board settings. System not ready.'); // Fallback
+                alert("Error: Cannot apply board settings. System not ready."); // Fallback
         }
 };
 
@@ -203,45 +187,39 @@ const handleApplyBoardProperties = () => {
  */
 export const init = (uiViewModel) => {
         dBoardSettings(
-                'Initializing boardSettingsView with uiViewModel: %o',
-                uiViewModel
+                "Initializing boardSettingsView with uiViewModel: %o",
+                uiViewModel,
         );
         uiViewModelInstance = uiViewModel;
 
         if (!uiViewModelInstance) {
-                log.error(
-                        '[boardSettingsView.js] UiViewModel not provided during init!'
-                );
-                dBoardSettings('Error: UiViewModel not provided during init.');
+                log.error("[boardSettingsView.js] UiViewModel not provided during init!");
+                dBoardSettings("Error: UiViewModel not provided during init.");
                 return;
         }
-        dBoardSettings('UiViewModel instance stored.');
+        dBoardSettings("UiViewModel instance stored.");
 
         cacheDOMElements();
-        dBoardSettings('DOM elements cached.');
+        dBoardSettings("DOM elements cached.");
 
         if (domElements.applyBoardPropertiesButton) {
                 domElements.applyBoardPropertiesButton.addEventListener(
-                        'click',
-                        handleApplyBoardProperties
+                        "click",
+                        handleApplyBoardProperties,
                 );
-                dBoardSettings(
-                        'Event listener added for applyBoardPropertiesButton.'
-                );
+                dBoardSettings("Event listener added for applyBoardPropertiesButton.");
         }
 
         uiViewModelInstance.onBoardSettingsChanged(updateBoardSettingsDisplay);
         dBoardSettings(
-                'Registered updateBoardSettingsDisplay with uiViewModelInstance.onBoardSettingsChanged.'
+                "Registered updateBoardSettingsDisplay with uiViewModelInstance.onBoardSettingsChanged.",
         );
 
         // Initial population
-        dBoardSettings(
-                'Performing initial population of board settings display.'
-        );
+        dBoardSettings("Performing initial population of board settings display.");
         updateBoardSettingsDisplay(
-                uiViewModelInstance.getBoardPropertiesForDisplay()
+                uiViewModelInstance.getBoardPropertiesForDisplay(),
         );
-        log.debug('[boardSettingsView.js] Initialized.'); // This log.debug is fine as a general module init message
-        dBoardSettings('boardSettingsView initialization complete.');
+        log.debug("[boardSettingsView.js] Initialized."); // This log.debug is fine as a general module init message
+        dBoardSettings("boardSettingsView initialization complete.");
 };

@@ -6,7 +6,8 @@
         "scripts": {
                 "dev": "vite",
                 "build": "vite build",
-                "lint": "eslint src/**/*.js index.html"
+                "lint": "eslint --fix \"src/**/*.js\" \"config/**/*.js\"",
+                "format": "prettier-eslint --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md,html}\" \"config/**/*.{js,json,md}\""
         },
         "repository": {
                 "type": "git",
@@ -31,6 +32,7 @@
                 "globals": "^16.2.0",
                 "postcss": "^8.5.3",
                 "prettier": "^3.5.3",
+                "prettier-eslint-cli": "^8.0.1",
                 "tailwindcss": "^3.4.17",
                 "vite": "^5.4.19"
         },

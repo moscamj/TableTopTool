@@ -5,10 +5,10 @@
  * and a generic selection modal for lists of choices.
  * It interacts with UiViewModel to be shown and to report user actions.
  */
-import log from 'loglevel'; // For general logging (errors, warnings)
-import debug from 'debug'; // For verbose, development-specific logging
+import log from "loglevel"; // For general logging (errors, warnings)
+import debug from "debug"; // For verbose, development-specific logging
 
-const dModal = debug('app:view:modal');
+const dModal = debug("app:view:modal");
 
 /** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
@@ -28,11 +28,11 @@ const domElements = {
  * Caches references to the core modal DOM elements.
  */
 const cacheDOMElements = () => {
-        dModal('Caching DOM elements for modal view.');
-        domElements.modalContainer = document.getElementById('modal-container');
-        domElements.modalTitle = document.getElementById('modal-title');
-        domElements.modalContent = document.getElementById('modal-content');
-        domElements.modalButtons = document.getElementById('modal-buttons');
+        dModal("Caching DOM elements for modal view.");
+        domElements.modalContainer = document.getElementById("modal-container");
+        domElements.modalTitle = document.getElementById("modal-title");
+        domElements.modalContent = document.getElementById("modal-content");
+        domElements.modalButtons = document.getElementById("modal-buttons");
 };
 
 /**
@@ -49,68 +49,45 @@ const cacheDOMElements = () => {
 const showModal = (
         title,
         contentHtml,
-        buttonsArray = [{ text: 'OK', type: 'primary' }]
+        buttonsArray = [{ text: "OK", type: "primary" }],
 ) => {
-        dModal(
-                'showModal called. Title: "%s", Buttons: %o',
-                title,
-                buttonsArray
-        );
+        dModal('showModal called. Title: "%s", Buttons: %o', title, buttonsArray);
         if (!domElements.modalContainer) {
-                log.error('[modalView.js] Modal container not cached/found.');
-                dModal(
-                        'showModal error: Modal container DOM element not found.'
-                );
+                log.error("[modalView.js] Modal container not cached/found.");
+                dModal("showModal error: Modal container DOM element not found.");
                 return;
         }
 
         domElements.modalTitle.textContent = title;
         domElements.modalContent.innerHTML = contentHtml;
-        domElements.modalButtons.innerHTML = ''; // Clear existing buttons
+        domElements.modalButtons.innerHTML = ""; // Clear existing buttons
 
         buttonsArray.forEach((btnConfig) => {
-                const {
-                        text,
-                        type,
-                        onClickCallback,
-                        preventHide = false,
-                } = btnConfig;
-                const button = document.createElement('button');
+                const { text, type, onClickCallback, preventHide = false } = btnConfig;
+                const button = document.createElement("button");
                 button.textContent = text;
-                button.className = 'px-4 py-2 rounded text-sm';
+                button.className = "px-4 py-2 rounded text-sm";
                 switch (type) {
-                case 'secondary':
-                        button.classList.add(
-                                'bg-gray-500',
-                                'hover:bg-gray-600',
-                                'text-white'
-                        );
+                case "secondary":
+                        button.classList.add("bg-gray-500", "hover:bg-gray-600", "text-white");
                         break;
-                case 'danger':
-                        button.classList.add(
-                                'bg-red-500',
-                                'hover:bg-red-600',
-                                'text-white'
-                        );
+                case "danger":
+                        button.classList.add("bg-red-500", "hover:bg-red-600", "text-white");
                         break;
                 default:
-                        button.classList.add(
-                                'bg-blue-500',
-                                'hover:bg-blue-600',
-                                'text-white'
-                        );
+                        button.classList.add("bg-blue-500", "hover:bg-blue-600", "text-white");
                 }
                 if (onClickCallback) {
-                        button.addEventListener('click', () => {
+                        button.addEventListener("click", () => {
                                 onClickCallback();
                                 if (!preventHide) hideModal();
                         });
                 } else {
-                        button.addEventListener('click', hideModal);
+                        button.addEventListener("click", hideModal);
                 }
                 domElements.modalButtons.appendChild(button);
         });
-        domElements.modalContainer.classList.remove('hidden');
+        domElements.modalContainer.classList.remove("hidden");
         dModal('Modal "%s" is now visible.', title);
 };
 
@@ -119,16 +96,16 @@ const showModal = (
  */
 const hideModal = () => {
         if (!domElements.modalContainer) {
-                dModal('hideModal: Modal container not found. Cannot hide.');
+                dModal("hideModal: Modal container not found. Cannot hide.");
                 return;
         }
-        domElements.modalContainer.classList.add('hidden');
-        dModal('Modal hidden.');
+        domElements.modalContainer.classList.add("hidden");
+        dModal("Modal hidden.");
         // Clear content for next use
-        domElements.modalTitle.textContent = '';
-        domElements.modalContent.innerHTML = '';
-        domElements.modalButtons.innerHTML = '';
-        dModal('Modal content cleared.');
+        domElements.modalTitle.textContent = "";
+        domElements.modalContent.innerHTML = "";
+        domElements.modalButtons.innerHTML = "";
+        dModal("Modal content cleared.");
 };
 
 /**
@@ -138,14 +115,12 @@ const hideModal = () => {
  * This function is typically invoked as a callback when UiViewModel requests it.
  */
 const displayCreateObjectModal = () => {
-        dModal('displayCreateObjectModal called.');
+        dModal("displayCreateObjectModal called.");
         if (!uiViewModelInstance) {
                 log.error(
-                        '[modalView.js] UiViewModel not available for create object modal.'
+                        "[modalView.js] UiViewModel not available for create object modal.",
                 );
-                dModal(
-                        'displayCreateObjectModal error: UiViewModel not available.'
-                );
+                dModal("displayCreateObjectModal error: UiViewModel not available.");
                 return;
         }
         // Form HTML for creating an object. Includes basic fields and inline styles for simplicity.
@@ -173,84 +148,52 @@ const displayCreateObjectModal = () => {
 
         const buttonsArray = [
                 {
-                        text: 'Create',
-                        type: 'primary',
+                        text: "Create",
+                        type: "primary",
                         onClickCallback: () => {
-                                const shape =
-                                        document.getElementById(
-                                                'create-obj-shape'
-                                        ).value;
+                                const shape = document.getElementById("create-obj-shape").value;
                                 const props = {
-                                        x:
-                                                parseInt(
-                                                        document.getElementById(
-                                                                'create-obj-x'
-                                                        ).value,
-                                                        10
-                                                ) || 0,
-                                        y:
-                                                parseInt(
-                                                        document.getElementById(
-                                                                'create-obj-y'
-                                                        ).value,
-                                                        10
-                                                ) || 0,
+                                        x: parseInt(document.getElementById("create-obj-x").value, 10) || 0,
+                                        y: parseInt(document.getElementById("create-obj-y").value, 10) || 0,
                                         width:
-                                                parseInt(
-                                                        document.getElementById(
-                                                                'create-obj-width'
-                                                        ).value,
-                                                        10
-                                                ) || 50,
+            parseInt(document.getElementById("create-obj-width").value, 10) ||
+            50,
                                         height:
-                                                parseInt(
-                                                        document.getElementById(
-                                                                'create-obj-height'
-                                                        ).value,
-                                                        10
-                                                ) || 50,
+            parseInt(document.getElementById("create-obj-height").value, 10) ||
+            50,
                                         appearance: {
                                                 backgroundColor:
-                                                        document.getElementById(
-                                                                'create-obj-bgcolor'
-                                                        ).value,
+              document.getElementById("create-obj-bgcolor").value,
                                         },
                                 };
                                 // Instead of dispatching event, call UiViewModel directly
                                 dModal(
                                         'Create Object modal: "Create" button clicked. Shape: %s, Props: %o',
                                         shape,
-                                        props
+                                        props,
                                 );
                                 if (uiViewModelInstance.createObject) {
-                                        uiViewModelInstance.createObject(
-                                                shape,
-                                                props
-                                        );
-                                        dModal(
-                                                'Called uiViewModelInstance.createObject.'
-                                        );
+                                        uiViewModelInstance.createObject(shape, props);
+                                        dModal("Called uiViewModelInstance.createObject.");
                                 } else {
                                         log.error(
-                                                '[modalView.js] createObject method not found on UiViewModel.'
+                                                "[modalView.js] createObject method not found on UiViewModel.",
                                         );
                                         dModal(
-                                                'displayCreateObjectModal error: createObject method not found on UiViewModel.'
+                                                "displayCreateObjectModal error: createObject method not found on UiViewModel.",
                                         );
                                 }
                         },
                 },
                 {
-                        text: 'Cancel',
-                        type: 'secondary',
+                        text: "Cancel",
+                        type: "secondary",
                         onClickCallback: () =>
-                                dModal(
-                                        'Create Object modal: "Cancel" button clicked.'
-                                ),
+                                dModal('Create Object modal: "Cancel" button clicked.'),
                 },
         ];
-        showModal('Create New Object', modalContentHtml, buttonsArray);
-        dModal('Create New Object modal displayed.');
+        showModal("Create New Object", modalContentHtml, buttonsArray);
+        dModal("Create New Object modal displayed.");
 };
 
 /**
@@ -271,55 +214,49 @@ const getModalContentElement = () => {
  * @param {UiViewModel} uiViewModel - The UiViewModel instance.
  */
 export const init = (uiViewModel) => {
-        dModal('Initializing modalView with uiViewModel: %o', uiViewModel);
+        dModal("Initializing modalView with uiViewModel: %o", uiViewModel);
         uiViewModelInstance = uiViewModel;
         if (!uiViewModelInstance) {
-                log.error(
-                        '[modalView.js] UiViewModel not provided during init!'
-                );
-                dModal('Error: UiViewModel not provided during init.');
+                log.error("[modalView.js] UiViewModel not provided during init!");
+                dModal("Error: UiViewModel not provided during init.");
                 return;
         }
-        dModal('UiViewModel instance stored.');
+        dModal("UiViewModel instance stored.");
 
         cacheDOMElements();
-        dModal('DOM elements cached.');
+        dModal("DOM elements cached.");
 
         // Register a handler for when UiViewModel requests the "Create Object" modal
         if (uiViewModelInstance.onCreateObjectModalRequested) {
-                uiViewModelInstance.onCreateObjectModalRequested(
-                        displayCreateObjectModal
-                );
+                uiViewModelInstance.onCreateObjectModalRequested(displayCreateObjectModal);
                 dModal(
-                        'Registered displayCreateObjectModal with uiViewModelInstance.onCreateObjectModalRequested.'
+                        "Registered displayCreateObjectModal with uiViewModelInstance.onCreateObjectModalRequested.",
                 );
         } else {
                 log.warn(
-                        '[modalView.js] onCreateObjectModalRequested callback registration not found on UiViewModel.'
+                        "[modalView.js] onCreateObjectModalRequested callback registration not found on UiViewModel.",
                 );
                 dModal(
-                        'Warning: onCreateObjectModalRequested callback registration not found on UiViewModel.'
+                        "Warning: onCreateObjectModalRequested callback registration not found on UiViewModel.",
                 );
         }
 
         // Register handler for generic selection modal (e.g., for loading memory states)
         if (uiViewModelInstance.onShowSelectionModalRequested) {
-                uiViewModelInstance.onShowSelectionModalRequested(
-                        showSelectionModal
-                );
+                uiViewModelInstance.onShowSelectionModalRequested(showSelectionModal);
                 dModal(
-                        'Registered showSelectionModal with uiViewModelInstance.onShowSelectionModalRequested.'
+                        "Registered showSelectionModal with uiViewModelInstance.onShowSelectionModalRequested.",
                 );
         } else {
                 log.warn(
-                        '[modalView.js] onShowSelectionModalRequested callback registration not found on UiViewModel.'
+                        "[modalView.js] onShowSelectionModalRequested callback registration not found on UiViewModel.",
                 );
                 dModal(
-                        'Warning: onShowSelectionModalRequested callback registration not found on UiViewModel.'
+                        "Warning: onShowSelectionModalRequested callback registration not found on UiViewModel.",
                 );
         }
-        log.debug('[modalView.js] Initialized.'); // This log.debug is fine as a general module init message
-        dModal('modalView initialization complete.');
+        log.debug("[modalView.js] Initialized."); // This log.debug is fine as a general module init message
+        dModal("modalView initialization complete.");
 };
 
 /**
@@ -335,13 +272,11 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
         dModal(
                 'showSelectionModal called. Title: "%s", Choices count: %d',
                 title,
-                choices.length
+                choices.length,
         );
         if (!domElements.modalContainer) {
-                log.error('[modalView.js] Modal container not cached/found.');
-                dModal(
-                        'showSelectionModal error: Modal container DOM element not found.'
-                );
+                log.error("[modalView.js] Modal container not cached/found.");
+                dModal("showSelectionModal error: Modal container DOM element not found.");
                 if (onSelectionCallback) onSelectionCallback(null); // Indicate failure/cancellation
                 return;
         }
@@ -357,18 +292,15 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
                 const id = String(choice.id);
                 contentHtml += `<button class="w-full text-left p-2 bg-gray-600 hover:bg-gray-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 modal-choice-button" data-id="${id}">${text}</button>`;
         });
-        contentHtml += '</div>';
+        contentHtml += "</div>";
 
         const buttonsArray = [
                 {
-                        text: 'Cancel',
-                        type: 'secondary',
+                        text: "Cancel",
+                        type: "secondary",
                         onClickCallback: () => {
-                                dModal(
-                                        'Selection modal: "Cancel" button clicked.'
-                                );
-                                if (onSelectionCallback)
-                                        onSelectionCallback(null);
+                                dModal('Selection modal: "Cancel" button clicked.');
+                                if (onSelectionCallback) onSelectionCallback(null);
                         },
                 },
         ];
@@ -380,11 +312,11 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
         // These listeners are added *after* showModal populates modalContent
         if (domElements.modalContent) {
                 const choiceButtons = domElements.modalContent.querySelectorAll(
-                        '.modal-choice-button'
+                        ".modal-choice-button",
                 );
                 dModal(
-                        'Found %d choice buttons to add listeners to.',
-                        choiceButtons.length
+                        "Found %d choice buttons to add listeners to.",
+                        choiceButtons.length,
                 );
                 choiceButtons.forEach((button) => {
                         // Important: Clone and replace to remove any old listeners from potentially reused button elements
@@ -393,13 +325,9 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
                         const newButton = button.cloneNode(true); // Simple way to remove listeners if cloning strategy is used
                         button.parentNode.replaceChild(newButton, button); // Replace old button with new one
 
-                        newButton.addEventListener('click', () => {
-                                const selectedId =
-                                        newButton.getAttribute('data-id');
-                                dModal(
-                                        'Choice button clicked. Selected ID (data-id): %s',
-                                        selectedId
-                                );
+                        newButton.addEventListener("click", () => {
+                                const selectedId = newButton.getAttribute("data-id");
+                                dModal("Choice button clicked. Selected ID (data-id): %s", selectedId);
                                 // The `id` from `choices` could be an index (number) or a string ID.
                                 // The `onSelectionCallback` in UiViewModel expects the original index for getMemoryStateByIndex.
                                 // So, if `choice.id` was set to the index, this should work.
@@ -407,13 +335,11 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
                                 // For `requestLoadMemoryState`, `choice.id` is the index.
                                 const numericId = parseInt(selectedId, 10); // Assuming id is the index
                                 if (onSelectionCallback) {
-                                        const idToReturn = isNaN(numericId)
-                                                ? selectedId
-                                                : numericId;
+                                        const idToReturn = isNaN(numericId) ? selectedId : numericId;
                                         dModal(
-                                                'Calling onSelectionCallback with ID: %s (type: %s)',
+                                                "Calling onSelectionCallback with ID: %s (type: %s)",
                                                 idToReturn,
-                                                typeof idToReturn
+                                                typeof idToReturn,
                                         );
                                         onSelectionCallback(idToReturn);
                                 }
@@ -422,7 +348,7 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
                 });
         } else {
                 dModal(
-                        'showSelectionModal warning: modalContent DOM element not found after showModal. Cannot add choice button listeners.'
+                        "showSelectionModal warning: modalContent DOM element not found after showModal. Cannot add choice button listeners.",
                 );
         }
 };
