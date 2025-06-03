@@ -426,7 +426,7 @@ function handleMouseMove(e) {
         if (isDragging && selectedObjectId) {
                 const newX = mouseX - dragOffsetX;
                 const newY = mouseY - dragOffsetY;
-                // dCanvasView('Dragging object %s to worldX: %f, worldY: %f', selectedObjectId, newX, newY);
+                dCanvasView('Dragging object %s to worldX: %f, worldY: %f', selectedObjectId, newX, newY);
                 // Optimistically update object position in ViewModel for smooth dragging
                 viewModel.locallyUpdateObjectPosition(selectedObjectId, newX, newY);
                 // viewModel.onDrawNeededCallback(); // locallyUpdateObjectPosition now calls this
