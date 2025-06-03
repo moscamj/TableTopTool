@@ -73,7 +73,10 @@ export const initCanvas = (canvasElement, cvm) => {
         ctx = canvas.getContext("2d");
         viewModel = cvm; // Store the ViewModel instance
 
-        requestAnimationFrame(() => setCanvasSize()); // Defer initial size calculation
+        requestAnimationFrame(() => {
+        // Further defer to allow more time for CSS application, especially with Tailwind JIT
+        setTimeout(() => setCanvasSize(), 0);
+    });
         window.addEventListener("resize", debounce(setCanvasSize, 250));
 
         // Register event listeners
@@ -323,8 +326,16 @@ export const drawVTT = () => {
                 if (id === viewModelSelectedObjectId) {
                         ctx.strokeStyle = "rgba(0, 150, 255, 0.9)"; // Bright blue for selection
                         ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / zoom)); // Ensure highlight is visible
-                        const offset = (borderWidth || 0) / 2 + ctx.lineWidth / 2; // Offset to draw outside object border
-                        ctx.strokeRect(-offset, -offset, width + 2 * offset, height + 2 * offset);
+                        const offset = (appearance && appearance.borderWidth || 0) / 2 + ctx.lineWidth / 2; // Adjusted to safely access appearance
+
+                        let highlightWidth = width;
+                        let highlightHeight = height;
+
+                        if (shape === 'circle') {
+                            highlightHeight = width; // For circles, make the highlight square based on the width (diameter)
+                        }
+
+                        ctx.strokeRect(-offset, -offset, highlightWidth + 2 * offset, highlightHeight + 2 * offset);
                 }
                 ctx.restore(); // Restore context state for next object
         });
