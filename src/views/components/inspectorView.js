@@ -204,69 +204,88 @@ const populateObjectInspector = (objectData) => {
  *                          or null if no object is currently being inspected (ID field is empty).
  */
 const readObjectInspector = () => {
-    let objectIdValue = null;
-    if (domElements.objId && typeof domElements.objId.textContent === 'string') {
-        objectIdValue = domElements.objId.textContent.trim();
-    } else if (domElements.objId) {
-        // domElements.objId found, but .textContent is NOT a string.
-    } else {
-        // domElements.objId is NULL or UNDEFINED.
-    }
-
-    const isInvalidId = !objectIdValue || objectIdValue.length === 0;
-
-    if (isInvalidId) {
-        dInspector("readObjectInspector: No object ID found, returning null."); // Original debug log
-        return null;
-    }
-
-    const dataStr = domElements.objData.value;
-    let data = {};
-    try {
-        data = JSON.parse(dataStr);
-    } catch (e) {
-        log.error("Invalid JSON in data field:", e);
-        // dInspector("readObjectInspector error: Invalid JSON in data field. Error: %o", e); // Original debug log
-        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
-            uiViewModelInstance.displayMessage(
-                "Error: Custom Data is not valid JSON.",
-                "error",
-            );
+        let objectIdValue = null;
+        if (domElements.objId && typeof domElements.objId.textContent === "string") {
+                objectIdValue = domElements.objId.textContent.trim();
+        } else if (domElements.objId) {
+                // domElements.objId found, but .textContent is NOT a string.
         } else {
-            alert("Error: Custom Data is not valid JSON."); // Fallback
+                // domElements.objId is NULL or UNDEFINED.
         }
-    }
 
-    const snapshot = {
-        id: objectIdValue,
-        name: domElements.objName ? domElements.objName.value.trim() : "",
-        x: parseFloat(domElements.objX ? domElements.objX.value : '0') || 0,
-        y: parseFloat(domElements.objY ? domElements.objY.value : '0') || 0,
-        width: (() => {
-                let w = parseFloat(domElements.objWidth ? domElements.objWidth.value : '0');
-                return isNaN(w) || w < 1 ? 1 : w;
-        })(),
-        height: (() => {
-                let h = parseFloat(domElements.objHeight ? domElements.objHeight.value : '0');
-                return isNaN(h) || h < 1 ? 1 : h;
-        })(),
-        rotation: parseFloat(domElements.objRotation ? domElements.objRotation.value : '0') || 0,
-        zIndex: parseInt(domElements.objZIndex ? domElements.objZIndex.value : '0', 10) || 0,
-        isMovable: domElements.objIsMovable ? domElements.objIsMovable.checked : true,
-        shape: domElements.objShape ? domElements.objShape.value : 'rectangle',
-        appearance: {
-            backgroundColor: domElements.objBgColor ? domElements.objBgColor.value : '#CCCCCC',
-            imageUrl: domElements.objImageUrl ? domElements.objImageUrl.value.trim() : '',
-            text: domElements.objLabelText ? domElements.objLabelText.value : "",
-            showLabel: domElements.objShowLabel ? domElements.objShowLabel.checked : false,
-        },
-        data: data,
-        scripts: {
-            onClick: domElements.objScriptOnClick ? domElements.objScriptOnClick.value.trim() : "",
-        },
-    };
-    dInspector("readObjectInspector: Returning snapshot for ID: %s", snapshot.id);
-    return snapshot;
+        const isInvalidId = !objectIdValue || objectIdValue.length === 0;
+
+        if (isInvalidId) {
+                dInspector("readObjectInspector: No object ID found, returning null."); // Original debug log
+                return null;
+        }
+
+        const dataStr = domElements.objData.value;
+        let data = {};
+        try {
+                data = JSON.parse(dataStr);
+        } catch (e) {
+                log.error("Invalid JSON in data field:", e);
+                // dInspector("readObjectInspector error: Invalid JSON in data field. Error: %o", e); // Original debug log
+                if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+                        uiViewModelInstance.displayMessage(
+                                "Error: Custom Data is not valid JSON.",
+                                "error",
+                        );
+                } else {
+                        alert("Error: Custom Data is not valid JSON."); // Fallback
+                }
+        }
+
+        const snapshot = {
+                id: objectIdValue,
+                name: domElements.objName ? domElements.objName.value.trim() : "",
+                x: parseFloat(domElements.objX ? domElements.objX.value : "0") || 0,
+                y: parseFloat(domElements.objY ? domElements.objY.value : "0") || 0,
+                width: (() => {
+                        let w = parseFloat(
+                                domElements.objWidth ? domElements.objWidth.value : "0",
+                        );
+                        return isNaN(w) || w < 1 ? 1 : w;
+                })(),
+                height: (() => {
+                        let h = parseFloat(
+                                domElements.objHeight ? domElements.objHeight.value : "0",
+                        );
+                        return isNaN(h) || h < 1 ? 1 : h;
+                })(),
+                rotation:
+      parseFloat(
+              domElements.objRotation ? domElements.objRotation.value : "0",
+      ) || 0,
+                zIndex:
+      parseInt(domElements.objZIndex ? domElements.objZIndex.value : "0", 10) ||
+      0,
+                isMovable: domElements.objIsMovable
+                        ? domElements.objIsMovable.checked
+                        : true,
+                shape: domElements.objShape ? domElements.objShape.value : "rectangle",
+                appearance: {
+                        backgroundColor: domElements.objBgColor
+                                ? domElements.objBgColor.value
+                                : "#CCCCCC",
+                        imageUrl: domElements.objImageUrl
+                                ? domElements.objImageUrl.value.trim()
+                                : "",
+                        text: domElements.objLabelText ? domElements.objLabelText.value : "",
+                        showLabel: domElements.objShowLabel
+                                ? domElements.objShowLabel.checked
+                                : false,
+                },
+                data: data,
+                scripts: {
+                        onClick: domElements.objScriptOnClick
+                                ? domElements.objScriptOnClick.value.trim()
+                                : "",
+                },
+        };
+        dInspector("readObjectInspector: Returning snapshot for ID: %s", snapshot.id);
+        return snapshot;
 };
 
 /**

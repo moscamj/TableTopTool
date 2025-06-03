@@ -74,9 +74,9 @@ export const initCanvas = (canvasElement, cvm) => {
         viewModel = cvm; // Store the ViewModel instance
 
         requestAnimationFrame(() => {
-        // Further defer to allow more time for CSS application, especially with Tailwind JIT
-        setTimeout(() => setCanvasSize(), 0);
-    });
+                // Further defer to allow more time for CSS application, especially with Tailwind JIT
+                setTimeout(() => setCanvasSize(), 0);
+        });
         window.addEventListener("resize", debounce(setCanvasSize, 250));
 
         // Register event listeners
@@ -266,7 +266,8 @@ export const drawVTT = () => {
                                 ctx.lineWidth = borderWidth; // Use borderWidth from object's appearance
                                 ctx.strokeRect(0, 0, width, height);
                         }
-                } else if (shape === "circle") { // Will now be an ellipse
+                } else if (shape === "circle") {
+                        // Will now be an ellipse
                         const radiusX = width / 2;
                         const radiusY = height / 2;
                         ctx.fillStyle = baseFill;
@@ -328,7 +329,8 @@ export const drawVTT = () => {
                 if (id === viewModelSelectedObjectId) {
                         ctx.strokeStyle = "rgba(0, 150, 255, 0.9)";
                         ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / zoom));
-                        const offset = (appearance && appearance.borderWidth || 0) / 2 + ctx.lineWidth / 2;
+                        const offset =
+        ((appearance && appearance.borderWidth) || 0) / 2 + ctx.lineWidth / 2;
 
                         // No special handling for 'circle' shape's highlight dimensions needed here anymore,
                         // as the highlight should just use the object's actual width and height.
@@ -435,7 +437,12 @@ function handleMouseMove(e) {
         if (isDragging && selectedObjectId) {
                 const newX = mouseX - dragOffsetX;
                 const newY = mouseY - dragOffsetY;
-                dCanvasView('Dragging object %s to worldX: %f, worldY: %f', selectedObjectId, newX, newY);
+                dCanvasView(
+                        "Dragging object %s to worldX: %f, worldY: %f",
+                        selectedObjectId,
+                        newX,
+                        newY,
+                );
                 // Optimistically update object position in ViewModel for smooth dragging
                 viewModel.locallyUpdateObjectPosition(selectedObjectId, newX, newY);
                 // viewModel.onDrawNeededCallback(); // locallyUpdateObjectPosition now calls this

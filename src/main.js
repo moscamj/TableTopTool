@@ -81,7 +81,7 @@ const initializeApplication = async () => {
         uiView.initUIEventListeners(uiCallbacks);
         d("uiView event listeners initialized");
 
-    // Listen for 'modelChanged' events dispatched from model.js
+        // Listen for 'modelChanged' events dispatched from model.js
         // This is the primary way the application reacts to data changes.
         document.addEventListener("modelChanged", (event) => {
                 d(
@@ -150,66 +150,74 @@ const initializeApplication = async () => {
         });
         d("modelChanged event listener added to document");
 
-    // Defer canvas initialization slightly more to ensure DOM and CSS are fully settled
-    setTimeout(() => {
-        d("Deferred: Initializing canvasView now.");
-        canvasView.initCanvas(document.getElementById("vtt-canvas"), canvasViewModel);
+        // Defer canvas initialization slightly more to ensure DOM and CSS are fully settled
+        setTimeout(() => {
+                d("Deferred: Initializing canvasView now.");
+                canvasView.initCanvas(
+                        document.getElementById("vtt-canvas"),
+                        canvasViewModel,
+                );
 
-        // The creation of default objects and initial redraw depend on canvasView being initialized.
-        // So, these also need to be inside the setTimeout or be robust enough to handle
-        // canvasView not being ready if they were outside. For simplicity, move them in.
+                // The creation of default objects and initial redraw depend on canvasView being initialized.
+                // So, these also need to be inside the setTimeout or be robust enough to handle
+                // canvasView not being ready if they were outside. For simplicity, move them in.
 
-        d("Creating default objects for testing/demonstration (deferred)");
-        VTT_API.createObject("rectangle", {
-            x: 50,
-            y: 50,
-            width: 100,
-            height: 75,
-            appearance: { backgroundColor: "#FFC0CB", text: "Rect 1" },
-            name: "Test Rectangle 1",
-        });
+                d("Creating default objects for testing/demonstration (deferred)");
+                VTT_API.createObject("rectangle", {
+                        x: 50,
+                        y: 50,
+                        width: 100,
+                        height: 75,
+                        appearance: { backgroundColor: "#FFC0CB", text: "Rect 1" },
+                        name: "Test Rectangle 1",
+                });
 
-        VTT_API.createObject("circle", { // Will be rendered as an ellipse
-            x: 200,
-            y: 100,
-            width: 60,
-            height: 60,
-            appearance: { backgroundColor: "#ADD8E6", text: "Circ 1" },
-            name: "Test Circle 1",
-            rotation: 30,
-        });
+                VTT_API.createObject("circle", {
+                        // Will be rendered as an ellipse
+                        x: 200,
+                        y: 100,
+                        width: 60,
+                        height: 60,
+                        appearance: { backgroundColor: "#ADD8E6", text: "Circ 1" },
+                        name: "Test Circle 1",
+                        rotation: 30,
+                });
 
-        // Load initial state from the VTT_API into the CanvasViewModel
-        // This also depends on canvasViewModel being fully ready.
-        if (canvasViewModel) {
-            d("Loading initial state into CanvasViewModel (deferred)");
-            const initialStateForCanvas = {
-                objects: VTT_API.getAllObjects(),
-                panZoomState: VTT_API.getPanZoomState(),
-                tableBackground: VTT_API.getTableBackground(),
-                selectedObjectId: VTT_API.getSelectedObjectId(),
-                boardProperties: VTT_API.getBoardProperties(),
-            };
-            d("Initial state for CanvasViewModel (deferred): %o", initialStateForCanvas);
-            canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
-            d("Initial state loaded into CanvasViewModel (deferred)");
-        }
+                // Load initial state from the VTT_API into the CanvasViewModel
+                // This also depends on canvasViewModel being fully ready.
+                if (canvasViewModel) {
+                        d("Loading initial state into CanvasViewModel (deferred)");
+                        const initialStateForCanvas = {
+                                objects: VTT_API.getAllObjects(),
+                                panZoomState: VTT_API.getPanZoomState(),
+                                tableBackground: VTT_API.getTableBackground(),
+                                selectedObjectId: VTT_API.getSelectedObjectId(),
+                                boardProperties: VTT_API.getBoardProperties(),
+                        };
+                        d(
+                                "Initial state for CanvasViewModel (deferred): %o",
+                                initialStateForCanvas,
+                        );
+                        canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
+                        d("Initial state loaded into CanvasViewModel (deferred)");
+                }
 
-        requestRedraw(); // Perform initial draw of the canvas (deferred)
-        d("Initial redraw requested (deferred)");
-
-    }, 0);
+                requestRedraw(); // Perform initial draw of the canvas (deferred)
+                d("Initial redraw requested (deferred)");
+        }, 0);
 
         uiViewModel.displayMessage("Application initialized (Offline Mode).", "info");
         d("Application initialization complete");
 };
 
 // Ensures the application initializes after the entire page (including stylesheets and images) is fully loaded.
-if (document.readyState === 'complete') {
+if (document.readyState === "complete") {
         // If the page is already loaded by the time this script runs
         d("Window already loaded, calling initializeApplication directly");
         initializeApplication();
 } else {
-        d("Window not fully loaded, adding load event listener for initializeApplication");
-        window.addEventListener('load', initializeApplication);
+        d(
+                "Window not fully loaded, adding load event listener for initializeApplication",
+        );
+        window.addEventListener("load", initializeApplication);
 }
