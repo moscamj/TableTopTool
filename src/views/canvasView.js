@@ -384,4 +384,4 @@ function handleWheel(e) {
 // Make sure all exports are still valid or updated as needed.
 // initCanvas and drawVTT are the primary exports for this view module.
 // No longer exporting ViewModel update functions from here.
-export { initCanvas, drawVTT, setCanvasSize };
+// export { drawVTT, setCanvasSize }; // All functions are exported inline
