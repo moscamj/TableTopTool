@@ -5,20 +5,20 @@
 // and is controlled by the DEBUG environment variable.
 import log from "loglevel";
 
-// const logLevelFromEnv = import.meta.env.VITE_APP_LOG_LEVEL;
-// const validLevels = ["trace", "debug", "info", "warn", "error", "silent"];
-// let effectiveLogLevel = "warn"; // Default log level
+const logLevelFromEnv = import.meta.env.VITE_APP_LOG_LEVEL;
+const validLevels = ["trace", "debug", "info", "warn", "error", "silent"];
+let effectiveLogLevel = "warn"; // Default log level
 
-// if (logLevelFromEnv && validLevels.includes(logLevelFromEnv.toLowerCase())) {
-//      effectiveLogLevel = logLevelFromEnv.toLowerCase();
-// } else if (logLevelFromEnv) {
-//      console.warn(
-//              `[LoggingConfig] Invalid VITE_APP_LOG_LEVEL: '${logLevelFromEnv}'. Defaulting to '${effectiveLogLevel}'.`,
-//      );
-// }
+if (logLevelFromEnv && validLevels.includes(logLevelFromEnv.toLowerCase())) {
+        effectiveLogLevel = logLevelFromEnv.toLowerCase();
+} else if (logLevelFromEnv) {
+        console.warn(
+                `[LoggingConfig] Invalid VITE_APP_LOG_LEVEL: '${logLevelFromEnv}'. Defaulting to '${effectiveLogLevel}'.`,
+        );
+}
+// If logLevelFromEnv is undefined, it will default to "warn"
 
-// log.setLevel(effectiveLogLevel);
-log.setLevel('debug');
+log.setLevel(effectiveLogLevel);
 
 // Optional: Log the effective log level using loglevel itself.
 // This specific console.log is intentional for initial setup verification.
