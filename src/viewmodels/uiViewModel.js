@@ -204,27 +204,55 @@ class UiViewModel {
 
                 switch (type) {
                 case "selectionChanged":
-                        const newSelectedObject = payload ? this.vttApi.getObject(payload) : null;
+                        const newSelectedObject = payload
+                                ? this.vttApi.getObject(payload)
+                                : null;
                         if (payload && !newSelectedObject) {
-                            log.warn(`[UiViewModel] selectionChanged: Object with ID '${payload}' not found via API, though it was selected. Inspector will be cleared.`);
-                            dUiVM(`[UiViewModel] selectionChanged: Object with ID '${payload}' not found via API. Forcing inspectorData to null.`);
+                                log.warn(
+                                        `[UiViewModel] selectionChanged: Object with ID '${payload}' not found via API, though it was selected. Inspector will be cleared.`,
+                                );
+                                dUiVM(
+                                        `[UiViewModel] selectionChanged: Object with ID '${payload}' not found via API. Forcing inspectorData to null.`,
+                                );
                         }
                         // Ensure inspectorData is either a valid object with an ID, or null.
-                        this.inspectorData = (newSelectedObject && typeof newSelectedObject.id === 'string' && newSelectedObject.id) ? newSelectedObject : null;
+                        this.inspectorData =
+          newSelectedObject &&
+          typeof newSelectedObject.id === "string" &&
+          newSelectedObject.id
+                  ? newSelectedObject
+                  : null;
                         dUiVM("Selection changed. New inspectorData: %o", this.inspectorData);
                         refreshInspector = true;
                         break;
                 case "objectUpdated":
-                        if (this.inspectorData && payload && this.inspectorData.id === payload.id) {
-                            const updatedObject = this.vttApi.getObject(payload.id);
-                            if (!updatedObject) {
-                                log.warn(`[UiViewModel] objectUpdated: Inspected object with ID '${payload.id}' not found via API after update. Clearing inspector.`);
-                                dUiVM(`[UiViewModel] objectUpdated: Inspected object with ID '${payload.id}' not found via API. Forcing inspectorData to null.`);
-                            }
-                            // Ensure inspectorData is either a valid object with an ID, or null.
-                            this.inspectorData = (updatedObject && typeof updatedObject.id === 'string' && updatedObject.id) ? updatedObject : null;
-                            dUiVM("Currently inspected object %s updated. New inspectorData: %o", payload.id, this.inspectorData);
-                            refreshInspector = true;
+                        if (
+                                this.inspectorData &&
+          payload &&
+          this.inspectorData.id === payload.id
+                        ) {
+                                const updatedObject = this.vttApi.getObject(payload.id);
+                                if (!updatedObject) {
+                                        log.warn(
+                                                `[UiViewModel] objectUpdated: Inspected object with ID '${payload.id}' not found via API after update. Clearing inspector.`,
+                                        );
+                                        dUiVM(
+                                                `[UiViewModel] objectUpdated: Inspected object with ID '${payload.id}' not found via API. Forcing inspectorData to null.`,
+                                        );
+                                }
+                                // Ensure inspectorData is either a valid object with an ID, or null.
+                                this.inspectorData =
+            updatedObject &&
+            typeof updatedObject.id === "string" &&
+            updatedObject.id
+                    ? updatedObject
+                    : null;
+                                dUiVM(
+                                        "Currently inspected object %s updated. New inspectorData: %o",
+                                        payload.id,
+                                        this.inspectorData,
+                                );
+                                refreshInspector = true;
                         }
                         break;
                 case "objectDeleted":
