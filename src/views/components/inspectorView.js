@@ -5,10 +5,10 @@
  * and allowing users to edit these properties. It interacts with the UiViewModel to receive
  * selected object data and to send updates.
  */
-import log from 'loglevel';
-import debug from 'debug';
+import log from "loglevel";
+import debug from "debug";
 
-const dInspector = debug('app:view:inspector');
+const dInspector = debug("app:view:inspector");
 
 /** @type {UiViewModel | null} Instance of the UiViewModel, used for data and actions. */
 let uiViewModelInstance = null;
@@ -48,41 +48,37 @@ const domElements = {
  * This is called once during initialization to improve performance by avoiding repeated DOM queries.
  */
 const cacheDOMElements = () => {
-        dInspector('cacheDOMElements called');
-        domElements.inspectorSidebar =
-                document.getElementById('inspector-sidebar');
-        domElements.inspectorContent =
-                document.getElementById('inspector-content');
-        domElements.inspectorActions =
-                document.getElementById('inspector-actions');
-        domElements.objId = document.getElementById('obj-id');
-        domElements.objName = document.getElementById('obj-name');
-        domElements.objX = document.getElementById('obj-x');
-        domElements.objY = document.getElementById('obj-y');
-        domElements.objWidth = document.getElementById('obj-width');
-        domElements.objHeight = document.getElementById('obj-height');
-        domElements.objRotation = document.getElementById('obj-rotation');
-        domElements.objBgColor = document.getElementById('obj-bg-color');
-        domElements.objImageUrl = document.getElementById('obj-image-url');
-        domElements.objZIndex = document.getElementById('obj-z-index');
-        domElements.objIsMovable = document.getElementById('obj-is-movable');
-        domElements.objShape = document.getElementById('obj-shape');
-        domElements.objData = document.getElementById('obj-data');
-        domElements.objScriptOnClick =
-                document.getElementById('obj-script-onclick');
-        domElements.objLabelText = document.getElementById('obj-label-text');
-        domElements.objShowLabel = document.getElementById('obj-show-label');
+        dInspector("cacheDOMElements called");
+        domElements.inspectorSidebar = document.getElementById("inspector-sidebar");
+        domElements.inspectorContent = document.getElementById("inspector-content");
+        domElements.inspectorActions = document.getElementById("inspector-actions");
+        domElements.objId = document.getElementById("obj-id");
+        domElements.objName = document.getElementById("obj-name");
+        domElements.objX = document.getElementById("obj-x");
+        domElements.objY = document.getElementById("obj-y");
+        domElements.objWidth = document.getElementById("obj-width");
+        domElements.objHeight = document.getElementById("obj-height");
+        domElements.objRotation = document.getElementById("obj-rotation");
+        domElements.objBgColor = document.getElementById("obj-bg-color");
+        domElements.objImageUrl = document.getElementById("obj-image-url");
+        domElements.objZIndex = document.getElementById("obj-z-index");
+        domElements.objIsMovable = document.getElementById("obj-is-movable");
+        domElements.objShape = document.getElementById("obj-shape");
+        domElements.objData = document.getElementById("obj-data");
+        domElements.objScriptOnClick = document.getElementById("obj-script-onclick");
+        domElements.objLabelText = document.getElementById("obj-label-text");
+        domElements.objShowLabel = document.getElementById("obj-show-label");
         domElements.updateObjectButton = document.getElementById(
-                'update-object-button'
+                "update-object-button",
         );
         domElements.deleteObjectButton = document.getElementById(
-                'delete-object-button'
+                "delete-object-button",
         );
         domElements.chooseObjectImageButton = document.getElementById(
-                'choose-object-image-button'
+                "choose-object-image-button",
         );
         domElements.objectImageFileInput = document.getElementById(
-                'objectImageFileInput'
+                "objectImageFileInput",
         );
 };
 
@@ -94,28 +90,25 @@ const cacheDOMElements = () => {
  *                                      or null to clear the inspector. Typically from UiViewModel.
  */
 const populateObjectInspector = (objectData) => {
-        dInspector(
-                'populateObjectInspector called with objectData: %o',
-                objectData
-        );
+        dInspector("populateObjectInspector called with objectData: %o", objectData);
         if (!domElements.inspectorContent) {
                 log.warn(
-                        '[inspectorView.js] Inspector content DOM not cached/found. Cannot populate.'
+                        "[inspectorView.js] Inspector content DOM not cached/found. Cannot populate.",
                 );
                 dInspector(
-                        'populateObjectInspector warning: inspectorContent DOM not found.'
+                        "populateObjectInspector warning: inspectorContent DOM not found.",
                 );
                 return;
         }
 
         const inspectorContentDiv =
-                domElements.inspectorContent.querySelector('div:first-child'); // Used to show/hide the "Select an object" placeholder
+    domElements.inspectorContent.querySelector("div:first-child"); // Used to show/hide the "Select an object" placeholder
         const inspectorFieldsContainer = domElements.inspectorContent;
 
         if (objectData) {
                 const {
                         id,
-                        name = '',
+                        name = "",
                         x = 0,
                         y = 0,
                         width = 0,
@@ -123,22 +116,18 @@ const populateObjectInspector = (objectData) => {
                         rotation = 0,
                         zIndex = 0,
                         isMovable = true,
-                        shape = 'rectangle',
+                        shape = "rectangle",
                         appearance,
                         data,
                         scripts,
                 } = objectData;
 
-                if (
-                        inspectorContentDiv &&
-                        inspectorContentDiv.querySelector('p')
-                ) {
-                        inspectorContentDiv.querySelector('p').style.display =
-                                'none';
+                if (inspectorContentDiv && inspectorContentDiv.querySelector("p")) {
+                        inspectorContentDiv.querySelector("p").style.display = "none";
                 }
 
-                domElements.objId.textContent = id || '';
-                if (domElements.objName) domElements.objName.value = name || '';
+                domElements.objId.textContent = id || "";
+                if (domElements.objName) domElements.objName.value = name || "";
                 domElements.objX.value = x;
                 domElements.objY.value = y;
                 domElements.objWidth.value = width;
@@ -150,74 +139,58 @@ const populateObjectInspector = (objectData) => {
 
                 if (appearance) {
                         const {
-                                backgroundColor = '#CCCCCC',
-                                imageUrl = '',
-                                text = '',
+                                backgroundColor = "#CCCCCC",
+                                imageUrl = "",
+                                text = "",
                                 showLabel = false,
                         } = appearance;
                         domElements.objBgColor.value = backgroundColor;
                         domElements.objImageUrl.value = imageUrl;
-                        if (domElements.objLabelText)
-                                domElements.objLabelText.value = text || '';
+                        if (domElements.objLabelText) domElements.objLabelText.value = text || "";
                         if (domElements.objShowLabel)
-                                domElements.objShowLabel.checked =
-                                        showLabel || false;
+                                domElements.objShowLabel.checked = showLabel || false;
                 } else {
-                        domElements.objBgColor.value = '#CCCCCC';
-                        domElements.objImageUrl.value = '';
-                        if (domElements.objLabelText)
-                                domElements.objLabelText.value = '';
-                        if (domElements.objShowLabel)
-                                domElements.objShowLabel.checked = false;
+                        domElements.objBgColor.value = "#CCCCCC";
+                        domElements.objImageUrl.value = "";
+                        if (domElements.objLabelText) domElements.objLabelText.value = "";
+                        if (domElements.objShowLabel) domElements.objShowLabel.checked = false;
                 }
 
-                domElements.objData.value = data
-                        ? JSON.stringify(data, null, 2)
-                        : '{}';
+                domElements.objData.value = data ? JSON.stringify(data, null, 2) : "{}";
                 domElements.objScriptOnClick.value =
-                        scripts && scripts.onClick ? scripts.onClick : '';
+      scripts && scripts.onClick ? scripts.onClick : "";
 
                 if (domElements.inspectorActions)
-                        domElements.inspectorActions.classList.remove('hidden');
-                Array.from(inspectorFieldsContainer.children).forEach(
-                        (child) => {
-                                if (
-                                        child !== inspectorContentDiv &&
-                                        child !== domElements.inspectorActions
-                                ) {
-                                        child.style.display = '';
-                                }
+                        domElements.inspectorActions.classList.remove("hidden");
+                Array.from(inspectorFieldsContainer.children).forEach((child) => {
+                        if (
+                                child !== inspectorContentDiv &&
+        child !== domElements.inspectorActions
+                        ) {
+                                child.style.display = "";
                         }
-                );
+                });
         } else {
                 // objectData is null
-                if (domElements.objId) domElements.objId.textContent = ''; // <-- ADD THIS LINE
-                if (
-                        inspectorContentDiv &&
-                        inspectorContentDiv.querySelector('p')
-                ) {
-                        inspectorContentDiv.querySelector('p').textContent =
-                                'Select an object to inspect.';
-                        inspectorContentDiv.querySelector('p').style.display =
-                                '';
+                if (domElements.objId) domElements.objId.textContent = ""; // <-- ADD THIS LINE
+                if (inspectorContentDiv && inspectorContentDiv.querySelector("p")) {
+                        inspectorContentDiv.querySelector("p").textContent =
+        "Select an object to inspect.";
+                        inspectorContentDiv.querySelector("p").style.display = "";
                 }
-                Array.from(inspectorFieldsContainer.children).forEach(
-                        (child) => {
-                                if (
-                                        child !== inspectorContentDiv &&
-                                        child !== domElements.inspectorActions
-                                ) {
-                                        child.style.display = 'none';
-                                }
+                Array.from(inspectorFieldsContainer.children).forEach((child) => {
+                        if (
+                                child !== inspectorContentDiv &&
+        child !== domElements.inspectorActions
+                        ) {
+                                child.style.display = "none";
                         }
-                );
-                if (domElements.objName) domElements.objName.value = '';
-                if (domElements.objLabelText)
-                        domElements.objLabelText.value = '';
-                if (domElements.objShowLabel)
-                        domElements.objShowLabel.checked = false;
+                });
+                if (domElements.objName) domElements.objName.value = "";
+                if (domElements.objLabelText) domElements.objLabelText.value = "";
+                if (domElements.objShowLabel) domElements.objShowLabel.checked = false;
                 if (domElements.inspectorActions)
-                        domElements.inspectorActions.classList.add('hidden');
+                        domElements.inspectorActions.classList.add("hidden");
         }
 };
 
@@ -230,9 +203,7 @@ const populateObjectInspector = (objectData) => {
  */
 const readObjectInspector = () => {
         if (!domElements.objId || !domElements.objId.textContent) {
-                dInspector(
-                        'readObjectInspector: No object ID found, returning null.'
-                );
+                dInspector("readObjectInspector: No object ID found, returning null.");
                 return null;
         }
 
@@ -241,25 +212,23 @@ const readObjectInspector = () => {
         try {
                 data = JSON.parse(dataStr);
         } catch (e) {
-                log.error('Invalid JSON in data field:', e);
+                log.error("Invalid JSON in data field:", e);
                 dInspector(
-                        'readObjectInspector error: Invalid JSON in data field. Error: %o',
-                        e
+                        "readObjectInspector error: Invalid JSON in data field. Error: %o",
+                        e,
                 );
                 if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
                         uiViewModelInstance.displayMessage(
-                                'Error: Custom Data is not valid JSON.',
-                                'error'
+                                "Error: Custom Data is not valid JSON.",
+                                "error",
                         );
                 } else {
-                        alert('Error: Custom Data is not valid JSON.'); // Fallback
+                        alert("Error: Custom Data is not valid JSON."); // Fallback
                 }
         }
         const snapshot = {
                 id: domElements.objId.textContent,
-                name: domElements.objName
-                        ? domElements.objName.value.trim()
-                        : '',
+                name: domElements.objName ? domElements.objName.value.trim() : "",
                 x: parseFloat(domElements.objX.value) || 0,
                 y: parseFloat(domElements.objY.value) || 0,
                 width: (() => {
@@ -277,9 +246,7 @@ const readObjectInspector = () => {
                 appearance: {
                         backgroundColor: domElements.objBgColor.value,
                         imageUrl: domElements.objImageUrl.value.trim(),
-                        text: domElements.objLabelText
-                                ? domElements.objLabelText.value
-                                : '',
+                        text: domElements.objLabelText ? domElements.objLabelText.value : "",
                         showLabel: domElements.objShowLabel
                                 ? domElements.objShowLabel.checked
                                 : false,
@@ -297,36 +264,29 @@ const readObjectInspector = () => {
  * and then calls `uiViewModelInstance.applyInspectorChanges` to update the model.
  */
 const handleApplyObjectChanges = () => {
-        dInspector('handleApplyObjectChanges called');
+        dInspector("handleApplyObjectChanges called");
         const updatedProps = readObjectInspector();
-        dInspector('Read inspector properties: %o', updatedProps);
+        dInspector("Read inspector properties: %o", updatedProps);
         if (updatedProps && updatedProps.id && uiViewModelInstance) {
-                uiViewModelInstance.applyInspectorChanges(
-                        updatedProps.id,
-                        updatedProps
-                );
+                uiViewModelInstance.applyInspectorChanges(updatedProps.id, updatedProps);
                 dInspector(
-                        'Called uiViewModelInstance.applyInspectorChanges for ID: %s',
-                        updatedProps.id
+                        "Called uiViewModelInstance.applyInspectorChanges for ID: %s",
+                        updatedProps.id,
                 );
         } else if (!uiViewModelInstance) {
                 log.error(
-                        '[inspectorView.js] UiViewModel not initialized. Cannot apply object changes.'
+                        "[inspectorView.js] UiViewModel not initialized. Cannot apply object changes.",
                 );
-                dInspector(
-                        'handleApplyObjectChanges error: UiViewModel not initialized.'
-                );
+                dInspector("handleApplyObjectChanges error: UiViewModel not initialized.");
         } else {
-                log.warn(
-                        '[inspectorView.js] No object selected or ID missing for update.'
-                );
+                log.warn("[inspectorView.js] No object selected or ID missing for update.");
                 dInspector(
-                        'handleApplyObjectChanges warning: No object selected or ID missing for update.'
+                        "handleApplyObjectChanges warning: No object selected or ID missing for update.",
                 );
                 if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
                         uiViewModelInstance.displayMessage(
-                                'No object selected or ID missing for update.',
-                                'warning'
+                                "No object selected or ID missing for update.",
+                                "warning",
                         );
                 }
         }
@@ -338,45 +298,41 @@ const handleApplyObjectChanges = () => {
  * and then calls `uiViewModelInstance.requestObjectDelete` to initiate deletion.
  */
 const handleDeleteObject = () => {
-        dInspector('handleDeleteObject called');
+        dInspector("handleDeleteObject called");
         const currentObject = readObjectInspector();
-        dInspector('Read inspector properties for delete: %o', currentObject);
+        dInspector("Read inspector properties for delete: %o", currentObject);
         if (currentObject && currentObject.id && uiViewModelInstance) {
                 if (uiViewModelInstance.requestObjectDelete) {
                         // Check if method exists on ViewModel
                         uiViewModelInstance.requestObjectDelete(
                                 currentObject.id,
-                                currentObject.name || currentObject.id
+                                currentObject.name || currentObject.id,
                         );
                         dInspector(
-                                'Called uiViewModelInstance.requestObjectDelete for ID: %s',
-                                currentObject.id
+                                "Called uiViewModelInstance.requestObjectDelete for ID: %s",
+                                currentObject.id,
                         );
                 } else {
                         log.error(
-                                '[inspectorView.js] uiViewModelInstance or requestObjectDelete method not available.'
+                                "[inspectorView.js] uiViewModelInstance or requestObjectDelete method not available.",
                         );
                         dInspector(
-                                'handleDeleteObject error: requestObjectDelete method not available on UiViewModel.'
+                                "handleDeleteObject error: requestObjectDelete method not available on UiViewModel.",
                         );
                         // Fallback message if necessary, though displayMessage on ViewModel is preferred
-                        alert('Error: Could not initiate object deletion.');
+                        alert("Error: Could not initiate object deletion.");
                 }
         } else if (!uiViewModelInstance) {
                 log.error(
-                        '[inspectorView.js] UiViewModel not initialized. Cannot delete object.'
+                        "[inspectorView.js] UiViewModel not initialized. Cannot delete object.",
                 );
-                dInspector(
-                        'handleDeleteObject error: UiViewModel not initialized.'
-                );
+                dInspector("handleDeleteObject error: UiViewModel not initialized.");
         } else {
-                dInspector(
-                        'handleDeleteObject warning: No object selected to delete.'
-                );
+                dInspector("handleDeleteObject warning: No object selected to delete.");
                 if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
                         uiViewModelInstance.displayMessage(
-                                'No object selected to delete.',
-                                'warning'
+                                "No object selected to delete.",
+                                "warning",
                         );
                 }
         }
@@ -388,15 +344,15 @@ const handleDeleteObject = () => {
  * @param {string} text - The text to set in the image URL input field.
  */
 const setObjectImageUrlText = (text) => {
-        dInspector('setObjectImageUrlText called with text: %s', text);
+        dInspector("setObjectImageUrlText called with text: %s", text);
         if (domElements.objImageUrl) {
                 domElements.objImageUrl.value = text;
         } else {
                 log.error(
-                        '[inspectorView.js] objImageUrl element not found. Cannot set text.'
+                        "[inspectorView.js] objImageUrl element not found. Cannot set text.",
                 );
                 dInspector(
-                        'setObjectImageUrlText error: objImageUrl DOM element not found.'
+                        "setObjectImageUrlText error: objImageUrl DOM element not found.",
                 );
         }
 };
@@ -410,21 +366,21 @@ const setObjectImageUrlText = (text) => {
  */
 const handleObjectImageFileChange = (event) => {
         dInspector(
-                'handleObjectImageFileChange event triggered. File: %o',
-                event.target.files[0]
+                "handleObjectImageFileChange event triggered. File: %o",
+                event.target.files[0],
         );
         const file = event.target.files[0];
         if (!file) {
-                dInspector('No file selected.');
+                dInspector("No file selected.");
                 return;
         }
 
-        if (!file.type.startsWith('image/')) {
-                dInspector('Selected file is not an image: %s', file.type);
+        if (!file.type.startsWith("image/")) {
+                dInspector("Selected file is not an image: %s", file.type);
                 if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
                         uiViewModelInstance.displayMessage(
-                                'Please select an image file for the object.',
-                                'error'
+                                "Please select an image file for the object.",
+                                "error",
                         );
                 }
                 return;
@@ -432,33 +388,30 @@ const handleObjectImageFileChange = (event) => {
 
         const reader = new FileReader();
         reader.onload = (e) => {
-                dInspector(
-                        'File loaded as data URL. Length: %d',
-                        e.target.result.length
-                );
+                dInspector("File loaded as data URL. Length: %d", e.target.result.length);
                 setObjectImageUrlText(e.target.result);
                 if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
                         uiViewModelInstance.displayMessage(
                                 'Object image updated in inspector. Click "Update Object" to apply.',
-                                'info'
+                                "info",
                         );
                 }
         };
         reader.onerror = () => {
                 log.error(
-                        '[inspectorView.js] Error reading object image file:',
-                        reader.error
+                        "[inspectorView.js] Error reading object image file:",
+                        reader.error,
                 );
-                dInspector('Error reading object image file: %o', reader.error);
+                dInspector("Error reading object image file: %o", reader.error);
                 if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
                         uiViewModelInstance.displayMessage(
-                                'Error reading object image file.',
-                                'error'
+                                "Error reading object image file.",
+                                "error",
                         );
                 }
         };
         reader.readAsDataURL(file);
-        dInspector('Started reading file as data URL: %s', file.name);
+        dInspector("Started reading file as data URL: %s", file.name);
 };
 
 /**
@@ -472,72 +425,58 @@ const handleObjectImageFileChange = (event) => {
  */
 export const init = (uiViewModel, vttApi) => {
         dInspector(
-                'init called with uiViewModel: %o, vttApi: %o',
+                "init called with uiViewModel: %o, vttApi: %o",
                 uiViewModel,
-                vttApi
+                vttApi,
         );
         uiViewModelInstance = uiViewModel;
 
         if (!uiViewModelInstance) {
-                log.error(
-                        '[inspectorView.js] UiViewModel not provided during init!'
-                );
-                dInspector('init error: UiViewModel not provided.');
+                log.error("[inspectorView.js] UiViewModel not provided during init!");
+                dInspector("init error: UiViewModel not provided.");
                 return;
         }
-        dInspector('UiViewModel instance stored.');
+        dInspector("UiViewModel instance stored.");
 
         cacheDOMElements();
-        dInspector('DOM elements cached.');
+        dInspector("DOM elements cached.");
 
         if (domElements.updateObjectButton) {
                 domElements.updateObjectButton.addEventListener(
-                        'click',
-                        handleApplyObjectChanges
+                        "click",
+                        handleApplyObjectChanges,
                 );
-                dInspector('Event listener added for updateObjectButton.');
+                dInspector("Event listener added for updateObjectButton.");
         }
         if (domElements.deleteObjectButton) {
                 domElements.deleteObjectButton.addEventListener(
-                        'click',
-                        handleDeleteObject
+                        "click",
+                        handleDeleteObject,
                 );
-                dInspector('Event listener added for deleteObjectButton.');
+                dInspector("Event listener added for deleteObjectButton.");
         }
-        if (
-                domElements.chooseObjectImageButton &&
-                domElements.objectImageFileInput
-        ) {
-                domElements.chooseObjectImageButton.addEventListener(
-                        'click',
-                        (e) => {
-                                e.preventDefault();
-                                dInspector(
-                                        'Choose Object Image button clicked.'
-                                );
-                                domElements.objectImageFileInput.value = null; // Reset file input
-                                domElements.objectImageFileInput.click();
-                                dInspector(
-                                        'Hidden objectImageFileInput clicked.'
-                                );
-                        }
-                );
+        if (domElements.chooseObjectImageButton && domElements.objectImageFileInput) {
+                domElements.chooseObjectImageButton.addEventListener("click", (e) => {
+                        e.preventDefault();
+                        dInspector("Choose Object Image button clicked.");
+                        domElements.objectImageFileInput.value = null; // Reset file input
+                        domElements.objectImageFileInput.click();
+                        dInspector("Hidden objectImageFileInput clicked.");
+                });
                 domElements.objectImageFileInput.addEventListener(
-                        'change',
-                        handleObjectImageFileChange
+                        "change",
+                        handleObjectImageFileChange,
                 );
-                dInspector(
-                        'Event listener added for objectImageFileInput change.'
-                );
+                dInspector("Event listener added for objectImageFileInput change.");
         }
 
         uiViewModelInstance.onInspectorDataChanged(populateObjectInspector);
         dInspector(
-                'Registered populateObjectInspector with uiViewModelInstance.onInspectorDataChanged.'
+                "Registered populateObjectInspector with uiViewModelInstance.onInspectorDataChanged.",
         );
 
         // Initial population of the inspector with currently selected object data (if any)
         populateObjectInspector(uiViewModelInstance.getInspectorData());
-        dInspector('Initial population of inspector complete.');
+        dInspector("Initial population of inspector complete.");
         // log.debug('[inspectorView.js] Initialized.'); // Removed for cleaner logs
 };

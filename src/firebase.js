@@ -5,9 +5,9 @@
 // The original Firebase logic is preserved in commented-out blocks within each function
 // for easy reactivation when online capabilities are required.
 
-import log from 'loglevel';
-import { initializeApp } from 'firebase/app';
-import { getAuth, signInAnonymously, onAuthStateChanged } from 'firebase/auth';
+import log from "loglevel";
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
 import {
         getFirestore,
         doc,
@@ -17,7 +17,7 @@ import {
         onSnapshot,
         writeBatch,
         Timestamp, // If using server timestamps
-} from 'firebase/firestore';
+} from "firebase/firestore";
 
 let app;
 let auth;
@@ -35,7 +35,7 @@ export const initializeAppFirebase = () => {
         // if (!firebaseConfigString) {
         //     throw new Error("Firebase config not found in environment variables. Make sure VITE_FIREBASE_CONFIG is set in your .env file.");
         // }
-        appIdString = import.meta.env.VITE_APP_ID || 'tabletoptool-offline';
+        appIdString = import.meta.env.VITE_APP_ID || "tabletoptool-offline";
         // if (!appIdString) {
         //     console.warn("VITE_APP_ID is not set. Using default 'tabletoptool-generic'.");
         //     appIdString = 'tabletoptool-generic';
@@ -52,7 +52,7 @@ export const initializeAppFirebase = () => {
         //     log.error("Error parsing Firebase config:", error);
         //     throw new Error("Could not parse Firebase configuration. Check VITE_FIREBASE_CONFIG format.");
         // }
-        log.warn('Firebase initialization skipped - OFFLINE MODE');
+        log.warn("Firebase initialization skipped - OFFLINE MODE");
         return { app: null, auth: null, db: null, appIdString };
 };
 
@@ -65,9 +65,7 @@ export const initializeAppFirebase = () => {
  * @throws {Error} If Firebase Auth instance is not provided (in online mode).
  */
 export const signInUserAnonymously = async (firebaseAuth) => {
-        log.warn(
-                'Firebase function signInUserAnonymously called - OFFLINE MODE'
-        );
+        log.warn("Firebase function signInUserAnonymously called - OFFLINE MODE");
         // if (!firebaseAuth) throw new Error("Auth instance not provided to signInUserAnonymously");
         // try {
         //     const userCredential = await signInAnonymously(firebaseAuth);
@@ -77,7 +75,7 @@ export const signInUserAnonymously = async (firebaseAuth) => {
         //     log.error("Error signing in anonymously:", error);
         //     throw error;
         // }
-        return Promise.resolve('offline-user');
+        return Promise.resolve("offline-user");
 };
 
 /**
@@ -88,14 +86,14 @@ export const signInUserAnonymously = async (firebaseAuth) => {
  * @returns {function(): void} An unsubscribe function. Returns a no-op in offline mode.
  */
 export const onAuthChanges = (firebaseAuth, callback) => {
-        log.warn('Firebase function onAuthChanges called - OFFLINE MODE');
+        log.warn("Firebase function onAuthChanges called - OFFLINE MODE");
         // if (!firebaseAuth) {
         //     log.warn("Auth instance not provided to onAuthChanges, returning no-op unsubscribe.");
         //     return () => {}; // Return a no-op unsubscribe function
         // }
         // return onAuthStateChanged(firebaseAuth, callback);
         if (callback) {
-                callback({ uid: 'offline-user', isAnonymous: true });
+                callback({ uid: "offline-user", isAnonymous: true });
         }
         return () => {};
 };
@@ -111,9 +109,7 @@ export const onAuthChanges = (firebaseAuth, callback) => {
 const getSessionObjectsCollectionPath = (currentAppIdString, sessionId) => {
         // Path construction for Firestore.
         if (!currentAppIdString || !sessionId)
-                throw new Error(
-                        'App ID and Session ID are required for collection path.'
-                );
+                throw new Error("App ID and Session ID are required for collection path.");
         return `apps/${currentAppIdString}/sessions/${sessionId}/objects`;
 };
 
@@ -127,9 +123,7 @@ const getSessionObjectsCollectionPath = (currentAppIdString, sessionId) => {
  */
 const getSessionMetadataDocPath = (currentAppIdString, sessionId) => {
         if (!currentAppIdString || !sessionId)
-                throw new Error(
-                        'App ID and Session ID are required for doc path.'
-                );
+                throw new Error("App ID and Session ID are required for doc path.");
         return `apps/${currentAppIdString}/sessions/${sessionId}/metadata/table`;
 };
 
@@ -148,11 +142,9 @@ export const saveObjectToFirestore = async (
         firestoreDb,
         currentAppIdString,
         sessionId,
-        objectData
+        objectData,
 ) => {
-        log.warn(
-                'Firebase function saveObjectToFirestore called - OFFLINE MODE'
-        );
+        log.warn("Firebase function saveObjectToFirestore called - OFFLINE MODE");
         // if (!firestoreDb || !currentAppIdString || !sessionId || !objectData || !objectData.id) {
         //     log.error("Missing parameters for saveObjectToFirestore", { firestoreDb, currentAppIdString, sessionId, objectData });
         //     throw new Error("Missing parameters: db, appId, sessionId, or objectData with id must be provided.");
@@ -184,11 +176,9 @@ export const deleteObjectFromFirestore = async (
         firestoreDb,
         currentAppIdString,
         sessionId,
-        objectId
+        objectId,
 ) => {
-        log.warn(
-                'Firebase function deleteObjectFromFirestore called - OFFLINE MODE'
-        );
+        log.warn("Firebase function deleteObjectFromFirestore called - OFFLINE MODE");
         // if (!firestoreDb || !currentAppIdString || !sessionId || !objectId) {
         //     throw new Error("Missing parameters: db, appId, sessionId, or objectId must be provided.");
         // }
@@ -216,11 +206,9 @@ export const loadObjectsFromFirestore = (
         firestoreDb,
         currentAppIdString,
         sessionId,
-        callback
+        callback,
 ) => {
-        log.warn(
-                'Firebase function loadObjectsFromFirestore called - OFFLINE MODE'
-        );
+        log.warn("Firebase function loadObjectsFromFirestore called - OFFLINE MODE");
         // if (!firestoreDb || !currentAppIdString || !sessionId || !callback) {
         //     throw new Error("Missing parameters: db, appId, sessionId, or callback must be provided.");
         // }
@@ -261,9 +249,9 @@ export const saveTableMetadata = async (
         firestoreDb,
         currentAppIdString,
         sessionId,
-        metadata
+        metadata,
 ) => {
-        log.warn('Firebase function saveTableMetadata called - OFFLINE MODE');
+        log.warn("Firebase function saveTableMetadata called - OFFLINE MODE");
         //  if (!firestoreDb || !currentAppIdString || !sessionId || !metadata) {
         //     throw new Error("Missing parameters: db, appId, sessionId, or metadata must be provided.");
         // }
@@ -291,9 +279,9 @@ export const loadTableMetadata = (
         firestoreDb,
         currentAppIdString,
         sessionId,
-        callback
+        callback,
 ) => {
-        log.warn('Firebase function loadTableMetadata called - OFFLINE MODE');
+        log.warn("Firebase function loadTableMetadata called - OFFLINE MODE");
         // if (!firestoreDb || !currentAppIdString || !sessionId || !callback) {
         //     throw new Error("Missing parameters: db, appId, sessionId, or callback must be provided.");
         // }
@@ -325,7 +313,7 @@ export const loadTableMetadata = (
  * @returns {object} A stubbed Firestore WriteBatch object with a commit method.
  */
 export const getFirestoreBatch = (firestoreDb) => {
-        log.warn('Firebase function getFirestoreBatch called - OFFLINE MODE');
+        log.warn("Firebase function getFirestoreBatch called - OFFLINE MODE");
         // return writeBatch(firestoreDb);
         return {
                 commit: () => Promise.resolve(),
