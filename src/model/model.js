@@ -9,6 +9,25 @@ const dispatchModelChangeEvent = (detail) => {
   }
 };
 
+function objectsAreEqual(obj1, obj2) {
+    if (obj1 === obj2) return true;
+    if (obj1 == null || obj2 == null || typeof obj1 !== 'object' || typeof obj2 !== 'object') {
+        return false;
+    }
+
+    const keys1 = Object.keys(obj1);
+    const keys2 = Object.keys(obj2);
+
+    if (keys1.length !== keys2.length) return false;
+
+    for (const key of keys1) {
+        if (!keys2.includes(key)) return false;
+        // Ensure recursive call is to the same function name
+        if (!objectsAreEqual(obj1[key], obj2[key])) return false;
+    }
+    return true;
+}
+
 /**
  * @typedef {Object} VTTObjectAppearance
  * @property {string} [imageUrl] - URL for an image to display.
@@ -129,28 +148,37 @@ export const updateObject = (objectId, updatedProps) => {
 
   const existingObject = currentObjects.get(objectId);
 
+  // Perform the deep merge to create the potential new state
   const newObjectState = {
-    ...existingObject,
-    ...updatedProps,
-    id: objectId,
-    appearance: {
-      ...existingObject.appearance,
-      ...(updatedProps.appearance || {}),
-    },
-    data: {
-      ...existingObject.data,
-      ...(updatedProps.data || {}),
-    },
-    scripts: {
-      ...existingObject.scripts,
-      ...(updatedProps.scripts || {}),
-    },
+      ...existingObject,
+      ...updatedProps,
+      id: objectId, // Ensure ID is not overwritten by updatedProps
+      // Deep merge for nested properties
+      appearance: {
+          ...(existingObject.appearance || {}),
+          ...(updatedProps.appearance || {}),
+      },
+      data: {
+          ...(existingObject.data || {}),
+          ...(updatedProps.data || {}),
+      },
+      scripts: {
+          ...(existingObject.scripts || {}),
+          ...(updatedProps.scripts || {}),
+      },
   };
 
-  currentObjects.set(objectId, newObjectState);
-  dispatchModelChangeEvent({ type: 'objectUpdated', payload: { ...newObjectState } });
-  console.log(`Object updated: ${objectId}`, newObjectState);
-  return { ...newObjectState };
+  // Compare the existing object with the potential new state
+  if (!objectsAreEqual(existingObject, newObjectState)) {
+      currentObjects.set(objectId, newObjectState);
+      dispatchModelChangeEvent({ type: 'objectUpdated', payload: { ...newObjectState } });
+      console.log(`Object updated: ${objectId}`, newObjectState);
+  } else {
+      // Optional: Log that no change occurred, for debugging, or do nothing.
+      // console.log(`Object update for ${objectId} resulted in no changes.`);
+  }
+
+  return { ...newObjectState }; // Always return the (potentially unchanged) new state as a copy
 };
 
 export const deleteObject = (objectId) => {
