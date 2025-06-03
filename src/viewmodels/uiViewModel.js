@@ -136,11 +136,11 @@ class UiViewModel {
                                 );
                         }
                         this.inspectorData =
-          newSelectedObject &&
-          typeof newSelectedObject.id === "string" &&
-          newSelectedObject.id
-                  ? newSelectedObject
-                  : null;
+                    newSelectedObject &&
+                    typeof newSelectedObject.id === "string" &&
+                    newSelectedObject.id
+                            ? newSelectedObject
+                            : null;
                         dUiVM("Selection changed. New inspectorData: %o", this.inspectorData);
                         refreshInspector = true;
                         break;
@@ -148,8 +148,8 @@ class UiViewModel {
                 case "objectUpdated": {
                         if (
                                 this.inspectorData &&
-          payload &&
-          this.inspectorData.id === payload.id
+                    payload &&
+                    this.inspectorData.id === payload.id
                         ) {
                                 const updatedObject = this.vttApi.getObject(payload.id);
                                 if (!updatedObject) {
@@ -161,11 +161,11 @@ class UiViewModel {
                                         );
                                 }
                                 this.inspectorData =
-            updatedObject &&
-            typeof updatedObject.id === "string" &&
-            updatedObject.id
-                    ? updatedObject
-                    : null;
+                        updatedObject &&
+                        typeof updatedObject.id === "string" &&
+                        updatedObject.id
+                                ? updatedObject
+                                : null;
                                 dUiVM(
                                         "Currently inspected object %s updated. New inspectorData: %o",
                                         payload.id,
@@ -178,8 +178,8 @@ class UiViewModel {
                 case "objectDeleted": {
                         if (
                                 this.inspectorData &&
-          payload &&
-          this.inspectorData.id === payload.id
+                    payload &&
+                    this.inspectorData.id === payload.id
                         ) {
                                 this.inspectorData = null;
                                 dUiVM(
@@ -213,14 +213,14 @@ class UiViewModel {
 
                 if (
                         refreshInspector &&
-      typeof this._onInspectorDataChanged === "function"
+            typeof this._onInspectorDataChanged === "function"
                 ) {
                         dUiVM("Inspector needs refresh, calling _onInspectorDataChanged.");
                         this._onInspectorDataChanged(this.inspectorData);
                 }
                 if (
                         refreshBoardSettings &&
-      typeof this._onBoardSettingsChanged === "function"
+            typeof this._onBoardSettingsChanged === "function"
                 ) {
                         dUiVM("Board settings need refresh, calling _onBoardSettingsChanged.");
                         this._onBoardSettingsChanged(this.boardProperties);
@@ -252,23 +252,14 @@ class UiViewModel {
                         const updatePayload = {};
 
                         [
-                                "name",
-                                "x",
-                                "y",
-                                "width",
-                                "height",
-                                "rotation",
-                                "zIndex",
-                                "isMovable",
-                                "shape",
+                                "name", "x", "y", "width", "height", "rotation",
+                                "zIndex", "isMovable", "shape",
                         ].forEach((key) => {
                                 if (
                                         Object.prototype.hasOwnProperty.call(inspectorSnapshot, key) &&
-          inspectorSnapshot[key] !== currentObject[key]
+                    inspectorSnapshot[key] !== currentObject[key]
                                 ) {
-                                        if (
-                                                ["x", "y", "width", "height", "rotation", "zIndex"].includes(key)
-                                        ) {
+                                        if (["x", "y", "width", "height", "rotation", "zIndex"].includes(key)) {
                                                 const numVal = parseFloat(inspectorSnapshot[key]);
                                                 if (!isNaN(numVal)) {
                                                         updatePayload[key] = numVal;
@@ -284,16 +275,11 @@ class UiViewModel {
                                 const currentAppearance = currentObject.appearance || {};
                                 for (const key in inspectorSnapshot.appearance) {
                                         if (
-                                                Object.prototype.hasOwnProperty.call(
-                                                        inspectorSnapshot.appearance,
-                                                        key,
-                                                ) &&
-            inspectorSnapshot.appearance[key] !== currentAppearance[key]
+                                                Object.prototype.hasOwnProperty.call(inspectorSnapshot.appearance, key) &&
+                        inspectorSnapshot.appearance[key] !== currentAppearance[key]
                                         ) {
                                                 if (key === "showLabel") {
-                                                        updatePayload.appearance[key] =
-                inspectorSnapshot.appearance[key] === true ||
-                inspectorSnapshot.appearance[key] === "true";
+                                                        updatePayload.appearance[key] = inspectorSnapshot.appearance[key] === true || inspectorSnapshot.appearance[key] === "true";
                                                 } else if (key === "borderWidth" || key === "fontSize") {
                                                         const numVal = parseFloat(inspectorSnapshot.appearance[key]);
                                                         if (!isNaN(numVal)) {
@@ -314,11 +300,8 @@ class UiViewModel {
                                 const currentScripts = currentObject.scripts || {};
                                 for (const key in inspectorSnapshot.scripts) {
                                         if (
-                                                Object.prototype.hasOwnProperty.call(
-                                                        inspectorSnapshot.scripts,
-                                                        key,
-                                                ) &&
-            inspectorSnapshot.scripts[key] !== currentScripts[key]
+                                                Object.prototype.hasOwnProperty.call(inspectorSnapshot.scripts, key) &&
+                        inspectorSnapshot.scripts[key] !== currentScripts[key]
                                         ) {
                                                 updatePayload.scripts[key] = inspectorSnapshot.scripts[key];
                                         }
@@ -333,11 +316,7 @@ class UiViewModel {
                                 this.vttApi.updateObject(objectId, updatePayload);
                                 this.displayMessage(`Object ${objectId} updated.`, "success", 1500);
                         } else {
-                                this.displayMessage(
-                                        `No changes detected for object ${objectId}.`,
-                                        "info",
-                                        1500,
-                                );
+                                this.displayMessage(`No changes detected for object ${objectId}.`, "info", 1500);
                         }
                 } catch (error) {
                         log.error("[UiViewModel] Error applying inspector changes:", error);
@@ -346,10 +325,7 @@ class UiViewModel {
         }
 
         handleDeleteSelectedObject(objectId) {
-                dUiVM(
-                        "handleDeleteSelectedObject called for objectId: %s (Note: generally unused)",
-                        objectId,
-                );
+                dUiVM("handleDeleteSelectedObject called for objectId: %s (Note: generally unused)", objectId);
                 if (!this.vttApi || !objectId) return;
                 const result = this.vttApi.deleteObject(objectId);
                 if (result) {
@@ -375,11 +351,7 @@ class UiViewModel {
                 if (!this.vttApi) return null;
                 const newObj = this.vttApi.createObject(shape, props);
                 if (newObj) {
-                        this.displayMessage(
-                                `${shape} object "${newObj.name}" created.`,
-                                "success",
-                                1500,
-                        );
+                        this.displayMessage(`${shape} object "${newObj.name}" created.`, "success", 1500);
                 } else {
                         this.displayMessage(`Failed to create ${shape} object.`, "error");
                 }
@@ -387,10 +359,7 @@ class UiViewModel {
         }
 
         setTableBackground(backgroundProps) {
-                dUiVM(
-                        "setTableBackground called with backgroundProps: %o",
-                        backgroundProps,
-                );
+                dUiVM("setTableBackground called with backgroundProps: %o", backgroundProps);
                 if (!this.vttApi) return;
                 this.vttApi.setTableBackground(backgroundProps);
                 this.displayMessage("Table background updated.", "success", 1500);
@@ -406,18 +375,11 @@ class UiViewModel {
         }
 
         displayMessage(text, type = "info", duration = 3000) {
-                dUiVM(
-                        'displayMessage called. Text: "%s", Type: %s, Duration: %dms',
-                        text,
-                        type,
-                        duration,
-                );
+                dUiVM('displayMessage called. Text: "%s", Type: %s, Duration: %dms', text, type, duration);
                 if (typeof this._onDisplayMessage === "function") {
                         this._onDisplayMessage(text, type, duration);
                 } else {
-                        log.warn(
-                                `[UiViewModel] displayMessage called, but no handler registered. Message: ${type} - ${text}`,
-                        );
+                        log.warn(`[UiViewModel] displayMessage called, but no handler registered. Message: ${type} - ${text}`);
                 }
         }
 
@@ -439,20 +401,12 @@ class UiViewModel {
                                 modalTitle,
                                 choices,
                                 (selectedIndex) => {
-                                        if (
-                                                selectedIndex !== null &&
-            selectedIndex >= 0 &&
-            selectedIndex < availableStates.length
-                                        ) {
-                                                const stateToLoad =
-              sessionManagement.getMemoryStateByIndex(selectedIndex);
+                                        if (selectedIndex !== null && selectedIndex >= 0 && selectedIndex < availableStates.length) {
+                                                const stateToLoad = sessionManagement.getMemoryStateByIndex(selectedIndex);
                                                 if (stateToLoad) {
                                                         sessionManagement.applyMemoryState(stateToLoad);
                                                 } else {
-                                                        this.displayMessage(
-                                                                "Selected state could not be retrieved.",
-                                                                "error",
-                                                        );
+                                                        this.displayMessage("Selected state could not be retrieved.", "error");
                                                 }
                                         } else if (selectedIndex !== null) {
                                                 this.displayMessage("Invalid selection.", "info");
@@ -462,10 +416,7 @@ class UiViewModel {
                                 },
                         );
                 } else {
-                        this.displayMessage(
-                                "Cannot display memory states: UI component not ready.",
-                                "error",
-                        );
+                        this.displayMessage("Cannot display memory states: UI component not ready.", "error");
                 }
         }
 }
