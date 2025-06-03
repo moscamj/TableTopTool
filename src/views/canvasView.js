@@ -68,7 +68,7 @@ export const initCanvas = (canvasElement, cvm) => { // cvm is the CanvasViewMode
   ctx = canvas.getContext('2d');
   viewModel = cvm; // Store the ViewModel instance
 
-  setCanvasSize(); // Set initial size
+  requestAnimationFrame(() => setCanvasSize()); // Defer initial size calculation
   window.addEventListener('resize', debounce(setCanvasSize, 250));
 
   // Register event listeners
