@@ -265,37 +265,41 @@ const handleApplyBoardProperties = () => {
     return;
   }
 
-  const width = parseFloat(domElements.boardWidthInput.value);
-  const height = parseFloat(domElements.boardHeightInput.value);
-  const dimensionUnit = domElements.boardDimensionUnitInput.value; // Read from new dimension unit selector
-  const scaleRatio = parseFloat(domElements.boardScaleInput.value);
-  const scaleRatioUnit = domElements.boardScaleUnitInput.value; // Read from map scale unit selector
+  const widthValue = parseFloat(domElements.boardWidthInput.value);      // Renamed local const for clarity
+  const heightValue = parseFloat(domElements.boardHeightInput.value);     // Renamed local const for clarity
+  const dimUnitValue = domElements.boardDimensionUnitInput.value;   // Renamed local const for clarity
+  const scaleRatioValue = parseFloat(domElements.boardScaleInput.value); // Renamed local const for clarity
+  const scaleUnitValue = domElements.boardScaleUnitInput.value;   // Renamed local const for clarity
 
-  if (isNaN(width) || width <= 0 || isNaN(height) || height <= 0) {
+  // Validation should use these new const names too, e.g., if (isNaN(widthValue) || widthValue <= 0 ...)
+  if (isNaN(widthValue) || widthValue <= 0 || isNaN(heightValue) || heightValue <= 0) {
     VTT_API.showMessage('Board width and height must be positive numbers.', 'error');
     return;
   }
-  // Validation for scaleRatio (allowing 0 if explicitly typed, but not negative or typical NaN)
-  if (isNaN(scaleRatio) || scaleRatio < 0) {
-    if (scaleRatio === 0 && domElements.boardScaleInput.value !== "0") {
-         VTT_API.showMessage('Scale ratio must be a positive number or zero.', 'error'); // Allow 0
+  // Validation for scaleRatioValue (allowing 0 if explicitly typed, but not negative or typical NaN)
+  if (isNaN(scaleRatioValue) || scaleRatioValue < 0) {
+    // Check if the original input string was "0" to allow it.
+    // Otherwise, if it's 0 due to parseFloat('') or parseFloat('non-numeric'), it's an error.
+    if (scaleRatioValue === 0 && domElements.boardScaleInput.value.trim() !== "0") {
+         VTT_API.showMessage('Scale ratio must be a positive number or zero. Non-numeric input for scale is invalid.', 'error');
          return;
-    } else if (scaleRatio < 0) {
+    } else if (scaleRatioValue < 0) { // Handles negative numbers
          VTT_API.showMessage('Scale ratio cannot be negative.', 'error');
          return;
     }
-    if (isNaN(scaleRatio)) { 
-        VTT_API.showMessage('Scale ratio must be a valid number.', 'error');
+    // This handles cases like parseFloat('') which results in NaN, or parseFloat('abc')
+    if (isNaN(scaleRatioValue)) { 
+        VTT_API.showMessage('Scale ratio must be a valid number or zero.', 'error');
         return;
     }
   }
   
   const currentProps = VTT_API.setBoardProperties({ 
-    width, 
-    height, 
-    dimensionUnit, 
-    scaleRatio, 
-    scaleRatioUnit 
+    widthUser: widthValue,         // Changed property name
+    heightUser: heightValue,        // Changed property name
+    unitForDimensions: dimUnitValue, // Changed property name
+    scaleRatio: scaleRatioValue,    // Correct, but use new const name
+    unitForRatio: scaleUnitValue    // Changed property name
   });
 
   if (currentProps) {
