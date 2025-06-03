@@ -128,6 +128,7 @@ const populateObjectInspector = (objectData) => {
                 }
 
                 domElements.objId.textContent = id || "";
+                console.log('[TEMP_LOG InspectorView] populateObjectInspector: domElements.objId.textContent AFTER SET = "' + domElements.objId.textContent + '"');
                 if (domElements.objName) domElements.objName.value = name || "";
                 domElements.objX.value = x;
                 domElements.objY.value = y;
@@ -173,7 +174,8 @@ const populateObjectInspector = (objectData) => {
                 });
         } else {
                 // objectData is null
-                if (domElements.objId) domElements.objId.textContent = ""; // <-- ADD THIS LINE
+                if (domElements.objId) domElements.objId.textContent = "";
+                console.log('[TEMP_LOG InspectorView] populateObjectInspector: domElements.objId.textContent CLEARED. Value = "' + domElements.objId.textContent + '"');
                 if (inspectorContentDiv && inspectorContentDiv.querySelector("p")) {
                         inspectorContentDiv.querySelector("p").textContent =
         "Select an object to inspect.";
@@ -203,6 +205,7 @@ const populateObjectInspector = (objectData) => {
  *                          or null if no object is currently being inspected (ID field is empty).
  */
 const readObjectInspector = () => {
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: ENTERING. Value of domElements.objId.textContent ON ENTRY = "' + (domElements.objId ? domElements.objId.textContent : 'domElements.objId_IS_NULL') + '"');
         if (!domElements.objId || !domElements.objId.textContent) {
                 dInspector("readObjectInspector: No object ID found, returning null.");
                 return null;
