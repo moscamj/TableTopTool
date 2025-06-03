@@ -1,8 +1,19 @@
 // src/canvas.js
+import { VTT_API } from './api.js';
+import * as model from './model.js'; // For getObjectAtPosition
+
 // MM_PER_UNIT, panZoomState, tableBackground, selectedObjectId, boardPhysical, mapInterpretationScale moved to model.js
 
 let canvas;
 let ctx;
+
+// Variables for canvas interaction states
+let isDragging = false;
+let isPanning = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let lastPanX = 0;
+let lastPanY = 0;
 
 // Cache for loaded images (for object appearances and table background)
 const loadedImages = new Map(); // url -> { img: Image, status: 'loading' | 'loaded' | 'error' }
@@ -36,6 +47,14 @@ export const initCanvas = (canvasElement, drawNeededCallback, displayMessageCall
 
   setCanvasSize(); // Set initial size
   window.addEventListener('resize', debounce(setCanvasSize, 250));
+
+  // Register event listeners
+  canvas.addEventListener('mousedown', handleMouseDown);
+  canvas.addEventListener('mousemove', handleMouseMove);
+  canvas.addEventListener('mouseup', handleMouseUp);
+  canvas.addEventListener('mouseleave', handleMouseLeave);
+  canvas.addEventListener('wheel', handleWheel);
+
   console.log('Canvas initialized');
 };
 
@@ -452,3 +471,125 @@ export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
 
 // updateBoardProperties and getBoardProperties have been moved to model.js
 // canvas.js will receive board properties via drawVTT arguments.
+
+// --- Canvas Event Handlers ---
+function handleMouseDown(e) {
+    const currentPZSState = VTT_API.getPanZoomState();
+    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e, currentPZSState);
+    const clickedObjectId = getObjectAtPosition(mouseX, mouseY, model.currentObjects);
+
+    if (clickedObjectId) {
+        const objectDetails = VTT_API.getObject(clickedObjectId);
+        if (objectDetails.isMovable) {
+            isDragging = true;
+            dragOffsetX = mouseX - objectDetails.x;
+            dragOffsetY = mouseY - objectDetails.y;
+        }
+        if (VTT_API.getSelectedObjectId() !== clickedObjectId) {
+            VTT_API.setSelectedObjectId(clickedObjectId);
+            // ui.populateObjectInspector is now handled by modelChanged event in main.js
+        }
+    } else {
+        isPanning = true;
+        lastPanX = e.clientX;
+        lastPanY = e.clientY;
+        if (VTT_API.getSelectedObjectId() !== null) {
+            VTT_API.setSelectedObjectId(null);
+            // ui.populateObjectInspector is now handled by modelChanged event in main.js
+        }
+    }
+    // No direct requestRedraw(); model changes via VTT_API should trigger it.
+}
+
+function handleMouseMove(e) {
+    const currentPZS = VTT_API.getPanZoomState();
+    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e, currentPZS);
+
+    if (isDragging && VTT_API.getSelectedObjectId()) {
+        const selectedObjId = VTT_API.getSelectedObjectId();
+        VTT_API.updateObject(selectedObjId, {
+            x: mouseX - dragOffsetX,
+            y: mouseY - dragOffsetY,
+        });
+        // ui.populateObjectInspector is now handled by modelChanged event in main.js
+    } else if (isPanning) {
+        const { panX, panY, zoom } = currentPZS;
+        const dx = e.clientX - lastPanX;
+        const dy = e.clientY - lastPanY;
+        lastPanX = e.clientX;
+        lastPanY = e.clientY;
+        VTT_API.setPanZoomState({
+            panX: panX + dx,
+            panY: panY + dy,
+            zoom: zoom,
+        });
+    }
+}
+
+function handleMouseUp(e) {
+    const currentPZS = VTT_API.getPanZoomState();
+    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e, currentPZS);
+    const clickedObjectId = getObjectAtPosition(mouseX, mouseY, model.currentObjects);
+
+    let objectWasActuallyClicked = false;
+    if (clickedObjectId && !isDragging && !isPanning) {
+        objectWasActuallyClicked = true;
+    }
+
+    if (objectWasActuallyClicked) {
+        const objectDetails = VTT_API.getObject(clickedObjectId);
+        if (objectDetails.scripts && objectDetails.scripts.onClick) {
+            console.log(`Executing onClick for ${objectDetails.id}:`, objectDetails.scripts.onClick);
+            try {
+                const objectRefForScript = model.currentObjects.get(objectDetails.id);
+                new Function('VTT', 'object', objectDetails.scripts.onClick)(
+                    VTT_API,
+                    objectRefForScript
+                );
+                // ui.populateObjectInspector is now handled by modelChanged event in main.js
+            } catch (scriptError) {
+                console.error('Script execution error:', scriptError);
+                // Replace ui.showModal with VTT_API.showMessage
+                VTT_API.showMessage(
+                    `Script Error in onClick for object ${objectDetails.id}: ${scriptError.message}`,
+                    'error'
+                );
+            }
+        }
+    }
+
+    // requestRedraw() will be called if model changed.
+    // If a direct draw is needed without model change (e.g. to clear a hover effect),
+    // onDrawNeededCallback() could be used. For now, relying on model events.
+
+    isDragging = false;
+    isPanning = false;
+}
+
+function handleMouseLeave() {
+    if (isDragging || isPanning) {
+        // onDrawNeededCallback(); // Finalize visual state if needed without model change
+    }
+    isDragging = false;
+    isPanning = false;
+}
+
+function handleWheel(e) {
+    e.preventDefault();
+    const { zoom, panX, panY } = VTT_API.getPanZoomState();
+    // Ensure canvas is available, though it should be if this event is firing
+    if (!canvas) return; 
+    const { left, top } = canvas.getBoundingClientRect();
+
+    const mouseXCanvas = e.clientX - left;
+    const mouseYCanvas = e.clientY - top;
+
+    const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newZoom = Math.max(0.1, Math.min(zoom * zoomFactor, 10));
+
+    const newPanX = mouseXCanvas - (newZoom / zoom) * (mouseXCanvas - panX);
+    const newPanY = mouseYCanvas - (newZoom / zoom) * (mouseYCanvas - panY);
+
+    VTT_API.setPanZoomState({ panX: newPanX, panY: newPanY, zoom: newZoom });
+    // requestRedraw is called by modelChanged event
+}
