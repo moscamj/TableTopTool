@@ -16,3 +16,10 @@ body {
     "Helvetica Neue",
     sans-serif;
 }
+
+#vtt-canvas {
+    display: block; /* Canvases are inline by default, block can behave better in some layouts */
+    width: 100%;    /* Occupy full width of parent */
+    height: 100%;   /* Occupy full height of parent */
+    box-sizing: border-box; /* Ensure padding and border don't add to overall dimensions */
+}
