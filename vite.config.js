@@ -9,4 +9,7 @@ export default defineConfig({
         server: {
                 open: true, // Automatically open the app in the browser on server start
         },
+        css: {
+                postcss: './config/postcss.config.js'
+        }
 });
