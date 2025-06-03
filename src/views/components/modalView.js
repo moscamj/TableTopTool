@@ -1,14 +1,28 @@
 // src/views/components/modalView.js
+/**
+ * @file Manages the display and interaction logic for all modal dialogs in the application.
+ * This includes generic modals for messages/confirmations, a specific modal for creating objects,
+ * and a generic selection modal for lists of choices.
+ * It interacts with UiViewModel to be shown and to report user actions.
+ */
 
+/** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
 
+/**
+ * @type {Object<string, HTMLElement|null>}
+ * Stores references to the core DOM elements that make up the modal structure.
+ */
 const domElements = {
-    modalContainer: null,
-    modalTitle: null,
-    modalContent: null,
-    modalButtons: null,
+    modalContainer: null, // The main container for the modal, visibility is toggled
+    modalTitle: null,     // Element to display the modal's title
+    modalContent: null,   // Element where custom HTML content is injected
+    modalButtons: null,   // Container for action buttons (OK, Cancel, etc.)
 };
 
+/**
+ * Caches references to the core modal DOM elements.
+ */
 const cacheDOMElements = () => {
     domElements.modalContainer = document.getElementById('modal-container');
     domElements.modalTitle = document.getElementById('modal-title');
@@ -16,6 +30,17 @@ const cacheDOMElements = () => {
     domElements.modalButtons = document.getElementById('modal-buttons');
 };
 
+/**
+ * Displays a modal dialog with the specified title, HTML content, and buttons.
+ * @param {string} title - The title to display in the modal header.
+ * @param {string} contentHtml - HTML string to render as the modal's main content.
+ * @param {Array<{text: string, type: 'primary'|'secondary'|'danger', onClickCallback?: function, preventHide?: boolean}>} [buttonsArray]
+ *        Array of button configuration objects. Each object defines:
+ *        - `text`: Text label for the button.
+ *        - `type`: Button style ('primary', 'secondary', 'danger'). Defaults to 'primary'.
+ *        - `onClickCallback`: Optional function to execute when the button is clicked. Modal hides by default after callback.
+ *        - `preventHide`: Optional boolean. If true, modal won't hide automatically after `onClickCallback`.
+ */
 const showModal = (title, contentHtml, buttonsArray = [{ text: 'OK', type: 'primary' }]) => {
     if (!domElements.modalContainer) {
         console.error('[modalView.js] Modal container not cached/found.');
@@ -49,19 +74,30 @@ const showModal = (title, contentHtml, buttonsArray = [{ text: 'OK', type: 'prim
     domElements.modalContainer.classList.remove('hidden');
 };
 
+/**
+ * Hides the modal dialog and clears its content and buttons.
+ */
 const hideModal = () => {
     if (!domElements.modalContainer) return;
     domElements.modalContainer.classList.add('hidden');
+    // Clear content for next use
     domElements.modalTitle.textContent = '';
     domElements.modalContent.innerHTML = '';
     domElements.modalButtons.innerHTML = '';
 };
 
+/**
+ * Displays a specialized modal for creating new VTT objects.
+ * This modal contains a form for object properties (shape, dimensions, color).
+ * On submission, it calls `uiViewModelInstance.createObject`.
+ * This function is typically invoked as a callback when UiViewModel requests it.
+ */
 const displayCreateObjectModal = () => {
     if (!uiViewModelInstance) {
         console.error('[modalView.js] UiViewModel not available for create object modal.');
         return;
     }
+    // Form HTML for creating an object. Includes basic fields and inline styles for simplicity.
     const modalContentHtml = `
       <style>
         .modal-label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #E2E8F0; }
@@ -107,11 +143,23 @@ const displayCreateObjectModal = () => {
     showModal('Create New Object', modalContentHtml, buttonsArray);
 };
 
+/**
+ * Returns the main content DOM element of the modal.
+ * This was previously used by session_management.js to inject content,
+ * but might be less relevant now that modal content is primarily passed as HTML strings
+ * or generated internally (e.g., for selection modal).
+ * @returns {HTMLElement | null} The modal content DOM element, or null if not cached.
+ */
 const getModalContentElement = () => {
     return domElements.modalContent || null;
 };
 
-
+/**
+ * Initializes the modal view component.
+ * Stores the UiViewModel instance, caches DOM elements, and registers handlers
+ * with UiViewModel for requests to display the "Create Object" modal and the generic "Selection" modal.
+ * @param {UiViewModel} uiViewModel - The UiViewModel instance.
+ */
 export const init = (uiViewModel) => {
     uiViewModelInstance = uiViewModel;
     if (!uiViewModelInstance) {
@@ -121,22 +169,31 @@ export const init = (uiViewModel) => {
     
     cacheDOMElements();
 
-    // Register a handler for when UiViewModel requests the modal
+    // Register a handler for when UiViewModel requests the "Create Object" modal
     if (uiViewModelInstance.onCreateObjectModalRequested) {
         uiViewModelInstance.onCreateObjectModalRequested(displayCreateObjectModal);
     } else {
         console.warn('[modalView.js] onCreateObjectModalRequested callback registration not found on UiViewModel.');
     }
 
-    // Register handler for generic selection modal
+    // Register handler for generic selection modal (e.g., for loading memory states)
     if (uiViewModelInstance.onShowSelectionModalRequested) {
         uiViewModelInstance.onShowSelectionModalRequested(showSelectionModal);
     } else {
         console.warn('[modalView.js] onShowSelectionModalRequested callback registration not found on UiViewModel.');
     }
-    // console.log('[modalView.js] Initialized.');
+    // console.log('[modalView.js] Initialized.'); // Already commented out
 };
 
+/**
+ * Displays a modal dialog that presents a list of choices to the user.
+ * Used for scenarios like selecting a memory state to load.
+ * @param {string} title - The title for the selection modal.
+ * @param {Array<{id: any, text: string}>} choices - An array of choice objects.
+ *        Each object should have an `id` (value to be returned on selection) and `text` (display text).
+ * @param {function(selectedId: any | null): void} onSelectionCallback - Callback function invoked when a choice is made or cancelled.
+ *        It receives the `id` of the selected choice, or `null` if cancelled.
+ */
 const showSelectionModal = (title, choices, onSelectionCallback) => {
     if (!domElements.modalContainer) {
         console.error('[modalView.js] Modal container not cached/found.');
@@ -144,6 +201,7 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
         return;
     }
 
+    // Dynamically create HTML for choice buttons
     let contentHtml = '<div class="flex flex-col space-y-2">';
     choices.forEach(choice => {
         // Ensure text and id are treated as strings and properly escaped for HTML attributes/content if necessary.

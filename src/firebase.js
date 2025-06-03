@@ -23,6 +23,12 @@ let auth;
 let db;
 let appIdString;
 
+/**
+ * Initializes the Firebase application instance, authentication, and Firestore.
+ * Currently stubbed for OFFLINE MODE. Uncomment Firebase-specific lines to enable.
+ * @returns {{app: object|null, auth: object|null, db: object|null, appIdString: string}}
+ *          Firebase services and the app ID string. Returns null for services in offline mode.
+ */
 export const initializeAppFirebase = () => {
   // const firebaseConfigString = import.meta.env.VITE_FIREBASE_CONFIG;
   // if (!firebaseConfigString) {
@@ -49,6 +55,14 @@ export const initializeAppFirebase = () => {
   return { app: null, auth: null, db: null, appIdString };
 };
 
+/**
+ * Signs in the user anonymously using Firebase Authentication.
+ * Currently stubbed for OFFLINE MODE.
+ * @async
+ * @param {object} firebaseAuth - The Firebase Auth instance.
+ * @returns {Promise<string>} A promise that resolves with the user's UID. Resolves with 'offline-user' in offline mode.
+ * @throws {Error} If Firebase Auth instance is not provided (in online mode).
+ */
 export const signInUserAnonymously = async (firebaseAuth) => {
   console.warn('Firebase function signInUserAnonymously called - OFFLINE MODE');
   // if (!firebaseAuth) throw new Error("Auth instance not provided to signInUserAnonymously");
@@ -63,7 +77,13 @@ export const signInUserAnonymously = async (firebaseAuth) => {
   return Promise.resolve('offline-user');
 };
 
-// Monitor auth state
+/**
+ * Registers an observer for Firebase Authentication state changes.
+ * Currently stubbed for OFFLINE MODE.
+ * @param {object} firebaseAuth - The Firebase Auth instance.
+ * @param {function(user: object|null): void} callback - Function to call when auth state changes.
+ * @returns {function(): void} An unsubscribe function. Returns a no-op in offline mode.
+ */
 export const onAuthChanges = (firebaseAuth, callback) => {
   console.warn('Firebase function onAuthChanges called - OFFLINE MODE');
   // if (!firebaseAuth) {
@@ -77,20 +97,46 @@ export const onAuthChanges = (firebaseAuth, callback) => {
   return () => {};
 };
 
+/**
+ * Constructs the Firestore path for the 'objects' collection within a specific session.
+ * Original Firebase logic would use this path.
+ * @param {string} currentAppIdString - The application ID.
+ * @param {string} sessionId - The session ID.
+ * @returns {string} The Firestore collection path.
+ * @throws {Error} If appIdString or sessionId is missing.
+ */
 const getSessionObjectsCollectionPath = (currentAppIdString, sessionId) => {
-  // This function is still used by the offline stubs, so it needs to work.
+  // Path construction for Firestore.
   if (!currentAppIdString || !sessionId)
     throw new Error('App ID and Session ID are required for collection path.');
   return `apps/${currentAppIdString}/sessions/${sessionId}/objects`;
 };
 
+/**
+ * Constructs the Firestore path for the 'table' metadata document within a specific session.
+ * Original Firebase logic would use this path.
+ * @param {string} currentAppIdString - The application ID.
+ * @param {string} sessionId - The session ID.
+ * @returns {string} The Firestore document path.
+ * @throws {Error} If appIdString or sessionId is missing.
+ */
 const getSessionMetadataDocPath = (currentAppIdString, sessionId) => {
-  // This function is still used by the offline stubs, so it needs to work.
   if (!currentAppIdString || !sessionId)
     throw new Error('App ID and Session ID are required for doc path.');
   return `apps/${currentAppIdString}/sessions/${sessionId}/metadata/table`;
 };
 
+/**
+ * Saves (or updates) an object's data in Firestore.
+ * Currently stubbed for OFFLINE MODE.
+ * @async
+ * @param {object} firestoreDb - The Firestore instance.
+ * @param {string} currentAppIdString - The application ID.
+ * @param {string} sessionId - The session ID.
+ * @param {object} objectData - The object data to save (must include an 'id' property).
+ * @returns {Promise<void>}
+ * @throws {Error} If required parameters are missing (in online mode).
+ */
 export const saveObjectToFirestore = async (
   firestoreDb,
   currentAppIdString,
@@ -114,6 +160,17 @@ export const saveObjectToFirestore = async (
   return Promise.resolve();
 };
 
+/**
+ * Deletes an object from Firestore.
+ * Currently stubbed for OFFLINE MODE.
+ * @async
+ * @param {object} firestoreDb - The Firestore instance.
+ * @param {string} currentAppIdString - The application ID.
+ * @param {string} sessionId - The session ID.
+ * @param {string} objectId - The ID of the object to delete.
+ * @returns {Promise<void>}
+ * @throws {Error} If required parameters are missing (in online mode).
+ */
 export const deleteObjectFromFirestore = async (
   firestoreDb,
   currentAppIdString,
@@ -137,6 +194,15 @@ export const deleteObjectFromFirestore = async (
   return Promise.resolve();
 };
 
+/**
+ * Loads all objects from Firestore for a given session and listens for real-time updates.
+ * Currently stubbed for OFFLINE MODE.
+ * @param {object} firestoreDb - The Firestore instance.
+ * @param {string} currentAppIdString - The application ID.
+ * @param {string} sessionId - The session ID.
+ * @param {function(objects: object[], error?: Error): void} callback - Function to call with the array of objects or on error.
+ * @returns {function(): void} An unsubscribe function. Returns a no-op in offline mode.
+ */
 export const loadObjectsFromFirestore = (
   firestoreDb,
   currentAppIdString,
@@ -166,11 +232,22 @@ export const loadObjectsFromFirestore = (
 
   // return unsubscribe; // Return the unsubscribe function
   if (callback) {
-    callback([]);
+    callback([]); // Call with empty array for offline mode
   }
-  return () => {};
+  return () => {}; // Return a no-op unsubscribe function
 };
 
+/**
+ * Saves table-level metadata (e.g., background, pan/zoom state) to Firestore.
+ * Currently stubbed for OFFLINE MODE.
+ * @async
+ * @param {object} firestoreDb - The Firestore instance.
+ * @param {string} currentAppIdString - The application ID.
+ * @param {string} sessionId - The session ID.
+ * @param {object} metadata - The metadata object to save.
+ * @returns {Promise<void>}
+ * @throws {Error} If required parameters are missing (in online mode).
+ */
 export const saveTableMetadata = async (
   firestoreDb,
   currentAppIdString,
@@ -192,6 +269,15 @@ export const saveTableMetadata = async (
   return Promise.resolve();
 };
 
+/**
+ * Loads table-level metadata from Firestore and listens for real-time updates.
+ * Currently stubbed for OFFLINE MODE.
+ * @param {object} firestoreDb - The Firestore instance.
+ * @param {string} currentAppIdString - The application ID.
+ * @param {string} sessionId - The session ID.
+ * @param {function(metadata: object|null, error?: Error): void} callback - Function to call with loaded metadata or on error.
+ * @returns {function(): void} An unsubscribe function. Returns a no-op in offline mode.
+ */
 export const loadTableMetadata = (
   firestoreDb,
   currentAppIdString,
@@ -223,16 +309,21 @@ export const loadTableMetadata = (
   return () => {};
 };
 
-// Optional: Helper for batch operations if needed later
+/**
+ * Creates a Firestore write batch instance.
+ * Currently stubbed for OFFLINE MODE.
+ * @param {object} firestoreDb - The Firestore instance.
+ * @returns {object} A stubbed Firestore WriteBatch object with a commit method.
+ */
 export const getFirestoreBatch = (firestoreDb) => {
   console.warn('Firebase function getFirestoreBatch called - OFFLINE MODE');
   // return writeBatch(firestoreDb);
   return {
     commit: () => Promise.resolve(),
     // Add other batch methods like set, update, delete if your app uses them directly on the batch object
-    set: () => {},
-    update: () => {},
-    delete: () => {},
+    set: () => {}, // Stubbed: no-op
+    update: () => {}, // Stubbed: no-op
+    delete: () => {}, // Stubbed: no-op
   };
 };
 

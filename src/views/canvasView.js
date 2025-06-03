@@ -1,21 +1,39 @@
 // src/views/canvasView.js
+/**
+ * @file Manages the rendering and user interactions on the HTML5 canvas.
+ * It works closely with the CanvasViewModel to get data for rendering and
+ * to delegate actions based on user input.
+ */
 import { VTT_API } from '../api.js';
 import * as model from '../model/model.js'; // For direct model access for script execution context (temporary)
 
-// Canvas and context will be module-level variables, specific to this view.
+/** @type {HTMLCanvasElement} The main canvas element. */
 let canvas;
+/** @type {CanvasRenderingContext2D} The 2D rendering context of the canvas. */
 let ctx;
+/** @type {CanvasViewModel} The ViewModel associated with this canvas view. */
 let viewModel; // This will hold the CanvasViewModel instance
 
 // Variables for canvas interaction states internal to the view
+/** @type {boolean} True if an object is currently being dragged. */
 let isDragging = false;
+/** @type {boolean} True if the canvas is currently being panned. */
 let isPanning = false;
+/** @type {number} Offset between mouse X and object X during drag. */
 let dragOffsetX = 0;
+/** @type {number} Offset between mouse Y and object Y during drag. */
 let dragOffsetY = 0;
+/** @type {number} Last known mouse X client coordinate during panning. */
 let lastPanX = 0;
+/** @type {number} Last known mouse Y client coordinate during panning. */
 let lastPanY = 0;
 
-// Debounce function (remains as a local utility if not shared, or could be moved to a utils file)
+/**
+ * Debounces a function, ensuring it's only called after a certain period of inactivity.
+ * @param {Function} func - The function to debounce.
+ * @param {number} delay - The debounce delay in milliseconds.
+ * @returns {Function} The debounced function.
+ */
 const debounce = (func, delay) => {
   let timeout;
   return (...args) => {
@@ -24,6 +42,12 @@ const debounce = (func, delay) => {
   };
 };
 
+/**
+ * Initializes the canvas view with the canvas DOM element and its ViewModel.
+ * Sets up the rendering context, initial canvas size, and registers all necessary event listeners.
+ * @param {HTMLCanvasElement} canvasElement - The HTML canvas element to draw on.
+ * @param {CanvasViewModel} cvm - The CanvasViewModel instance for this view.
+ */
 export const initCanvas = (canvasElement, cvm) => { // cvm is the CanvasViewModel instance
   if (!canvasElement) {
     console.error('[canvasView.js] Canvas element not provided!');
@@ -50,7 +74,11 @@ export const initCanvas = (canvasElement, cvm) => { // cvm is the CanvasViewMode
   console.log('canvasView.js initialized with CanvasViewModel');
 };
 
-// setCanvasSize remains in canvasView.js as it directly manipulates the canvas element
+/**
+ * Sets the canvas dimensions based on its parent container's size and device pixel ratio.
+ * Adjusts canvas style for proper display and scales the context for DPR.
+ * Triggers a redraw via the ViewModel's onDrawNeededCallback.
+ */
 export const setCanvasSize = () => {
   if (!canvas || !canvas.parentElement) return;
   const { clientWidth, clientHeight } = canvas.parentElement;
@@ -77,24 +105,33 @@ export const setCanvasSize = () => {
 };
 
 // --- Drawing Logic ---
-// drawVTT now sources all data from the viewModel
+/**
+ * Main rendering function for the VTT canvas.
+ * Clears the canvas and redraws everything based on the current state from the ViewModel.
+ * This includes the background, board boundary, all objects, and selection highlights.
+ * Data is sourced entirely from the associated CanvasViewModel.
+ */
 export const drawVTT = () => {
   if (!ctx || !canvas || !viewModel) return;
 
+  // Get current Device Pixel Ratio for scaling
   const dpr = window.devicePixelRatio || 1;
   const { panX, panY, zoom } = viewModel.getPanZoom();
   const { type: bgType, value: bgValue } = viewModel.getBackground() || {};
   const { widthPx: currentBoardWidthPx, heightPx: currentBoardHeightPx } = viewModel.getBoardProperties() || { widthPx: 0, heightPx: 0 };
-  const viewModelObjects = viewModel.getObjects(); // Map of objects
+  const viewModelObjects = viewModel.getObjects(); // Map of objects from ViewModel
   const viewModelSelectedObjectId = viewModel.getSelectedObjectId();
 
+  // 1. Clear canvas (everything outside the transformed area)
   ctx.save();
-  ctx.fillStyle = '#333740';
-  ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr);
+  ctx.fillStyle = '#333740'; // Background color for areas outside the board
+  ctx.fillRect(0, 0, canvas.width / dpr, canvas.height / dpr); // Clear with canvas physical pixels
 
+  // 2. Apply pan and zoom transformations
   ctx.translate(panX, panY);
   ctx.scale(zoom, zoom);
 
+  // 3. Draw Board Background (color or image)
   if (bgType === 'color' && bgValue) {
     ctx.fillStyle = bgValue;
     ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
@@ -103,22 +140,25 @@ export const drawVTT = () => {
     if (bgImageEntry && bgImageEntry.status === 'loaded' && bgImageEntry.img) {
       ctx.drawImage(bgImageEntry.img, 0, 0, currentBoardWidthPx, currentBoardHeightPx);
     } else {
-      ctx.fillStyle = (bgImageEntry && bgImageEntry.status === 'error') ? '#A08080' : '#C0C0C0';
+      // Draw placeholder and attempt to load image if not already loading/errored
+      ctx.fillStyle = (bgImageEntry && bgImageEntry.status === 'error') ? '#A08080' : '#C0C0C0'; // Dark red for error, grey for loading
       ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
       if (!bgImageEntry || bgImageEntry.status !== 'loading') {
-         // Call loadImage via viewModel, it now uses onDrawNeededCallback internally
-        viewModel.loadImage(bgValue, bgValue);
+        viewModel.loadImage(bgValue, bgValue); // ViewModel handles redraw on load
       }
     }
-  } else {
+  } else { // Default fallback background if no specific one is set
     ctx.fillStyle = '#888888';
     ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
   }
 
-  ctx.strokeStyle = '#111111';
-  ctx.lineWidth = Math.max(0.5, 1 / zoom);
+  // 4. Draw Board Boundary
+  ctx.strokeStyle = '#111111'; // Dark border for the board
+  ctx.lineWidth = Math.max(0.5, 1 / zoom); // Ensure border is visible even when zoomed out
   ctx.strokeRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
 
+  // 5. Draw Objects
+  // Sort objects by zIndex to ensure correct stacking order
   const sortedObjects = Array.from(viewModelObjects.values()).sort(
     (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
   );
@@ -131,24 +171,26 @@ export const drawVTT = () => {
     } = appearance || {};
 
     ctx.save();
+    // Apply object-specific transformations (translation for position, rotation)
     const centerX = x + width / 2;
     const centerY = y + height / 2;
     ctx.translate(centerX, centerY);
-    ctx.rotate((rotation * Math.PI) / 180);
-    ctx.translate(-width / 2, -height / 2);
+    ctx.rotate((rotation * Math.PI) / 180); // Convert degrees to radians for rotation
+    ctx.translate(-width / 2, -height / 2); // Translate origin to object's top-left for drawing
 
-    let baseFill = backgroundColor || '#DDDDDD';
+    let baseFill = backgroundColor || '#DDDDDD'; // Default fill if none specified
 
+    // Draw shape (rectangle or circle)
     if (shape === 'rectangle') {
       ctx.fillStyle = baseFill;
       ctx.fillRect(0, 0, width, height);
       if (borderColor && borderWidth > 0) {
         ctx.strokeStyle = borderColor;
-        ctx.lineWidth = borderWidth;
+        ctx.lineWidth = borderWidth; // Use borderWidth from object's appearance
         ctx.strokeRect(0, 0, width, height);
       }
     } else if (shape === 'circle') {
-      const radius = width / 2;
+      const radius = width / 2; // Assuming width is diameter for circle
       ctx.fillStyle = baseFill;
       ctx.beginPath();
       ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
@@ -162,53 +204,55 @@ export const drawVTT = () => {
       }
     }
 
+    // Draw object image if URL is provided
     if (imageUrl) {
       const imgEntry = viewModel.getLoadedImage(imageUrl);
       if (imgEntry && imgEntry.status === 'loaded' && imgEntry.img) {
         ctx.drawImage(imgEntry.img, 0, 0, width, height);
       } else if (!imgEntry || imgEntry.status !== 'loading') {
-         // Call loadImage via viewModel
-        viewModel.loadImage(imageUrl, imageUrl);
+        viewModel.loadImage(imageUrl, imageUrl); // ViewModel handles redraw on load
       }
+      // Optionally, draw an error indicator if image failed to load
       if (imgEntry && imgEntry.status === 'error') {
         ctx.strokeStyle = 'red';
-        ctx.lineWidth = Math.max(1, Math.min(4, 2 / zoom));
+        ctx.lineWidth = Math.max(1, Math.min(4, 2 / zoom)); // Make error line visible
         ctx.beginPath();
-        ctx.moveTo(0, 0);
-        ctx.lineTo(width, height);
-        ctx.moveTo(width, 0);
-        ctx.lineTo(0, height);
+        ctx.moveTo(0, 0); ctx.lineTo(width, height);
+        ctx.moveTo(width, 0); ctx.lineTo(0, height);
         ctx.stroke();
       }
     }
 
+    // Draw text label if showLabel is true and text exists
     if (showLabel === true && typeof text === 'string' && text.trim() !== '') {
       ctx.fillStyle = textColor;
       ctx.font = `${fontSize}px ${fontFamily}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(text, width / 2, height / 2);
+      ctx.fillText(text, width / 2, height / 2); // Center text in the object
     }
 
+    // Draw object name above the object
     if (name && typeof name === 'string' && name.trim() !== '') {
-      const nameFontSize = 12;
-      ctx.font = `${nameFontSize}px Arial`;
-      ctx.fillStyle = '#000000';
+      const nameFontSize = 12 / zoom; // Adjust font size based on zoom for better readability
+      ctx.font = `${Math.max(6, nameFontSize)}px Arial`; // Minimum font size 6px
+      ctx.fillStyle = '#000000'; // Default name color
       ctx.textAlign = 'center';
       ctx.textBaseline = 'bottom';
-      const nameTopMargin = 5;
+      const nameTopMargin = 5 / zoom; // Adjust margin based on zoom
       ctx.fillText(name, width / 2, -nameTopMargin);
     }
 
+    // Draw selection highlight if object is selected
     if (id === viewModelSelectedObjectId) {
-      ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)';
-      ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / zoom));
-      const offset = (borderWidth || 0) / 2 + ctx.lineWidth / 2;
+      ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'; // Bright blue for selection
+      ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / zoom)); // Ensure highlight is visible
+      const offset = (borderWidth || 0) / 2 + ctx.lineWidth / 2; // Offset to draw outside object border
       ctx.strokeRect(-offset, -offset, width + 2 * offset, height + 2 * offset);
     }
-    ctx.restore();
+    ctx.restore(); // Restore context state for next object
   });
-  ctx.restore();
+  ctx.restore(); // Restore context state from initial save (pan/zoom, clearRect)
 };
 
 // --- Canvas Event Handlers ---
@@ -216,9 +260,15 @@ export const drawVTT = () => {
 // State changes are communicated via VTT_API.
 // Local updates to viewModel can happen for responsiveness if desired.
 
+/**
+ * Handles the mousedown event on the canvas.
+ * Determines if an object is clicked for dragging/selection, or if panning should start.
+ * Delegates state changes to VTT_API and local interaction state to module variables.
+ * @param {MouseEvent} e - The mousedown event.
+ */
 function handleMouseDown(e) {
   if (!viewModel) return;
-  // Pass canvas element to viewModel's getMousePositionOnCanvas
+  // Get mouse coordinates in world space from ViewModel
   const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(e, canvas);
   const clickedObjectId = viewModel.getObjectAtPosition(mouseX, mouseY);
   const currentSelectedId = viewModel.getSelectedObjectId(); // Get from VM
@@ -245,56 +295,69 @@ function handleMouseDown(e) {
   }
   // Redraw might be triggered by modelChanged event from VTT_API calls
   // If immediate visual feedback for selection/deselection before model events is needed, call:
-  // viewModel.onDrawNeededCallback();
+  // viewModel.onDrawNeededCallback(); // Though VTT_API.setSelectedObjectId should trigger a quick redraw.
 }
 
+/**
+ * Handles the mousemove event on the canvas.
+ * Updates object position during drag or updates pan state during pan.
+ * Uses CanvasViewModel for local/optimistic updates and triggers redraws.
+ * @param {MouseEvent} e - The mousemove event.
+ */
 function handleMouseMove(e) {
   if (!viewModel) return;
-  const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(e, canvas);
-  const selectedObjectId = viewModel.getSelectedObjectId(); // Get from VM
+  const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(e, canvas); // World coordinates
+  const selectedObjectId = viewModel.getSelectedObjectId();
 
   if (isDragging && selectedObjectId) {
     const newX = mouseX - dragOffsetX;
     const newY = mouseY - dragOffsetY;
-    // Local update for responsiveness
+    // Optimistically update object position in ViewModel for smooth dragging
     viewModel.locallyUpdateObjectPosition(selectedObjectId, newX, newY);
-    viewModel.onDrawNeededCallback(); // Redraw with local changes
+    // viewModel.onDrawNeededCallback(); // locallyUpdateObjectPosition now calls this
   } else if (isPanning) {
-    const dx = e.clientX - lastPanX;
+    const dx = e.clientX - lastPanX; // Pan based on screen coordinate delta
     const dy = e.clientY - lastPanY;
     
     const currentPanZoom = viewModel.getPanZoom();
-    // Local update for responsiveness
+    // Optimistically update pan state in ViewModel
     viewModel.locallyUpdatePanZoom(currentPanZoom.panX + dx, currentPanZoom.panY + dy);
 
     lastPanX = e.clientX;
     lastPanY = e.clientY;
-    viewModel.onDrawNeededCallback(); // Redraw with local changes
+    // viewModel.onDrawNeededCallback(); // locallyUpdatePanZoom now calls this
   }
 }
 
+/**
+ * Handles the mouseup event on the canvas.
+ * Finalizes dragging or panning operations by sending updated state to VTT_API.
+ * Executes onClick scripts if an object was clicked without dragging.
+ * @param {MouseEvent} e - The mouseup event.
+ */
 function handleMouseUp(e) {
   if (!viewModel) return;
   const wasDragging = isDragging;
   const wasPanning = isPanning;
-  const selectedObjectId = viewModel.getSelectedObjectId(); // Get from VM
+  const selectedObjectId = viewModel.getSelectedObjectId();
 
   if (isDragging && selectedObjectId) {
-    const draggedObject = viewModel.getObjects().get(selectedObjectId); // Get from VM's objects
+    const draggedObject = viewModel.getObjects().get(selectedObjectId);
     if (draggedObject) {
-      // Final update to the main model via API
+      // Persist final dragged position to the model via API
       VTT_API.updateObject(selectedObjectId, { x: draggedObject.x, y: draggedObject.y });
     }
   }
   
   if (isPanning) {
-    // Final update to the main model via API
-    VTT_API.setPanZoomState(viewModel.getPanZoom()); // Send the locally updated panZoom
+    // Persist final pan state to the model via API
+    VTT_API.setPanZoomState(viewModel.getPanZoom());
   }
 
   isDragging = false;
   isPanning = false;
 
+  // Handle click for script execution if not dragging or panning
   if (!wasDragging && !wasPanning) {
     const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(e, canvas);
     const clickedObjectId = viewModel.getObjectAtPosition(mouseX, mouseY);
@@ -304,12 +367,12 @@ function handleMouseUp(e) {
       if (objectDetailsFromModel && objectDetailsFromModel.scripts && objectDetailsFromModel.scripts.onClick) {
         console.log(`Executing onClick for ${objectDetailsFromModel.id}:`, objectDetailsFromModel.scripts.onClick);
         try {
-          // Script execution context still needs direct model access if scripts directly mutate object reference
-          // This is a known point from previous steps.
+          // Script execution context: passing a direct model reference for modification is a known area for future refactor.
+          // Ideally, scripts use VTT_API and contextObject (copy) to request changes.
           const objectRefForScript = model.currentObjects.get(objectDetailsFromModel.id);
           new Function('VTT', 'object', objectDetailsFromModel.scripts.onClick)(
             VTT_API,
-            objectRefForScript
+            objectRefForScript // Pass the actual object reference from model for script context
           );
         } catch (scriptError) {
           console.error('Script execution error:', scriptError);
@@ -321,32 +384,46 @@ function handleMouseUp(e) {
       }
     }
   }
-  // VTT_API calls should trigger modelChanged and thus a redraw via main.js
+  // Model changes via VTT_API will trigger 'modelChanged' events, leading to redraws.
 }
 
-function handleMouseLeave() {
+/**
+ * Handles the mouseleave event on the canvas.
+ * Finalizes any ongoing drag or pan operations by persisting state to VTT_API.
+ * @param {MouseEvent} e - The mouseleave event.
+ */
+function handleMouseLeave(e) {
   if (!viewModel) return;
-  const selectedObjectId = viewModel.getSelectedObjectId(); // Get from VM
+  const selectedObjectId = viewModel.getSelectedObjectId();
 
   if (isDragging && selectedObjectId) {
-    const object = viewModel.getObjects().get(selectedObjectId); // Get from VM's objects
+    const object = viewModel.getObjects().get(selectedObjectId);
     if (object) {
+      // Persist final dragged position if mouse leaves canvas while dragging
       VTT_API.updateObject(selectedObjectId, { x: object.x, y: object.y });
     }
   }
   if (isPanning) {
+    // Persist final pan state if mouse leaves canvas while panning
     VTT_API.setPanZoomState(viewModel.getPanZoom());
   }
 
   isDragging = false;
   isPanning = false;
-  // Redraw will be handled by modelChanged events
+  // Model changes will trigger redraws.
 }
 
+/**
+ * Handles the wheel event (mouse scroll) on the canvas for zooming.
+ * Calculates new zoom level and pan position to zoom towards the mouse cursor.
+ * Updates ViewModel locally for responsiveness and then sends final state to VTT_API.
+ * @param {WheelEvent} e - The wheel event.
+ */
 function handleWheel(e) {
   if (!viewModel || !canvas) return;
-  e.preventDefault();
+  e.preventDefault(); // Prevent page scrolling
   
+  // Get mouse position relative to the canvas element (screen coordinates)
   const { left, top } = canvas.getBoundingClientRect();
   const mouseXCanvas = e.clientX - left;
   const mouseYCanvas = e.clientY - top;

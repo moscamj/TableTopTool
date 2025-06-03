@@ -1,5 +1,10 @@
 // src/model.js
 
+/**
+ * Dispatches a 'modelChanged' custom event with the given detail.
+ * This is the primary mechanism for the model to notify other parts of the application (ViewModels, Views via main.js) about data changes.
+ * @param {object} detail - The event detail object, typically including a 'type' (e.g., 'objectAdded', 'panZoomChanged') and 'payload'.
+ */
 const dispatchModelChangeEvent = (detail) => {
   // Ensure 'document' is available (might not be in pure Node.js test environments without JSDOM)
   if (typeof document !== 'undefined' && document.dispatchEvent) {
@@ -9,6 +14,13 @@ const dispatchModelChangeEvent = (detail) => {
   }
 };
 
+/**
+ * Performs a deep comparison of two objects to check if they are equal.
+ * Handles primitives, nested objects, and arrays (by virtue of object key iteration).
+ * @param {*} obj1 - The first object to compare.
+ * @param {*} obj2 - The second object to compare.
+ * @returns {boolean} True if the objects are deeply equal, false otherwise.
+ */
 function objectsAreEqual(obj1, obj2) {
     if (obj1 === obj2) return true;
     if (obj1 == null || obj2 == null || typeof obj1 !== 'object' || typeof obj2 !== 'object') {
@@ -67,9 +79,16 @@ function objectsAreEqual(obj1, obj2) {
  * @property {boolean} [isSelected] - (Consider if this is a local UI state or part of object data)
  */
 
+/**
+ * @type {Map<string, VTTObject>}
+ * Stores all VTT objects currently on the canvas, keyed by their unique IDs.
+ */
 export const currentObjects = new Map();
 
-// Basic UUID generator
+/**
+ * Generates a basic RFC4122 version 4 compliant UUID.
+ * @returns {string} A new UUID string.
+ */
 const generateUUID = () => {
   // Standard RFC4122 version 4 compliant UUID generator.
   // 'x' characters are replaced with random hexadecimal digits.
@@ -83,6 +102,13 @@ const generateUUID = () => {
   });
 };
 
+/**
+ * Creates a new VTTObject with the given shape and properties, adds it to the model,
+ * and dispatches a 'modelChanged' event of type 'objectAdded'.
+ * @param {string} shapeArgument - The basic shape of the object (e.g., 'rectangle', 'circle'). This is used if initialProps.shape is not set.
+ * @param {Partial<VTTObject>} [initialProps={}] - Optional initial properties to override defaults. If `id` is provided, it's used; otherwise, a new UUID is generated. If `shape` is provided, it overrides `shapeArgument`.
+ * @returns {VTTObject} A copy of the newly created object.
+ */
 export const createObject = (shapeArgument, initialProps = {}) => { // Renamed 'shape' to 'shapeArgument'
   // Determine ID: Use ID from initialProps if available, otherwise generate a new one.
   const idToUse = initialProps.id || generateUUID();
@@ -136,10 +162,18 @@ export const createObject = (shapeArgument, initialProps = {}) => { // Renamed '
 
   currentObjects.set(idToUse, newObject);
   dispatchModelChangeEvent({ type: 'objectAdded', payload: { ...newObject } }); // Dispatch event
-  console.log(`Object created/loaded: ${idToUse}`, newObject);
+  // console.log(`Object created/loaded: ${idToUse}`, newObject); // Removed for cleaner logs
   return { ...newObject };       // Return a copy
 };
 
+/**
+ * Updates an existing VTTObject with new properties.
+ * If the properties result in an actual change to the object's state (deep comparison),
+ * it updates the object in the model and dispatches a 'modelChanged' event of type 'objectUpdated'.
+ * @param {string} objectId - The ID of the object to update.
+ * @param {Partial<VTTObject>} updatedProps - An object containing properties to update.
+ * @returns {VTTObject | null} A copy of the updated object state (even if no change occurred), or null if the object was not found.
+ */
 export const updateObject = (objectId, updatedProps) => {
   if (!currentObjects.has(objectId)) {
     console.warn(`Object with ID ${objectId} not found for update.`);
@@ -172,7 +206,7 @@ export const updateObject = (objectId, updatedProps) => {
   if (!objectsAreEqual(existingObject, newObjectState)) {
       currentObjects.set(objectId, newObjectState);
       dispatchModelChangeEvent({ type: 'objectUpdated', payload: { ...newObjectState } });
-      console.log(`Object updated: ${objectId}`, newObjectState);
+      // console.log(`Object updated: ${objectId}`, newObjectState); // Removed for cleaner logs
   } else {
       // Optional: Log that no change occurred, for debugging, or do nothing.
       // console.log(`Object update for ${objectId} resulted in no changes.`);
@@ -181,10 +215,16 @@ export const updateObject = (objectId, updatedProps) => {
   return { ...newObjectState }; // Always return the (potentially unchanged) new state as a copy
 };
 
+/**
+ * Deletes a VTTObject from the model by its ID.
+ * If successful, dispatches a 'modelChanged' event of type 'objectDeleted'.
+ * @param {string} objectId - The ID of the object to delete.
+ * @returns {boolean} True if the object was found and deleted, false otherwise.
+ */
 export const deleteObject = (objectId) => {
   if (currentObjects.has(objectId)) {
     const deleted = currentObjects.delete(objectId);
-    console.log(`Object deleted: ${objectId}`);
+    // console.log(`Object deleted: ${objectId}`); // Removed for cleaner logs
     if (deleted) {
       dispatchModelChangeEvent({ type: 'objectDeleted', payload: { id: objectId } });
     }
@@ -194,6 +234,11 @@ export const deleteObject = (objectId) => {
   return false;
 };
 
+/**
+ * Retrieves a copy of a VTTObject by its ID.
+ * @param {string} objectId - The ID of the object to retrieve.
+ * @returns {VTTObject | undefined} A copy of the object if found, otherwise undefined.
+ */
 export const getObject = (objectId) => {
   if (!currentObjects.has(objectId)) {
     return undefined;
@@ -201,48 +246,98 @@ export const getObject = (objectId) => {
   return { ...currentObjects.get(objectId) };
 };
 
+/**
+ * Retrieves copies of all VTTObjects currently in the model.
+ * @returns {VTTObject[]} An array of VTTObject copies.
+ */
 export const getAllObjects = () => {
   return Array.from(currentObjects.values()).map((obj) => ({ ...obj }));
 };
 
+/**
+ * Removes all VTTObjects from the model.
+ * Dispatches a 'modelChanged' event of type 'allObjectsCleared'.
+ */
 export const clearAllObjects = () => {
   currentObjects.clear();
-  console.log('All local objects cleared.');
+  // console.log('All local objects cleared.'); // Removed for cleaner logs
   dispatchModelChangeEvent({ type: 'allObjectsCleared', payload: null });
 };
 
 // --- Board State Management ---
 
+/**
+ * @const {Object<string, number>} MM_PER_UNIT
+ * Conversion factors from various units to millimeters.
+ * Used for calculating board dimensions in a consistent internal unit (mm, interpreted as pixels for rendering at 1:1).
+ */
 export const MM_PER_UNIT = {
-  'in': 25.4,
-  'ft': 304.8,
+  'in': 25.4, // Inches to millimeters
+  'ft': 304.8, // Feet to millimeters
   'm': 1000,
-  'cm': 10,
-  'mm': 1,
+  'cm': 10,   // Centimeters to millimeters
+  'mm': 1,    // Millimeters to millimeters
 };
 
+/** @type {{panX: number, panY: number, zoom: number}} Current pan and zoom state of the canvas. */
 let panZoomState = { panX: 0, panY: 0, zoom: 1.0 };
+
+/** @type {{type: 'color' | 'image', value: string}} Current table background configuration. */
 let tableBackground = { type: 'color', value: '#cccccc' }; // Default background
+
+/** @type {string | null} ID of the currently selected object, or null if no object is selected. */
 let selectedObjectId = null;
 
+/**
+ * @type {{widthUser: number, heightUser: number, unitForDimensions: string, widthPx: number, heightPx: number}}
+ * Physical dimensions of the board.
+ * `widthUser` and `heightUser` are the user-defined values in `unitForDimensions`.
+ * `widthPx` and `heightPx` are the calculated dimensions in millimeters (used as pixels for rendering).
+ */
 let boardPhysical = {
-  widthUser: 36,
-  heightUser: 24,
-  unitForDimensions: 'in',
-  widthPx: 36 * MM_PER_UNIT['in'],
-  heightPx: 24 * MM_PER_UNIT['in'],
+  widthUser: 36,          // User-defined width (e.g., 36 inches)
+  heightUser: 24,         // User-defined height (e.g., 24 inches)
+  unitForDimensions: 'in', // Unit for user-defined dimensions
+  widthPx: 36 * MM_PER_UNIT['in'], // Calculated width in mm (pixels)
+  heightPx: 24 * MM_PER_UNIT['in'], // Calculated height in mm (pixels)
 };
 
+/**
+ * @type {{ratio: number, unitForRatio: string}}
+ * Map scale interpretation properties.
+ * Defines how distances on the map relate to real-world or game-world units if a scale is applied.
+ * E.g., 1 inch on map = 5 feet in game. (Currently, `ratio` might be pixels per unitForRatio, e.g. 1px per mm)
+ */
 let mapInterpretationScale = {
-  ratio: 1,
-  unitForRatio: 'mm',
+  ratio: 1,        // Default scale ratio (e.g., 1 if 1px = 1mm on the map)
+  unitForRatio: 'mm', // Unit that the ratio applies to (e.g., 'mm', 'ft')
 };
 
 // Getters
+/**
+ * Retrieves a copy of the current pan and zoom state of the canvas.
+ * @returns {{panX: number, panY: number, zoom: number}} The current pan and zoom state.
+ */
 export const getPanZoomState = () => ({ ...panZoomState });
+
+/**
+ * Retrieves a copy of the current table background configuration.
+ * @returns {{type: 'color' | 'image', value: string}} The current background configuration.
+ */
 export const getTableBackground = () => ({ ...tableBackground });
+
+/**
+ * Retrieves the ID of the currently selected object.
+ * @returns {string | null} The ID of the selected object, or null if no object is selected.
+ */
 export const getSelectedObjectId = () => selectedObjectId;
 
+/**
+ * Retrieves a consolidated object of current board properties.
+ * This includes user-defined dimensions, their units, calculated pixel dimensions, and map scale interpretation.
+ * @returns {{widthUser: number, heightUser: number, unitForDimensions: string, widthPx: number, heightPx: number, scaleRatio: number, unitForRatio: string}}
+ * An object containing all current board properties.
+ */
 export const getBoardProperties = () => {
   return {
      widthUser: boardPhysical.widthUser,
@@ -256,6 +351,12 @@ export const getBoardProperties = () => {
 };
 
 // Setters
+/**
+ * Updates the pan and/or zoom state of the canvas.
+ * Dispatches a 'modelChanged' event of type 'panZoomChanged' if any value changes.
+ * Zoom is clamped between 0.1 and 10.
+ * @param {{panX?: number, panY?: number, zoom?: number}} newState - An object containing new panX, panY, or zoom values.
+ */
 export const setPanZoomState = (newState) => {
   const { panX: newPanX, panY: newPanY, zoom: newZoom } = newState;
   let changed = false;
@@ -282,6 +383,11 @@ export const setPanZoomState = (newState) => {
   }
 };
 
+/**
+ * Sets the table background.
+ * Dispatches a 'modelChanged' event of type 'backgroundChanged' if the background actually changes.
+ * @param {{type: 'color' | 'image', value: string}} newBackground - The new background configuration object.
+ */
 export const setTableBackground = (newBackground) => {
   if (newBackground && typeof newBackground === 'object') {
     const { type: newType, value: newValue } = newBackground;
@@ -299,6 +405,11 @@ export const setTableBackground = (newBackground) => {
   }
 };
 
+/**
+ * Sets the ID of the currently selected object.
+ * Dispatches a 'modelChanged' event of type 'selectionChanged' if the selection changes.
+ * @param {string | null} id - The ID of the object to select, or null to deselect.
+ */
 export const setSelectedObjectId = (id) => {
   if (selectedObjectId !== id) {
     selectedObjectId = id;
@@ -306,6 +417,19 @@ export const setSelectedObjectId = (id) => {
   }
 };
 
+/**
+ * Updates various board properties such as user-defined dimensions, units, and map scale.
+ * Recalculates pixel dimensions based on user inputs.
+ * Dispatches a 'modelChanged' event of type 'boardPropertiesChanged' if any user-facing property
+ * or calculated pixel dimension changes.
+ * @param {object} newProps - An object containing new board properties to apply.
+ * @param {number} [newProps.widthUser] - New user-defined width.
+ * @param {number} [newProps.heightUser] - New user-defined height.
+ * @param {string} [newProps.unitForDimensions] - New unit for user-defined dimensions (e.g., 'in', 'ft', 'mm').
+ * @param {number} [newProps.scaleRatio] - New map scale ratio.
+ * @param {string} [newProps.unitForRatio] - New unit for the map scale ratio.
+ * @returns {object} The consolidated current board properties after the update.
+ */
 export const updateBoardProperties = (newProps) => {
   let anyPropertyChanged = false;
 

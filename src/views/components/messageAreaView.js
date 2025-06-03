@@ -1,15 +1,37 @@
 // src/views/components/messageAreaView.js
+/**
+ * @file Manages the display of user feedback messages (toasts/notifications).
+ * It listens for requests from the UiViewModel to display messages and handles
+ * their creation, styling, and timed removal from the DOM.
+ */
 
+/** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
 
+/**
+ * @type {Object<string, HTMLElement|null>}
+ * Stores references to DOM elements managed by this component.
+ */
 const domElements = {
-    messageArea: null,
+    messageArea: null, // The container where messages are appended
 };
 
+/**
+ * Caches references to DOM elements used by this component.
+ */
 const cacheDOMElements = () => {
     domElements.messageArea = document.getElementById('message-area');
 };
 
+/**
+ * Displays a message in the message area.
+ * Creates a new message element, styles it based on the message type,
+ * appends it to the message area, and sets a timeout to remove it.
+ * This function is typically registered as a callback with UiViewModel.
+ * @param {string} text - The message text to display.
+ * @param {'info' | 'success' | 'warning' | 'error'} [type='info'] - The type of message, determining its styling.
+ * @param {number} [duration=3000] - How long the message should be visible in milliseconds.
+ */
 const displayMessage = (text, type = 'info', duration = 3000) => {
     if (!domElements.messageArea) {
         console.warn('[messageAreaView.js] Message area DOM not cached/found. Cannot display message:', text);
@@ -68,7 +90,7 @@ export const init = (uiViewModel) => {
         console.error('[messageAreaView.js] onDisplayMessage callback registration not found on UiViewModel.');
     }
     
-    console.log('[messageAreaView.js] Initialized.');
+    // console.log('[messageAreaView.js] Initialized.'); // Removed for cleaner logs
 };
 
 // Export displayMessage directly if other modules need to call it (though ideally through UiViewModel)

@@ -1,7 +1,18 @@
 // src/views/components/boardSettingsView.js
+/**
+ * @file Manages the UI and interactions for the board settings panel.
+ * This includes displaying current board dimensions and scale,
+ * and allowing users to modify and apply these settings.
+ * It interacts with UiViewModel to get board properties and to apply changes.
+ */
 
+/** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
 
+/**
+ * @type {Object<string, HTMLElement|null>}
+ * Stores references to DOM elements within the board settings panel.
+ */
 const domElements = {
     boardWidthInput: null,
     boardHeightInput: null,
@@ -12,6 +23,9 @@ const domElements = {
     applyBoardPropertiesButton: null,
 };
 
+/**
+ * Caches references to frequently used DOM elements within the board settings panel.
+ */
 const cacheDOMElements = () => {
     domElements.boardWidthInput = document.getElementById('board-width-input');
     domElements.boardHeightInput = document.getElementById('board-height-input');
@@ -22,6 +36,11 @@ const cacheDOMElements = () => {
     domElements.applyBoardPropertiesButton = document.getElementById('apply-board-properties-button');
 };
 
+/**
+ * Populates the board settings form fields with the provided board properties.
+ * @param {object} boardProps - An object containing board properties (e.g., widthUser, heightUser, unitForDimensions, scaleRatio, unitForRatio, widthPx, heightPx).
+ *                              Typically obtained from `UiViewModel.getBoardPropertiesForDisplay()`.
+ */
 const updateBoardSettingsDisplay = (boardProps) => {
     if (!boardProps) return;
     if (domElements.boardWidthInput) domElements.boardWidthInput.value = boardProps.widthUser ?? '';
@@ -39,6 +58,11 @@ const updateBoardSettingsDisplay = (boardProps) => {
     }
 };
 
+/**
+ * Handles the click event for the "Apply Board Properties" button.
+ * Reads values from the form fields, performs basic validation,
+ * and then calls `uiViewModelInstance.applyBoardSettings` to update the model.
+ */
 const handleApplyBoardProperties = () => {
     if (!domElements.boardWidthInput || !domElements.boardHeightInput || 
         !domElements.boardDimensionUnitInput || !domElements.boardScaleUnitInput || !domElements.boardScaleInput) {
@@ -93,6 +117,12 @@ const handleApplyBoardProperties = () => {
     }
 };
 
+/**
+ * Initializes the board settings view.
+ * Stores the UiViewModel instance, caches DOM elements, sets up event listeners,
+ * and registers a callback with UiViewModel to update the display when board settings change.
+ * @param {UiViewModel} uiViewModel - The UiViewModel instance.
+ */
 export const init = (uiViewModel) => {
     uiViewModelInstance = uiViewModel;
 
@@ -111,5 +141,5 @@ export const init = (uiViewModel) => {
 
     // Initial population
     updateBoardSettingsDisplay(uiViewModelInstance.getBoardPropertiesForDisplay());
-    console.log('[boardSettingsView.js] Initialized.');
+    // console.log('[boardSettingsView.js] Initialized.'); // Removed for cleaner logs
 };

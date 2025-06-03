@@ -7,6 +7,9 @@ import { VTT_API, VTT_API_INIT } from './api.js'; // VTT Scripting API
 import * as sessionManagement from './session_management.js';
 
 // --- Main Redraw Function ---
+/**
+ * Requests a redraw of the canvas by calling the main drawing function in canvasView.
+ */
 const requestRedraw = () => {
   canvasView.drawVTT();
 };
@@ -15,15 +18,20 @@ const requestRedraw = () => {
 let canvasViewModel;
 let uiViewModel;
 
+/**
+ * Initializes the main application components including ViewModels, Views,
+ * event listeners, and loads initial state.
+ * @async
+ */
 const initializeApplication = async () => {
-  // Create ViewModel instances
+  // Initialize core ViewModels for UI and Canvas interactions
   uiViewModel = new UiViewModel();
   uiViewModel.init(VTT_API);
-  VTT_API_INIT({ showMessage: uiViewModel.displayMessage.bind(uiViewModel) });
+  VTT_API_INIT({ showMessage: uiViewModel.displayMessage.bind(uiViewModel) }); // Provide API with UI message function
   
   canvasViewModel = new CanvasViewModel(requestRedraw, uiViewModel.displayMessage.bind(uiViewModel)); 
 
-  // Define UI Callbacks
+  // Callbacks for UI elements in uiView, primarily for session management actions
   const uiCallbacks = {
     onSaveToFile: sessionManagement.handleSaveTableState, 
     onSaveMemoryState: sessionManagement.handleSaveMemoryState, 
@@ -40,18 +48,18 @@ const initializeApplication = async () => {
     },
   };
 
-  // Initialize uiView and pass UiViewModel to it.
-  // uiView now orchestrates its components, which will register their specific callbacks with UiViewModel.
+  // Initialize the main UI view (uiView) and its event listeners
+  // uiView orchestrates its sub-components (inspector, toolbar, etc.)
   uiView.init(uiViewModel, VTT_API);
   uiView.initUIEventListeners(uiCallbacks);
 
-  // Pass the CanvasViewModel instance to canvasView.initCanvas
+  // Initialize the canvas view, passing its dedicated ViewModel
   canvasView.initCanvas(
     document.getElementById('vtt-canvas'),
-    canvasViewModel // Pass the created ViewModel instance
+    canvasViewModel
   );
   
-  // Create default objects for testing
+  // Create default objects for testing/demonstration purposes
   VTT_API.createObject('rectangle', {
     x: 50,
     y: 50,
@@ -71,11 +79,11 @@ const initializeApplication = async () => {
     rotation: 30,
   });
 
-  // Add new event listener for model changes
+  // Listen for 'modelChanged' events dispatched from model.js
+  // This is the primary way the application reacts to data changes.
   document.addEventListener('modelChanged', (event) => {
-    // Handle UI updates based on model changes
-    // UiViewModel now listens to modelChanged events directly for inspector and board settings.
-    // So, main.js's modelChanged listener only needs to handle canvasViewModel updates.
+    // UiViewModel also listens to 'modelChanged' for its own needs (inspector, board settings).
+    // This listener in main.js focuses on updating CanvasViewModel and triggering redraws.
     if (event.detail && canvasViewModel) {
       const { type, payload } = event.detail;
       switch (type) {
@@ -114,7 +122,7 @@ const initializeApplication = async () => {
     requestRedraw();
   });
 
-  // Load initial state from model into ViewModels
+  // Load initial state from the VTT_API into the CanvasViewModel
   if (canvasViewModel) {
     const initialStateForCanvas = {
         objects: VTT_API.getAllObjects(),
@@ -126,12 +134,11 @@ const initializeApplication = async () => {
     canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
   }
 
-  // Initial draw
-  requestRedraw();
+  requestRedraw(); // Perform initial draw of the canvas
   uiViewModel.displayMessage('Application initialized (Offline Mode).', 'info'); 
 }
 
-// Start the application
+// Ensures the application initializes after the DOM is fully loaded.
 if (document.readyState === 'loading') {
   document.addEventListener('DOMContentLoaded', initializeApplication);
 } else {

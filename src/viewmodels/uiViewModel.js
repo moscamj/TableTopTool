@@ -1,22 +1,46 @@
 // src/viewmodels/uiViewModel.js
 import * as sessionManagement from '../session_management.js';
 
+/**
+ * Manages the state and logic for the main user interface, excluding the canvas.
+ * This includes handling data for the inspector, board settings, modals, and user messages.
+ * It orchestrates actions triggered by UI components and interacts with the VTT_API.
+ * UiViewModel also listens to model changes to keep its data synchronized and notifies
+ * registered view components to update their displays.
+ */
 class UiViewModel {
+    /**
+     * Creates an instance of UiViewModel.
+     */
     constructor() {
+        /** @type {object | null} Reference to the VTT_API instance. Set via init(). */
         this.vttApi = null; // To be set during init
 
         // Internal state
+        /** @type {VTTObject | null} Data for the currently selected object to be displayed in the inspector. */
         this.inspectorData = null;
+        /** @type {object} Current properties of the game board (dimensions, scale, etc.). */
         this.boardProperties = {}; // Will hold the current board properties
 
         // Callbacks to be registered by the View (uiView.js or components)
+        /** @type {function(VTTObject | null): void | null} Callback to notify when inspector data changes. */
         this._onInspectorDataChanged = null;
+        /** @type {function(object): void | null} Callback to notify when board settings change. */
         this._onBoardSettingsChanged = null;
+        /** @type {function(text: string, type: string, duration?: number): void | null} Callback to display a message to the user. */
         this._onDisplayMessage = null; 
+        /** @type {function(): void | null} Callback to request the display of the "Create Object" modal. */
         this._onCreateObjectModalRequested = null; // For modalView
+        /** @type {function(title: string, choices: Array<{id: any, text: string}>, onSelect: function): void | null} Callback to request display of a generic selection modal. */
         this._onShowSelectionModalRequested = null; // For modalView to show generic list selection
     }
 
+    /**
+     * Initializes the UiViewModel with a reference to the VTT_API.
+     * It also sets up a listener for 'modelChanged' events to update its internal state
+     * and fetches initial board properties and selected object data.
+     * @param {object} vttApi - The VTT_API instance.
+     */
     init(vttApi) {
         this.vttApi = vttApi;
         if (!this.vttApi) {
@@ -25,7 +49,7 @@ class UiViewModel {
         }
         // Listen for model changes directly
         document.addEventListener('modelChanged', this._handleModelChange.bind(this));
-        console.log('[UiViewModel] Initialized and listening for modelChanged events.');
+        // console.log('[UiViewModel] Initialized and listening for modelChanged events.'); // Removed for cleaner logs
 
         // Initialize with current state from the model
         this.boardProperties = this.vttApi.getBoardProperties() || {};
@@ -37,6 +61,12 @@ class UiViewModel {
         }
     }
 
+    /**
+     * Requests deletion of an object via the VTT_API.
+     * Displays success or failure messages.
+     * @param {string} objectId - The ID of the object to delete.
+     * @param {string} [objectName='object'] - The user-friendly name of the object, for messages.
+     */
     requestObjectDelete(objectId, objectName = 'object') {
         if (!this.vttApi || !objectId) {
             this.displayMessage('Cannot delete object: API or Object ID missing.', 'error');
@@ -51,37 +81,75 @@ class UiViewModel {
     }
 
     // --- Callback Registration Methods by View ---
+    /**
+     * Registers a callback function to be invoked when inspector data changes.
+     * @param {function(VTTObject | null): void} callback - The function to call with the new inspector data.
+     */
     onInspectorDataChanged(callback) {
         this._onInspectorDataChanged = callback;
     }
 
+    /**
+     * Registers a callback function to be invoked when board settings change.
+     * @param {function(object): void} callback - The function to call with the new board properties.
+     */
     onBoardSettingsChanged(callback) {
         this._onBoardSettingsChanged = callback;
     }
 
+    /**
+     * Registers a callback function for displaying messages to the user.
+     * This is typically called by messageAreaView.js.
+     * @param {function(text: string, type: string, duration?: number): void} callback - The function to call to display a message.
+     */
     onDisplayMessage(callback) {
         this._onDisplayMessage = callback;
     }
 
+    /**
+     * Registers a callback function to be invoked when the "Create Object" modal is requested.
+     * This is typically called by modalView.js.
+     * @param {function(): void} callback - The function to call to display the create object modal.
+     */
     onCreateObjectModalRequested(callback) {
         this._onCreateObjectModalRequested = callback;
     }
 
+    /**
+     * Registers a callback function to be invoked when a generic selection modal is requested.
+     * This is typically called by modalView.js.
+     * @param {function(title: string, choices: Array<{id: any, text: string}>, onSelect: function): void} callback - The function to call to display the selection modal.
+     */
     onShowSelectionModalRequested(callback) {
         this._onShowSelectionModalRequested = callback;
     }
 
     // --- Getters ---
+    /**
+     * Retrieves the data for the currently selected object.
+     * @returns {VTTObject | null} The selected object's data, or null if no object is selected.
+     */
     getInspectorData() {
         return this.inspectorData;
     }
 
+    /**
+     * Retrieves the current board properties for display.
+     * @returns {object} The current board properties.
+     */
     getBoardPropertiesForDisplay() {
         // Potentially format or select specific properties for display if needed
         return this.boardProperties;
     }
 
     // --- Model Change Handler ---
+    /**
+     * Handles 'modelChanged' events dispatched from the model.
+     * Updates internal state (inspectorData, boardProperties) based on the event type
+     * and notifies relevant view components via registered callbacks.
+     * @param {CustomEvent} event - The 'modelChanged' event, with event.detail containing type and payload.
+     * @private
+     */
     _handleModelChange(event) {
         if (!event.detail || !this.vttApi) return;
 
@@ -126,6 +194,12 @@ class UiViewModel {
 
     // --- Action Methods (called by View) ---
 
+    /**
+     * Applies changes from the inspector panel to a specified object via the VTT_API.
+     * Constructs an update payload containing only the changed properties.
+     * @param {string} objectId - The ID of the object to update.
+     * @param {object} inspectorSnapshot - An object containing all properties from the inspector form.
+     */
     applyInspectorChanges(objectId, inspectorSnapshot) {
         if (!this.vttApi) return;
         try {
@@ -203,6 +277,11 @@ class UiViewModel {
         }
     }
 
+    /**
+     * Handles deletion of a selected object via VTT_API.
+     * Note: This method seems currently unused; inspectorView directly calls `requestObjectDelete`.
+     * @param {string} objectId - The ID of the object to delete.
+     */
     handleDeleteSelectedObject(objectId) { // This method seems unused. requestObjectDelete is used instead by inspectorView
         if (!this.vttApi || !objectId) return;
         const result = this.vttApi.deleteObject(objectId);
@@ -213,6 +292,11 @@ class UiViewModel {
         }
     }
 
+    /**
+     * Applies new board settings (dimensions, units, scale) via the VTT_API.
+     * @param {object} newProps - An object containing the new board properties.
+     * Expected properties: `widthUser`, `heightUser`, `unitForDimensions`, `scaleRatio`, `unitForRatio`.
+     */
     applyBoardSettings(newProps) {
         if (!this.vttApi) return;
         // newProps should be validated or structured as expected by VTT_API.setBoardProperties
@@ -225,6 +309,12 @@ class UiViewModel {
         }
     }
 
+    /**
+     * Requests the creation of a new object via the VTT_API.
+     * @param {string} shape - The shape of the new object (e.g., 'rectangle', 'circle').
+     * @param {object} [props={}] - Optional initial properties for the new object.
+     * @returns {VTTObject | null} The newly created object, or null if creation failed.
+     */
     createObject(shape, props = {}) {
         if (!this.vttApi) return null;
         const newObj = this.vttApi.createObject(shape, props);
@@ -236,12 +326,19 @@ class UiViewModel {
         return newObj;
     }
 
+    /**
+     * Sets the table background via the VTT_API.
+     * @param {{type: 'color' | 'image', value: string}} backgroundProps - The background properties.
+     */
     setTableBackground(backgroundProps) {
         if (!this.vttApi) return;
         this.vttApi.setTableBackground(backgroundProps);
         this.displayMessage('Table background updated.', 'success', 1500);
     }
 
+    /**
+     * Requests the display of the "Create Object" modal by invoking the registered callback.
+     */
     requestCreateObjectModal() {
         if (typeof this._onCreateObjectModalRequested === 'function') {
             this._onCreateObjectModalRequested();
@@ -267,6 +364,12 @@ class UiViewModel {
 
     // Placeholder for image upload handling if needed directly in ViewModel
 
+    /**
+     * Requests the display of a modal to load a board state from memory.
+     * It retrieves available memory states from `sessionManagement`, then uses
+     * the `_onShowSelectionModalRequested` callback to ask the View (modalView)
+     * to display these states. If a state is selected, it's applied using `sessionManagement.applyMemoryState`.
+     */
     requestLoadMemoryState() {
         const availableStates = sessionManagement.getAvailableMemoryStates();
 
