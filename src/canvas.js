@@ -7,6 +7,19 @@ import * as model from './model.js'; // For getObjectAtPosition
 let canvas;
 let ctx;
 
+// --- Canvas ViewModel ---
+// These variables will store the canvas's local copy of the state needed for rendering.
+// They will be populated by data received from main.js (originating from model.js via VTT_API).
+let viewModelObjects = new Map();
+let viewModelPanZoom = { panX: 0, panY: 0, zoom: 1.0 };
+let viewModelTableBackground = { type: 'color', value: '#cccccc' }; // Default background
+let viewModelSelectedObjectId = null;
+let viewModelBoardProperties = { 
+    widthUser: 36, heightUser: 24, unitForDimensions: 'in', // User-facing dimensions
+    widthPx: 1000, heightPx: 800, // Pixel dimensions for rendering (example defaults)
+    scaleRatio: 1, unitForRatio: 'mm' // Scale interpretation
+};
+
 // Variables for canvas interaction states
 let isDragging = false;
 let isPanning = false;
@@ -57,6 +70,154 @@ export const initCanvas = (canvasElement, drawNeededCallback, displayMessageCall
 
   console.log('Canvas initialized');
 };
+
+// --- ViewModel Population ---
+export const loadStateIntoViewModel = (initialState) => {
+  if (!initialState) {
+    console.error('[canvas.js] loadStateIntoViewModel: initialState is undefined. Cannot populate ViewModel.');
+    // Initialize ViewModel with default values or handle error appropriately
+    viewModelObjects.clear();
+    viewModelPanZoom = { panX: 0, panY: 0, zoom: 1.0 };
+    viewModelTableBackground = { type: 'color', value: '#cccccc' };
+    viewModelSelectedObjectId = null;
+    viewModelBoardProperties = { 
+        widthUser: 36, heightUser: 24, unitForDimensions: 'in',
+        widthPx: 1000, heightPx: 800, 
+        scaleRatio: 1, unitForRatio: 'mm' 
+    };
+    return;
+  }
+
+  viewModelObjects.clear();
+  if (initialState.objects && Array.isArray(initialState.objects)) {
+    initialState.objects.forEach(obj => viewModelObjects.set(obj.id, { ...obj }));
+  } else if (initialState.objects && initialState.objects instanceof Map) { // Fallback if API changes
+      initialState.objects.forEach((obj, id) => viewModelObjects.set(id, { ...obj }));
+  }
+
+
+  if (initialState.panZoomState) {
+    viewModelPanZoom = { ...initialState.panZoomState };
+  } else {
+    viewModelPanZoom = { panX: 0, panY: 0, zoom: 1.0 }; // Default
+  }
+
+  if (initialState.tableBackground) {
+    viewModelTableBackground = { ...initialState.tableBackground };
+  } else {
+    viewModelTableBackground = { type: 'color', value: '#cccccc' }; // Default
+  }
+
+  viewModelSelectedObjectId = initialState.selectedObjectId !== undefined ? initialState.selectedObjectId : null;
+
+  if (initialState.boardProperties) {
+    viewModelBoardProperties = { ...initialState.boardProperties };
+  } else {
+    viewModelBoardProperties = { // Default
+        widthUser: 36, heightUser: 24, unitForDimensions: 'in',
+        widthPx: 1000, heightPx: 800, 
+        scaleRatio: 1, unitForRatio: 'mm' 
+    };
+  }
+  
+  // console.log('[canvas.js] ViewModel populated:', {
+  //   objectsCount: viewModelObjects.size,
+  //   panZoom: viewModelPanZoom,
+  //   background: viewModelTableBackground,
+  //   selectedId: viewModelSelectedObjectId,
+  //   boardProps: viewModelBoardProperties
+  // });
+};
+
+// --- ViewModel Update Functions ---
+// These functions are called by main.js when modelChanged events occur.
+
+export const addObjectToViewModel = (objectData) => {
+  if (!objectData || !objectData.id) {
+    console.error('[canvas.js] addObjectToViewModel: Invalid objectData provided.', objectData);
+    return;
+  }
+  viewModelObjects.set(objectData.id, { ...objectData });
+  if (objectData.appearance && objectData.appearance.imageUrl) {
+    loadImage(objectData.appearance.imageUrl, objectData.appearance.imageUrl, onDrawNeededCallback);
+  }
+};
+
+export const updateObjectInViewModel = (objectId, updatedProps) => {
+  if (!viewModelObjects.has(objectId)) {
+    console.warn(`[canvas.js] updateObjectInViewModel: Object ID ${objectId} not found in ViewModel.`);
+    // Optionally, add it if it's a new object not caught by addObjectToViewModel for some reason
+    // addObjectToViewModel({ id: objectId, ...updatedProps }); 
+    return;
+  }
+  const obj = viewModelObjects.get(objectId);
+  // Perform a deep merge for nested properties like appearance, data, scripts
+  const newAppearance = { ...(obj.appearance || {}), ...(updatedProps.appearance || {}) };
+  const newData = { ...(obj.data || {}), ...(updatedProps.data || {}) };
+  const newScripts = { ...(obj.scripts || {}), ...(updatedProps.scripts || {}) };
+
+  viewModelObjects.set(objectId, { 
+    ...obj, 
+    ...updatedProps,
+    appearance: newAppearance,
+    data: newData,
+    scripts: newScripts
+  });
+
+  if (updatedProps.appearance && updatedProps.appearance.imageUrl) {
+    loadImage(updatedProps.appearance.imageUrl, updatedProps.appearance.imageUrl, onDrawNeededCallback);
+  } else if (updatedProps.appearance && updatedProps.appearance.imageUrl === '') { // Image removed
+    // If loadImage handles null/empty string for removal from cache, this is fine.
+    // Otherwise, specific logic might be needed here if images are cached under old URLs.
+    // For now, assuming loadImage(null, ...) or loadImage('',...) handles removal or cache correctly.
+    loadImage(null, obj.appearance?.imageUrl, onDrawNeededCallback); // Attempt to clear old image if necessary
+  }
+};
+
+export const removeObjectFromViewModel = (objectId) => {
+  if (!viewModelObjects.has(objectId)) {
+    console.warn(`[canvas.js] removeObjectFromViewModel: Object ID ${objectId} not found in ViewModel.`);
+    return;
+  }
+  // Potentially handle image cache cleanup if the object had an image, though
+  // `loadedImages` is a general cache not strictly tied to objects in viewModel.
+  // If an image URL is unique to this object and no longer needed, it could be cleaned up.
+  // However, this is complex if images are shared. For now, leave cache as is.
+  viewModelObjects.delete(objectId);
+};
+
+export const setPanZoomInViewModel = (panZoomState) => {
+  if (!panZoomState) {
+    console.error('[canvas.js] setPanZoomInViewModel: panZoomState is undefined.');
+    return;
+  }
+  viewModelPanZoom = { ...panZoomState };
+};
+
+export const setBackgroundInViewModel = (backgroundState) => {
+  if (!backgroundState) {
+    console.error('[canvas.js] setBackgroundInViewModel: backgroundState is undefined.');
+    return;
+  }
+  viewModelTableBackground = { ...backgroundState };
+  if (backgroundState.type === 'image' && backgroundState.value) {
+    loadImage(backgroundState.value, backgroundState.value, onDrawNeededCallback);
+  }
+};
+
+export const setSelectedObjectInViewModel = (selectedId) => {
+  // selectedId can be null
+  viewModelSelectedObjectId = selectedId;
+};
+
+export const setBoardPropertiesInViewModel = (boardProps) => {
+  if (!boardProps) {
+    console.error('[canvas.js] setBoardPropertiesInViewModel: boardProps is undefined.');
+    return;
+  }
+  viewModelBoardProperties = { ...boardProps };
+};
+
 
 export const setCanvasSize = () => {
   if (!canvas || !canvas.parentElement) return;
@@ -135,19 +296,14 @@ export const loadImage = (url, cacheKey, callback) => {
 };
 
 // --- Drawing Logic ---
-export const drawVTT = (
-  objectsMap,
-  currentPZS,
-  currentTblBg,
-  currentSelectedId, // This will be passed from model.getSelectedObjectId()
-  currentBoardProps  // This will be passed from model.getBoardProperties()
-) => {
+// Now uses internal viewModel variables instead of passed arguments
+export const drawVTT = () => {
   if (!ctx || !canvas) return;
 
   const dpr = window.devicePixelRatio || 1;
-  const { panX, panY, zoom } = currentPZS;
-  // Destructure background type and value, providing a fallback if currentTblBg is undefined
-  const { type: bgType, value: bgValue } = currentTblBg || {};
+  // Use viewModel variables
+  const { panX, panY, zoom } = viewModelPanZoom;
+  const { type: bgType, value: bgValue } = viewModelTableBackground || {};
 
 
   // Save the current canvas context state (transformations, styles, etc.)
@@ -167,10 +323,10 @@ export const drawVTT = (
   ctx.translate(panX, panY);
   ctx.scale(zoom, zoom);
 
-  // (panX, panY, zoom are from currentPZS argument to drawVTT)
-  // (currentTblBg is also from arguments to drawVTT)
-  // boardPhysical state is now in currentBoardProps, passed from model.getBoardProperties()
-  const { widthPx: currentBoardWidthPx, heightPx: currentBoardHeightPx } = currentBoardProps || { widthPx: 0, heightPx: 0};
+  // (panX, panY, zoom are from viewModelPanZoom)
+  // (bgType, bgValue are from viewModelTableBackground)
+  // boardPhysical state is now in viewModelBoardProperties
+  const { widthPx: currentBoardWidthPx, heightPx: currentBoardHeightPx } = viewModelBoardProperties || { widthPx: 0, heightPx: 0};
 
   // Draw the board's actual background (color or image)
   // This background covers currentBoardWidthPx by currentBoardHeightPx.
@@ -201,7 +357,8 @@ export const drawVTT = (
   ctx.strokeRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
 
   // 2. Draw Objects (sorted by zIndex)
-  const sortedObjects = Array.from(objectsMap.values()).sort(
+  // Use viewModelObjects
+  const sortedObjects = Array.from(viewModelObjects.values()).sort(
     (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
   );
 
@@ -328,7 +485,8 @@ export const drawVTT = (
       ctx.fillText(obj.name, width / 2, -nameTopMargin);
     }
 
-    if (id === currentSelectedId) {
+    // Use viewModelSelectedObjectId
+    if (id === viewModelSelectedObjectId) {
       ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'; // Bright blue for selection
       // Adjust line width of selection highlight based on zoom, ensuring it's visible but not too thick/thin.
       // Max(0.5, ...) ensures a minimum line width even when zoomed out.
@@ -352,13 +510,12 @@ export const drawVTT = (
 };
 
 // --- Coordinate Conversion & Object Picking ---
-export const getMousePositionOnCanvas = (event, currentPZS) => {
+// Uses viewModelPanZoom internally now
+export const getMousePositionOnCanvas = (event) => {
   if (!canvas) return { x: 0, y: 0 };
 
-  // const { clientX, clientY } = event; // Not needed with offsetX/Y
-  // const rect = canvas.getBoundingClientRect(); // Get canvas position and size in CSS pixels
-  // const { left: rectLeft, top: rectTop } = rect; // Destructure for clarity
-  const { panX, panY, zoom } = currentPZS; // Current pan and zoom state
+  // Use viewModelPanZoom for panX, panY, zoom
+  const { panX, panY, zoom } = viewModelPanZoom;
 
   // Convert mouse click coordinates (relative to viewport) to canvas screen coordinates (CSS pixels)
   // Use event.offsetX and event.offsetY which are relative to the padding edge of the target element (canvas)
@@ -374,19 +531,21 @@ export const getMousePositionOnCanvas = (event, currentPZS) => {
   return { x: worldX, y: worldY };
 };
 
-export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
+// Uses viewModelObjects internally now
+export const getObjectAtPosition = (worldX, worldY) => {
   // Ensure inputs are valid numbers
   if (typeof worldX !== 'number' || isNaN(worldX) || typeof worldY !== 'number' || isNaN(worldY)) {
     console.error('getObjectAtPosition: Invalid worldX or worldY input', { worldX, worldY });
     return null;
   }
 
-  if (!(objectsMap instanceof Map)) {
-    console.error('getObjectAtPosition: objectsMap is not a Map', objectsMap);
+  // Use viewModelObjects instead of passed objectsMap
+  if (!(viewModelObjects instanceof Map)) {
+    console.error('getObjectAtPosition: viewModelObjects is not a Map', viewModelObjects);
     return null;
   }
 
-  const sortedObjects = Array.from(objectsMap.values()).sort(
+  const sortedObjects = Array.from(viewModelObjects.values()).sort(
     (a, b) => (b.zIndex || 0) - (a.zIndex || 0)
   );
 
@@ -474,122 +633,161 @@ export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
 
 // --- Canvas Event Handlers ---
 function handleMouseDown(e) {
-    const currentPZSState = VTT_API.getPanZoomState();
-    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e, currentPZSState);
-    const clickedObjectId = getObjectAtPosition(mouseX, mouseY, model.currentObjects);
+    // Use local getMousePositionOnCanvas which now uses viewModelPanZoom
+    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e); 
+    // Use local getObjectAtPosition which now uses viewModelObjects
+    const clickedObjectId = getObjectAtPosition(mouseX, mouseY); 
 
     if (clickedObjectId) {
-        const objectDetails = VTT_API.getObject(clickedObjectId);
+        const objectDetails = viewModelObjects.get(clickedObjectId); // Get from ViewModel
         if (objectDetails.isMovable) {
             isDragging = true;
             dragOffsetX = mouseX - objectDetails.x;
             dragOffsetY = mouseY - objectDetails.y;
         }
-        if (VTT_API.getSelectedObjectId() !== clickedObjectId) {
-            VTT_API.setSelectedObjectId(clickedObjectId);
-            // ui.populateObjectInspector is now handled by modelChanged event in main.js
+        if (viewModelSelectedObjectId !== clickedObjectId) {
+            viewModelSelectedObjectId = clickedObjectId;
+            VTT_API.setSelectedObjectId(clickedObjectId); // Propagate to main model
+            // No direct onDrawNeededCallback here, selection highlight change will be part of next draw cycle
         }
     } else {
         isPanning = true;
         lastPanX = e.clientX;
         lastPanY = e.clientY;
-        if (VTT_API.getSelectedObjectId() !== null) {
-            VTT_API.setSelectedObjectId(null);
-            // ui.populateObjectInspector is now handled by modelChanged event in main.js
+        if (viewModelSelectedObjectId !== null) {
+            viewModelSelectedObjectId = null;
+            VTT_API.setSelectedObjectId(null); // Propagate to main model
         }
     }
-    // No direct requestRedraw(); model changes via VTT_API should trigger it.
+    // Call onDrawNeededCallback if immediate feedback for selection/deselection is desired
+    // without waiting for VTT_API to trigger modelChanged.
+    // However, VTT_API.setSelectedObjectId should trigger a modelChanged event.
+    // onDrawNeededCallback(); 
 }
 
 function handleMouseMove(e) {
-    const currentPZS = VTT_API.getPanZoomState();
-    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e, currentPZS);
+    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e); // Uses viewModelPanZoom
 
-    if (isDragging && VTT_API.getSelectedObjectId()) {
-        const selectedObjId = VTT_API.getSelectedObjectId();
-        VTT_API.updateObject(selectedObjId, {
-            x: mouseX - dragOffsetX,
-            y: mouseY - dragOffsetY,
-        });
-        // ui.populateObjectInspector is now handled by modelChanged event in main.js
+    if (isDragging && viewModelSelectedObjectId) {
+        const draggedObject = viewModelObjects.get(viewModelSelectedObjectId);
+        if (draggedObject) {
+            draggedObject.x = mouseX - dragOffsetX;
+            draggedObject.y = mouseY - dragOffsetY;
+            onDrawNeededCallback(); // Redraw with local ViewModel changes
+        }
     } else if (isPanning) {
-        const { panX, panY, zoom } = currentPZS;
         const dx = e.clientX - lastPanX;
         const dy = e.clientY - lastPanY;
+        
+        viewModelPanZoom.panX += dx;
+        viewModelPanZoom.panY += dy;
+        
         lastPanX = e.clientX;
         lastPanY = e.clientY;
-        VTT_API.setPanZoomState({
-            panX: panX + dx,
-            panY: panY + dy,
-            zoom: zoom,
-        });
+        onDrawNeededCallback(); // Redraw with local ViewModel changes
     }
 }
 
 function handleMouseUp(e) {
-    const currentPZS = VTT_API.getPanZoomState();
-    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e, currentPZS);
-    const clickedObjectId = getObjectAtPosition(mouseX, mouseY, model.currentObjects);
+    const wasDragging = isDragging;
+    const wasPanning = isPanning;
 
-    let objectWasActuallyClicked = false;
-    if (clickedObjectId && !isDragging && !isPanning) {
-        objectWasActuallyClicked = true;
+    if (isDragging && viewModelSelectedObjectId) {
+        const draggedObject = viewModelObjects.get(viewModelSelectedObjectId);
+        if (draggedObject) {
+            VTT_API.updateObject(viewModelSelectedObjectId, { x: draggedObject.x, y: draggedObject.y });
+        }
+    }
+    
+    if (isPanning) {
+        VTT_API.setPanZoomState({ 
+            panX: viewModelPanZoom.panX, 
+            panY: viewModelPanZoom.panY, 
+            zoom: viewModelPanZoom.zoom 
+        });
     }
 
-    if (objectWasActuallyClicked) {
-        const objectDetails = VTT_API.getObject(clickedObjectId);
-        if (objectDetails.scripts && objectDetails.scripts.onClick) {
-            console.log(`Executing onClick for ${objectDetails.id}:`, objectDetails.scripts.onClick);
-            try {
-                const objectRefForScript = model.currentObjects.get(objectDetails.id);
-                new Function('VTT', 'object', objectDetails.scripts.onClick)(
-                    VTT_API,
-                    objectRefForScript
-                );
-                // ui.populateObjectInspector is now handled by modelChanged event in main.js
-            } catch (scriptError) {
-                console.error('Script execution error:', scriptError);
-                // Replace ui.showModal with VTT_API.showMessage
-                VTT_API.showMessage(
-                    `Script Error in onClick for object ${objectDetails.id}: ${scriptError.message}`,
-                    'error'
-                );
+    isDragging = false;
+    isPanning = false;
+
+    // Script execution for non-drag clicks
+    if (!wasDragging && !wasPanning) {
+        const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e);
+        const clickedObjectId = getObjectAtPosition(mouseX, mouseY); // Uses viewModelObjects
+
+        if (clickedObjectId) {
+            // Fetch latest from main model for script execution to ensure consistency
+            const objectDetailsFromModel = VTT_API.getObject(clickedObjectId); 
+            if (objectDetailsFromModel && objectDetailsFromModel.scripts && objectDetailsFromModel.scripts.onClick) {
+                console.log(`Executing onClick for ${objectDetailsFromModel.id}:`, objectDetailsFromModel.scripts.onClick);
+                try {
+                    // Script execution context still needs direct model access if scripts directly mutate object reference
+                    // This is a known point from previous steps.
+                    const objectRefForScript = model.currentObjects.get(objectDetailsFromModel.id); 
+                    new Function('VTT', 'object', objectDetailsFromModel.scripts.onClick)(
+                        VTT_API,
+                        objectRefForScript 
+                    );
+                } catch (scriptError) {
+                    console.error('Script execution error:', scriptError);
+                    VTT_API.showMessage(
+                        `Script Error in onClick for object ${objectDetailsFromModel.id}: ${scriptError.message}`,
+                        'error'
+                    );
+                }
             }
         }
     }
-
-    // requestRedraw() will be called if model changed.
-    // If a direct draw is needed without model change (e.g. to clear a hover effect),
-    // onDrawNeededCallback() could be used. For now, relying on model events.
-
-    isDragging = false;
-    isPanning = false;
+    // VTT_API calls above should trigger modelChanged and thus a redraw.
+    // Call onDrawNeededCallback() if an immediate redraw is needed for snapping back or visual finalization
+    // not covered by model changes (e.g. if VTT_API calls are debounced/batched later)
+    // For now, relying on VTT_API calls to trigger redraw.
 }
 
 function handleMouseLeave() {
-    if (isDragging || isPanning) {
-        // onDrawNeededCallback(); // Finalize visual state if needed without model change
+    if (isDragging && viewModelSelectedObjectId) {
+        const object = viewModelObjects.get(viewModelSelectedObjectId);
+        if (object) {
+            VTT_API.updateObject(viewModelSelectedObjectId, { x: object.x, y: object.y });
+        }
     }
+    if (isPanning) {
+        VTT_API.setPanZoomState(viewModelPanZoom);
+    }
+
     isDragging = false;
     isPanning = false;
+    // onDrawNeededCallback(); // Consider if a final draw based on local state is needed before API confirms
 }
 
 function handleWheel(e) {
     e.preventDefault();
-    const { zoom, panX, panY } = VTT_API.getPanZoomState();
     // Ensure canvas is available, though it should be if this event is firing
     if (!canvas) return; 
     const { left, top } = canvas.getBoundingClientRect();
 
-    const mouseXCanvas = e.clientX - left;
+    const mouseXCanvas = e.clientX - left; // Mouse position relative to canvas element
     const mouseYCanvas = e.clientY - top;
 
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const newZoom = Math.max(0.1, Math.min(zoom * zoomFactor, 10));
+    const oldZoom = viewModelPanZoom.zoom;
+    const newZoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newZoom = Math.max(0.1, Math.min(oldZoom * newZoomFactor, 10));
 
-    const newPanX = mouseXCanvas - (newZoom / zoom) * (mouseXCanvas - panX);
-    const newPanY = mouseYCanvas - (newZoom / zoom) * (mouseYCanvas - panY);
+    // Calculate new pan position to keep the point under the mouse cursor fixed
+    const newPanX = mouseXCanvas - (newZoom / oldZoom) * (mouseXCanvas - viewModelPanZoom.panX);
+    const newPanY = mouseYCanvas - (newZoom / oldZoom) * (mouseYCanvas - viewModelPanZoom.panY);
 
-    VTT_API.setPanZoomState({ panX: newPanX, panY: newPanY, zoom: newZoom });
-    // requestRedraw is called by modelChanged event
+    // Update local view-model first
+    viewModelPanZoom.panX = newPanX;
+    viewModelPanZoom.panY = newPanY;
+    viewModelPanZoom.zoom = newZoom;
+    
+    onDrawNeededCallback(); // Redraw with local ViewModel changes for immediate feedback
+
+    // Then, synchronize with the main model
+    VTT_API.setPanZoomState({ 
+        panX: viewModelPanZoom.panX, 
+        panY: viewModelPanZoom.panY, 
+        zoom: viewModelPanZoom.zoom 
+    });
 }

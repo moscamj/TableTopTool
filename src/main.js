@@ -1,6 +1,16 @@
 // src/main.js
 // import * as model from './model.js'; // Removed unused direct model import
-import * as canvas from './canvas.js';
+import * as canvas from './canvas.js'; // Still need for initCanvas, and drawVTT (though drawVTT takes no args now)
+import { 
+    loadStateIntoViewModel,
+    addObjectToViewModel,
+    updateObjectInViewModel,
+    removeObjectFromViewModel,
+    setPanZoomInViewModel,
+    setBackgroundInViewModel,
+    setSelectedObjectInViewModel,
+    setBoardPropertiesInViewModel
+} from './canvas.js'; // Import the new ViewModel update functions
 import * as ui from './ui.js';
 import { setBackgroundUrlInputText, setObjectImageUrlText, getModalContentElement } from './ui.js'; // Import the new functions
 import * as api from './api.js'; // VTT Scripting API
@@ -15,19 +25,9 @@ let localUserId = 'offline-user'; // This remains as it's not strictly session m
 
 // --- Main Redraw Function ---
 const requestRedraw = () => {
-  const allObjects = api.VTT_API.getAllObjects(); // This is fine, uses API -> model
-  const panZoomState = api.VTT_API.getPanZoomState();
-  const tableBackground = api.VTT_API.getTableBackground();
-  const selectedObjectId = api.VTT_API.getSelectedObjectId();
-  const boardProperties = api.VTT_API.getBoardProperties(); // Fetch board properties
-
-  canvas.drawVTT(
-    allObjects,
-    panZoomState,
-    tableBackground,
-    selectedObjectId,
-    boardProperties // Pass board properties as the new 5th argument
-  );
+  // canvas.drawVTT() now uses its internal viewModel, so no arguments are needed here.
+  // The viewModel in canvas.js is updated by functions called from the modelChanged event listener.
+  canvas.drawVTT();
 };
 
 // All session save/load and canvas event listener logic has been moved to respective modules.
@@ -110,42 +110,66 @@ const initializeApplication = async () => {
 
     // Handle UI updates based on model changes
     if (event.detail) {
-      switch (event.detail.type) {
+      const { type, payload } = event.detail;
+      switch (type) {
         case 'selectionChanged':
-          // Update object inspector when selection changes
-          const selectedObject = event.detail.payload ? api.VTT_API.getObject(event.detail.payload) : null;
-          ui.populateObjectInspector(selectedObject);
+          setSelectedObjectInViewModel(payload); // payload is expected to be selectedId (or null)
+          // Update UI inspector based on the new selection from the main model
+          const selectedObjectForUI = payload ? api.VTT_API.getObject(payload) : null;
+          ui.populateObjectInspector(selectedObjectForUI);
           break;
-        case 'objectAdded': // Handles objects added by VTT_API.createObject during load
+        case 'objectAdded':
+          addObjectToViewModel(payload); // payload is the new object
+          // If the new object becomes selected, model should dispatch 'selectionChanged'
+          // which will then populate the inspector.
+          break;
         case 'objectUpdated':
-          const objectPayload = event.detail.payload;
-          // If the updated/added object is the currently selected one, refresh inspector
-          if (objectPayload && objectPayload.id === api.VTT_API.getSelectedObjectId()) {
-            ui.populateObjectInspector(api.VTT_API.getObject(objectPayload.id));
-          }
-          // If an image URL was part of the added/updated object, load the image
-          if (objectPayload && objectPayload.appearance && objectPayload.appearance.imageUrl) {
-            canvas.loadImage(objectPayload.appearance.imageUrl, objectPayload.appearance.imageUrl, requestRedraw);
+          // Assuming payload is the full updated object or {id, changes}
+          // If model sends full object: updateObjectInViewModel(payload.id, payload);
+          // If model sends {id, changes}: updateObjectInViewModel(payload.id, payload.changes);
+          // For now, let's assume payload is the full updated object as per typical model events.
+          updateObjectInViewModel(payload.id, payload); 
+          
+          // Update UI inspector if the updated object is the currently selected one
+          if (payload && payload.id === api.VTT_API.getSelectedObjectId()) {
+            // Fetch again from API to ensure UI gets the absolute source of truth,
+            // though canvas view model is also updated.
+            ui.populateObjectInspector(api.VTT_API.getObject(payload.id));
           }
           break;
-        case 'boardPropertiesChanged': 
-          // This event type should be emitted by model.js when VTT_API.setBoardProperties is called.
-          // This ensures UI elements showing board properties are updated when a session is loaded.
-          const boardProperties = api.VTT_API.getBoardProperties();
-          ui.updateBoardSettingsDisplay(boardProperties);
+        case 'objectDeleted':
+          removeObjectFromViewModel(payload.id); // payload is expected to be {id, ...otherProps}
+          if (payload.id === api.VTT_API.getSelectedObjectId()) { // Check if selected object was deleted
+             setSelectedObjectInViewModel(null); // Update canvas view model
+             ui.populateObjectInspector(null); // Clear inspector
+          }
+          break;
+        case 'panZoomChanged':
+          setPanZoomInViewModel(payload); // payload is the new panZoomState
           break;
         case 'backgroundChanged':
-          // Special handling for background image loading
-          const newBackground = event.detail.payload;
-          if (newBackground.type === 'image' && newBackground.value) {
-            canvas.loadImage(newBackground.value, newBackground.value, requestRedraw);
-          }
+          setBackgroundInViewModel(payload); // payload is the new background state
           break;
-        // Add other cases as needed for UI updates tied to specific model changes
+        case 'boardPropertiesChanged': 
+          setBoardPropertiesInViewModel(payload); // payload is the new boardProperties
+          // Update UI display for board settings
+          ui.updateBoardSettingsDisplay(payload); // Pass the new properties directly
+          break;
+        // Add other cases as needed
       }
     }
-    requestRedraw(); // Redraw for any model change
+    requestRedraw(); // Redraw canvas using its updated internal view-model
   });
+
+  // Load initial state from model into canvas ViewModel
+  const initialStateForCanvas = {
+      objects: api.VTT_API.getAllObjects(), // Returns an array of copies
+      panZoomState: api.VTT_API.getPanZoomState(),
+      tableBackground: api.VTT_API.getTableBackground(),
+      selectedObjectId: api.VTT_API.getSelectedObjectId(),
+      boardProperties: api.VTT_API.getBoardProperties()
+  };
+  loadStateIntoViewModel(initialStateForCanvas); // Call the imported function
 
   // Initial draw
   requestRedraw();
