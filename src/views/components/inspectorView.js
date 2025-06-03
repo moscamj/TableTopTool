@@ -206,7 +206,11 @@ const populateObjectInspector = (objectData) => {
  */
 const readObjectInspector = () => {
         console.log('[TEMP_LOG InspectorView] readObjectInspector: ENTERING. Value of domElements.objId.textContent ON ENTRY = "' + (domElements.objId ? domElements.objId.textContent : 'domElements.objId_IS_NULL') + '"');
-        if (!domElements.objId || !domElements.objId.textContent) {
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: typeof domElements.objId.textContent = ' + typeof domElements.objId.textContent);
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent.length = ' + domElements.objId.textContent.length);
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent.trim() = "' + domElements.objId.textContent.trim() + '"');
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: !domElements.objId.textContent.trim() = ' + !domElements.objId.textContent.trim());
+        if (!domElements.objId || !domElements.objId.textContent.trim()) {
                 dInspector("readObjectInspector: No object ID found, returning null.");
                 return null;
         }
