@@ -1,12 +1,22 @@
 // src/views/components/inspectorView.js
+/**
+ * @file Manages the object inspector UI component.
+ * This component is responsible for displaying the properties of the currently selected VTT object
+ * and allowing users to edit these properties. It interacts with the UiViewModel to receive
+ * selected object data and to send updates.
+ */
 
+/** @type {UiViewModel | null} Instance of the UiViewModel, used for data and actions. */
 let uiViewModelInstance = null;
-// let vttApiInstance = null; // May not be needed if all actions go via UiViewModel
 
+/**
+ * @type {Object<string, HTMLElement|HTMLInputElement|HTMLSelectElement|null>}
+ * Stores references to DOM elements within the inspector panel for easy access and manipulation.
+ */
 const domElements = {
-    inspectorSidebar: null,
-    inspectorContent: null, // The div holding all fields
-    inspectorActions: null,
+    inspectorSidebar: null,     // The main sidebar container for the inspector
+    inspectorContent: null,     // The content area where object properties are displayed/edited
+    inspectorActions: null,     // Container for action buttons like "Update" and "Delete"
     objId: null,
     objName: null,
     objX: null,
@@ -26,9 +36,13 @@ const domElements = {
     updateObjectButton: null,
     deleteObjectButton: null,
     chooseObjectImageButton: null,
-    objectImageFileInput: null,
+    objectImageFileInput: null, // The hidden file input for choosing an object's image
 };
 
+/**
+ * Caches references to all relevant DOM elements within the inspector panel.
+ * This is called once during initialization to improve performance by avoiding repeated DOM queries.
+ */
 const cacheDOMElements = () => {
     domElements.inspectorSidebar = document.getElementById('inspector-sidebar');
     domElements.inspectorContent = document.getElementById('inspector-content');
@@ -53,16 +67,22 @@ const cacheDOMElements = () => {
     domElements.deleteObjectButton = document.getElementById('delete-object-button');
     domElements.chooseObjectImageButton = document.getElementById('choose-object-image-button');
     domElements.objectImageFileInput = document.getElementById('objectImageFileInput');
-    // console.log('[inspectorView.js] Inspector DOM elements cached.');
 };
 
+/**
+ * Populates the inspector form fields with the properties of the given object.
+ * If no objectData is provided (e.g., no object selected), it clears the inspector
+ * and displays a "Select an object" message.
+ * @param {VTTObject | null} objectData - The object whose properties are to be displayed,
+ *                                      or null to clear the inspector. Typically from UiViewModel.
+ */
 const populateObjectInspector = (objectData) => {
     if (!domElements.inspectorContent) {
         console.warn('[inspectorView.js] Inspector content DOM not cached/found. Cannot populate.');
         return;
     }
 
-    const inspectorContentDiv = domElements.inspectorContent.querySelector('div:first-child'); // Assuming this is the placeholder paragraph's parent
+    const inspectorContentDiv = domElements.inspectorContent.querySelector('div:first-child'); // Used to show/hide the "Select an object" placeholder
     const inspectorFieldsContainer = domElements.inspectorContent;
 
     if (objectData) {
@@ -126,6 +146,13 @@ const populateObjectInspector = (objectData) => {
     }
 };
 
+/**
+ * Reads all property values from the inspector form fields and constructs an object snapshot.
+ * This snapshot represents the current state of the inspector UI.
+ * Includes basic validation for JSON data in the 'data' field.
+ * @returns {object | null} An object containing all properties read from the inspector,
+ *                          or null if no object is currently being inspected (ID field is empty).
+ */
 const readObjectInspector = () => {
     if (!domElements.objId || !domElements.objId.textContent) return null;
 
@@ -134,11 +161,9 @@ const readObjectInspector = () => {
     try {
         data = JSON.parse(dataStr);
     } catch (e) {
-        // Consider using uiViewModelInstance to display message if available
         console.error("Invalid JSON in data field:", e);
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            // This assumes onDisplayMessage is set up to call the actual displayMessage function
-             uiViewModelInstance.onDisplayMessage('Error: Custom Data is not valid JSON.', 'error');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+             uiViewModelInstance.displayMessage('Error: Custom Data is not valid JSON.', 'error');
         } else {
             alert('Error: Custom Data is not valid JSON.'); // Fallback
         }
@@ -168,42 +193,54 @@ const readObjectInspector = () => {
     };
 };
 
+/**
+ * Handles the click event for the "Update Object" button.
+ * Reads the current properties from the inspector (via readObjectInspector)
+ * and then calls `uiViewModelInstance.applyInspectorChanges` to update the model.
+ */
 const handleApplyObjectChanges = () => {
     const updatedProps = readObjectInspector();
     if (updatedProps && updatedProps.id && uiViewModelInstance) {
         uiViewModelInstance.applyInspectorChanges(updatedProps.id, updatedProps);
     } else if (!uiViewModelInstance) {
         console.error('[inspectorView.js] UiViewModel not initialized. Cannot apply object changes.');
-        // Fallback or direct error display if needed
     } else {
         console.warn('[inspectorView.js] No object selected or ID missing for update.');
-         if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-             uiViewModelInstance.onDisplayMessage('No object selected or ID missing for update.', 'warning');
+         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+             uiViewModelInstance.displayMessage('No object selected or ID missing for update.', 'warning');
         }
     }
 };
 
+/**
+ * Handles the click event for the "Delete Object" button.
+ * Reads the current object's ID and name from the inspector (via readObjectInspector)
+ * and then calls `uiViewModelInstance.requestObjectDelete` to initiate deletion.
+ */
 const handleDeleteObject = () => {
     const currentObject = readObjectInspector();
     if (currentObject && currentObject.id && uiViewModelInstance) {
-        // The confirmation modal is part of the global uiView's showModal for now.
-        // Ideally, showModal would also be a service or part of uiView that inspectorView can call.
-        // For this step, we assume uiView.showModal is accessible or we dispatch an event.
-        // Let's keep the dispatch event pattern for deletion, handled by controller.
-        document.dispatchEvent(new CustomEvent('uiObjectDeleteRequested', {
-            detail: { objectId: currentObject.id, objectName: currentObject.name || currentObject.id },
-            bubbles: true,
-            composed: true
-        }));
+        if (uiViewModelInstance.requestObjectDelete) { // Check if method exists on ViewModel
+            uiViewModelInstance.requestObjectDelete(currentObject.id, currentObject.name || currentObject.id);
+        } else {
+            console.error('[inspectorView.js] uiViewModelInstance or requestObjectDelete method not available.');
+            // Fallback message if necessary, though displayMessage on ViewModel is preferred
+            alert('Error: Could not initiate object deletion.');
+        }
     } else if (!uiViewModelInstance) {
         console.error('[inspectorView.js] UiViewModel not initialized. Cannot delete object.');
     } else {
-         if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('No object selected to delete.', 'warning');
+         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('No object selected to delete.', 'warning');
         }
     }
 };
 
+/**
+ * Sets the text value of the object's image URL input field.
+ * Used internally when an image is selected via the file picker to show a data URL or placeholder.
+ * @param {string} text - The text to set in the image URL input field.
+ */
 const setObjectImageUrlText = (text) => {
     if (domElements.objImageUrl) {
         domElements.objImageUrl.value = text;
@@ -212,13 +249,20 @@ const setObjectImageUrlText = (text) => {
     }
 };
 
+/**
+ * Handles the 'change' event for the hidden object image file input.
+ * When a file is selected, it reads the image as a data URL,
+ * updates the image URL input field in the inspector using `setObjectImageUrlText`,
+ * and informs the user via `uiViewModelInstance.displayMessage` that they need to click "Update Object" to apply.
+ * @param {Event} event - The file input change event, containing the selected file(s).
+ */
 const handleObjectImageFileChange = (event) => {
     const file = event.target.files[0];
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('Please select an image file for the object.', 'error');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('Please select an image file for the object.', 'error');
         }
         return;
     }
@@ -226,22 +270,30 @@ const handleObjectImageFileChange = (event) => {
     const reader = new FileReader();
     reader.onload = (e) => {
         setObjectImageUrlText(e.target.result);
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
         }
     };
     reader.onerror = () => {
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('Error reading object image file.', 'error');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('Error reading object image file.', 'error');
         }
         console.error('[inspectorView.js] Error reading object image file:', reader.error);
     };
     reader.readAsDataURL(file);
 };
 
-export const init = (uiViewModel, vttApi) => { // vttApi might not be needed here
+/**
+ * Initializes the inspector view component.
+ * Stores the UiViewModel instance, caches DOM elements, sets up event listeners
+ * for inspector actions (update, delete, choose image), and registers a callback
+ * with UiViewModel to update the inspector when selected object data changes.
+ * Also performs an initial population of the inspector.
+ * @param {UiViewModel} uiViewModel - The UiViewModel instance.
+ * @param {object} vttApi - The VTT_API instance (passed but not directly used in event handlers, actions go via ViewModel).
+ */
+export const init = (uiViewModel, vttApi) => {
     uiViewModelInstance = uiViewModel;
-    // vttApiInstance = vttApi; 
 
     if (!uiViewModelInstance) {
         console.error('[inspectorView.js] UiViewModel not provided during init!');
@@ -267,10 +319,7 @@ export const init = (uiViewModel, vttApi) => { // vttApi might not be needed her
     
     uiViewModelInstance.onInspectorDataChanged(populateObjectInspector);
     
-    // Initial population
+    // Initial population of the inspector with currently selected object data (if any)
     populateObjectInspector(uiViewModelInstance.getInspectorData());
-    console.log('[inspectorView.js] Initialized.');
+    // console.log('[inspectorView.js] Initialized.'); // Removed for cleaner logs
 };
-
-// No other functions need to be exported if uiView.js only calls init.
-// export { populateObjectInspector, readObjectInspector }; // Removed exports for better encapsulation

@@ -1,16 +1,30 @@
 // src/views/components/toolbarView.js
+/**
+ * @file Manages the UI and interactions for the main toolbar.
+ * This includes buttons for creating objects, setting the table background (URL, color, or file),
+ * and other global actions. It interacts with UiViewModel to perform these actions.
+ */
 
+/** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
 
+/**
+ * @type {Object<string, HTMLElement|HTMLInputElement|null>}
+ * Stores references to DOM elements within the toolbar.
+ */
 const domElements = {
-    createObjectButton: null,
-    backgroundUrlInput: null,
-    backgroundColorInput: null,
+    createObjectButton: null,       // Button to open the "Create Object" modal
+    backgroundUrlInput: null,     // Input field for background image URL
+    backgroundColorInput: null, // Input field for background color
     setBackgroundButton: null,
-    chooseBackgroundImageButton: null,
-    backgroundImageFileInput: null, // This is the actual <input type="file">
+    chooseBackgroundImageButton: null,  // Button to trigger file chooser for background image
+    backgroundImageFileInput: null, // Hidden file input for choosing background image
 };
 
+/**
+ * Caches references to DOM elements used by the toolbar.
+ * Also creates and appends a hidden file input for background image selection.
+ */
 const cacheDOMElements = () => {
     domElements.createObjectButton = document.getElementById('create-object-button');
     domElements.backgroundUrlInput = document.getElementById('background-url-input');
@@ -18,23 +32,7 @@ const cacheDOMElements = () => {
     domElements.setBackgroundButton = document.getElementById('set-background-button');
     domElements.chooseBackgroundImageButton = document.getElementById('choose-background-image-button');
     
-    // This input is created dynamically in the main uiView.js, then cached there.
-    // For toolbarView to use it, it must be passed in or selected globally.
-    // For now, let's assume it's globally accessible or uiView will pass it.
-    // A better approach might be for uiView to pass the element after it's created.
-    // For this step, we'll rely on it being found by ID if it was added with one,
-    // or passed if dynamically created without an ID by uiView.
-    // The original uiView.js creates it and appends to body, but without an ID.
-    // This will need careful handling.
-    // Let's assume for now uiView.js will provide it or it's queryable.
-    // Re-checking uiView.js: it *is* created and appended to body, but not assigned an ID.
-    // This is problematic for encapsulation.
-    // A temporary solution: query it if it's the only one of its kind, or uiView must pass it.
-    // For now, let's assume uiView.js will handle its creation and events, and toolbarView
-    // will just have the button that triggers it.
-    // OR, toolbarView can create its own hidden input if it's fully self-contained.
-    // Let's make toolbarView create its own hidden input for background images.
-    
+    // Create a hidden file input for background images, managed by this component.
     domElements.backgroundImageFileInput = document.createElement('input');
     domElements.backgroundImageFileInput.type = 'file';
     domElements.backgroundImageFileInput.accept = 'image/*';
@@ -44,11 +42,13 @@ const cacheDOMElements = () => {
     domElements.backgroundImageFileInput.style.height = '1px';
     domElements.backgroundImageFileInput.style.opacity = '0';
     domElements.backgroundImageFileInput.style.overflow = 'hidden';
-    document.body.appendChild(domElements.backgroundImageFileInput); // Add to body to be interactive
-
-    // console.log('[toolbarView.js] Toolbar DOM elements cached.');
+    document.body.appendChild(domElements.backgroundImageFileInput); // Add to body to be interactive for clicks
 };
 
+/**
+ * Retrieves the current values from the background URL and color input fields.
+ * @returns {{backgroundUrl: string, backgroundColor: string}} An object containing the background URL and color.
+ */
 const getToolbarValues = () => {
     return {
         backgroundUrl: domElements.backgroundUrlInput ? domElements.backgroundUrlInput.value.trim() : '',
@@ -56,12 +56,22 @@ const getToolbarValues = () => {
     };
 };
 
+/**
+ * Sets the text value of the background URL input field.
+ * Useful for displaying a placeholder like "Local file: ..."
+ * @param {string} text - The text to set in the input field.
+ */
 const setBackgroundUrlInputText = (text) => {
     if (domElements.backgroundUrlInput) {
         domElements.backgroundUrlInput.value = text;
     }
 };
 
+/**
+ * Handles the click event for the "Set Background" button.
+ * Reads values from the URL and color inputs and calls `uiViewModelInstance.setTableBackground`.
+ * Prioritizes URL if provided, otherwise uses the color.
+ */
 const handleSetBackgroundFromToolbar = () => {
     if (!uiViewModelInstance) {
         console.error("[toolbarView.js] UiViewModel not initialized.");
@@ -80,6 +90,13 @@ const handleSetBackgroundFromToolbar = () => {
     }
 };
 
+/**
+ * Handles the 'change' event for the hidden background image file input.
+ * When a file is selected, it reads the image as a data URL,
+ * calls `uiViewModelInstance.setTableBackground` to apply it,
+ * and updates the background URL input field to show a placeholder for the local file.
+ * @param {Event} event - The file input change event.
+ */
 const handleBackgroundImageFileChange = (event) => {
     if (!uiViewModelInstance) {
         console.error("[toolbarView.js] UiViewModel not initialized.");
@@ -95,8 +112,8 @@ const handleBackgroundImageFileChange = (event) => {
         };
         reader.onerror = (e) => {
             console.error('[toolbarView.js] Error reading file for background:', e);
-            if (uiViewModelInstance.onDisplayMessage) { // Check if display message callback is set
-                 uiViewModelInstance.onDisplayMessage('Failed to load background image from file.', 'error');
+            if (uiViewModelInstance) {
+                 uiViewModelInstance.displayMessage('Failed to load background image from file.', 'error');
             }
         };
         reader.readAsDataURL(file);
@@ -134,6 +151,5 @@ export const init = (uiViewModel) => {
         });
         domElements.backgroundImageFileInput.addEventListener('change', handleBackgroundImageFileChange);
     }
-    
-    console.log('[toolbarView.js] Initialized.');
+    // console.log('[toolbarView.js] Initialized.'); // Already commented out
 };

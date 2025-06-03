@@ -1,18 +1,30 @@
 // src/views/uiView.js
+/**
+ * @file Manages the main UI structure and orchestrates UI sub-components.
+ * It initializes components like the inspector, toolbar, modals, etc.,
+ * and sets up event listeners for UI elements not handled by individual components (e.g., header buttons).
+ * It primarily delegates actions to the UiViewModel.
+ */
 import * as inspectorView from './components/inspectorView.js';
 import * as boardSettingsView from './components/boardSettingsView.js';
 import * as toolbarView from './components/toolbarView.js';
 import * as modalView from './components/modalView.js';
 import * as messageAreaView from './components/messageAreaView.js';
 
+/** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
-let vttApiInstance = null;
+/** @type {object | null} Instance of the VTT_API. */
+let vttApiInstance = null; // Used for some direct API calls like clearAllObjects
 
+/** @type {boolean} Flag to ensure DOM elements are only cached once. */
 let domElementsCached = false;
 
-// Store DOM element references for elements NOT managed by sub-components
+/**
+ * @type {Object<string, HTMLElement|null>}
+ * Stores references to DOM elements managed directly by uiView.js, primarily header elements.
+ */
 const domElements = {
-  // Header
+  // Header elements
   headerTitle: null,
   userIdDisplay: null,
   sessionIdDisplay: null,
@@ -33,9 +45,8 @@ const domElements = {
   // Modal - Elements moved to modalView
 
   // Message Area - Moved to messageAreaView.js
-  // messageArea: null, 
 
-  // File input (hidden, triggered by button) - General file input, not specific to a component yet
+  // File input (hidden, triggered by button) - General file input for loading sessions
   fileInput: null, 
   // backgroundImageFileInput is now in toolbarView
 };
@@ -63,7 +74,6 @@ const cacheDOMElements = () => {
   // Modal elements are cached in modalView.js
 
   // Message area is cached in messageAreaView.js
-  // domElements.messageArea = document.getElementById('message-area');
 
   domElements.fileInput = document.createElement('input');
   domElements.fileInput.type = 'file';
@@ -81,14 +91,26 @@ const cacheDOMElements = () => {
   if (domElements.userIdDisplay && domElements.userIdDisplay.parentElement) {
     domElements.userIdDisplay.parentElement.style.display = 'none';
   }
-  // console.log('[uiView.js] Main DOM elements cached.');
+  // console.log('[uiView.js] Main DOM elements cached.'); // Verified removed
 };
 
-document.addEventListener('DOMContentLoaded', cacheDOMElements);
+// document.addEventListener('DOMContentLoaded', cacheDOMElements); // Ensured below that it's called.
+// Let's ensure cacheDOMElements is called if not already.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', cacheDOMElements);
+} else {
+    cacheDOMElements();
+}
 
+/**
+ * Initializes the main UI view.
+ * Stores references to UiViewModel and VTT_API, and initializes all UI sub-components.
+ * @param {UiViewModel} uiViewModel - The UiViewModel instance.
+ * @param {object} vttApi - The VTT_API instance.
+ */
 export const init = (uiViewModel, vttApi) => {
   uiViewModelInstance = uiViewModel;
-  vttApiInstance = vttApi;
+  vttApiInstance = vttApi; // vttApiInstance is used by some direct actions like clearBoardButton
 
   if (!uiViewModelInstance) {
     console.error('[uiView.js] UiViewModel not provided during init!');
@@ -96,20 +118,18 @@ export const init = (uiViewModel, vttApi) => {
   }
   // vttApiInstance might be null if not passed, handle gracefully if some methods rely on it.
 
-  // Initialize sub-components
+  // Initialize all UI sub-components, passing them the UiViewModel and VTT_API as needed
   inspectorView.init(uiViewModelInstance, vttApiInstance);
   boardSettingsView.init(uiViewModelInstance);
   toolbarView.init(uiViewModelInstance);
   modalView.init(uiViewModelInstance); 
-  messageAreaView.init(uiViewModelInstance); // Initialize MessageAreaView
+  messageAreaView.init(uiViewModelInstance); // Initialize MessageAreaView for displaying messages
 
-  // Callbacks for inspector, board settings, and messages are now handled by their respective components.
-  // uiViewModelInstance.onDisplayMessage(displayMessage); // This is now done in messageAreaView.js
+  // Callbacks for inspector, board settings, and messages are registered by their respective components with UiViewModel.
   
-  // showModal and hideModal are exported by modalView, uiView can use them if needed for other modals
-  // (e.g. the clear board confirmation modal still uses the showModal from this file).
+  // showModal and hideModal are exported by modalView.js; uiView uses modalView.showModal for its own modal needs (e.g., clear board confirmation).
   
-  console.log('[uiView.js] Initialized with UiViewModel, VTT_API, and all sub-components.');
+  // console.log('[uiView.js] Initialized with UiViewModel, VTT_API, and all sub-components.'); // Removed for cleaner logs
 };
 
 
@@ -133,15 +153,25 @@ export const init = (uiViewModel, vttApi) => {
 
 
 // --- Main UI Event Listener Setup (for elements uiView.js still manages) ---
+/**
+ * Sets up global UI event listeners for elements managed directly by uiView.js (primarily header buttons).
+ * These listeners typically delegate actions to UiViewModel or use callbacks provided by main.js
+ * for session management tasks.
+ * @param {object} callbacks - An object containing callback functions for certain UI actions.
+ * @param {function(): void} callbacks.onSaveToFile - Callback to handle saving the current table state to a file.
+ * @param {function(event: Event): void} callbacks.onLoadFromFileInputChange - Callback to handle file selection for loading table state.
+ * @param {function(): void} callbacks.onSaveMemoryState - Callback to handle saving the current state to in-memory storage.
+ *                                                        (Note: onLoadMemoryStateRequest is now handled via UiViewModel)
+ */
 export const initUIEventListeners = (callbacks) => {
   const {
     onSaveToFile,
     onLoadFromFileInputChange,
     onSaveMemoryState,
-    onLoadMemoryStateRequest,
+    // onLoadMemoryStateRequest, // This will now be handled by uiViewModelInstance.requestLoadMemoryState()
   } = callbacks;
 
-  if (!domElementsCached) cacheDOMElements();
+  if (!domElementsCached) cacheDOMElements(); // Ensure elements are cached
 
   // Toolbar buttons (createObjectButton, setBackgroundButton, chooseBackgroundImageButton)
   // are now handled within toolbarView.js
@@ -191,8 +221,8 @@ export const initUIEventListeners = (callbacks) => {
               // Toolbar inputs might not reflect this reset unless UiViewModel also notifies toolbarView.
               // Or, uiView can call a method on toolbarView if one is exposed.
               // For now, just call displayMessage.
-              if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-                 uiViewModelInstance.onDisplayMessage('Board cleared.', 'info');
+              if (uiViewModelInstance) { // Check uiViewModelInstance itself
+                 uiViewModelInstance.displayMessage('Board cleared.', 'info');
               }
             },
           },
@@ -201,11 +231,20 @@ export const initUIEventListeners = (callbacks) => {
     });
   }
 
-  if (callbacks.onSaveMemoryState && domElements.saveMemoryStateButton) {
-    domElements.saveMemoryStateButton.addEventListener('click', callbacks.onSaveMemoryState);
+  if (onSaveMemoryState && domElements.saveMemoryStateButton) { // Changed from callbacks.onSaveMemoryState
+    domElements.saveMemoryStateButton.addEventListener('click', onSaveMemoryState);
   }
-  if (callbacks.onLoadMemoryStateRequest && domElements.loadMemoryStateButton) {
-    domElements.loadMemoryStateButton.addEventListener('click', callbacks.onLoadMemoryStateRequest);
+
+  // Updated: Load Memory State button now calls uiViewModelInstance.requestLoadMemoryState()
+  if (domElements.loadMemoryStateButton) {
+    domElements.loadMemoryStateButton.addEventListener('click', () => {
+      if (uiViewModelInstance) {
+        uiViewModelInstance.requestLoadMemoryState();
+      } else {
+        console.error('[uiView.js] UiViewModel not available for loading memory state.');
+        // Optionally, show an alert or a more user-facing error
+      }
+    });
   }
 };
 
