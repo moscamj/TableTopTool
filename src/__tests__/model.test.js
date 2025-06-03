@@ -1,11 +1,11 @@
 import {
-  createGenericObject,
-  getLocalObject,
-  clearLocalObjects,
-  getAllLocalObjects,
-  updateLocalObject, // Added import
+  createObject,
+  getObject,
+  clearAllObjects,
+  getAllObjects,
+  updateObject, // Added import
   currentObjects, 
-} from '../objects.js';
+} from '../model.js';
 
 // Helper to validate UUID
 const isUUID = (uuid) => {
@@ -14,14 +14,14 @@ const isUUID = (uuid) => {
   return pattern.test(s);
 }
 
-describe('objects.js', () => {
+describe('model.js', () => {
   beforeEach(() => {
-    clearLocalObjects();
+    clearAllObjects();
   });
 
-  describe('createGenericObject', () => {
+  describe('createObject', () => {
     test('should create a rectangle with default properties including default name', () => {
-      const rect = createGenericObject('rectangle');
+      const rect = createObject('rectangle');
       expect(rect.shape).toBe('rectangle');
       expect(rect.x).toBe(50); // Default x
       expect(rect.y).toBe(50); // Default y
@@ -33,7 +33,7 @@ describe('objects.js', () => {
     });
 
     test('should create a circle with default properties including default name', () => {
-      const circle = createGenericObject('circle');
+      const circle = createObject('circle');
       expect(circle.shape).toBe('circle');
       expect(circle.x).toBe(50); // Default x
       expect(circle.y).toBe(50); // Default y
@@ -45,9 +45,9 @@ describe('objects.js', () => {
     });
     
     test('should correctly assign default names sequentially', () => {
-      const obj1 = createGenericObject('rectangle');
+      const obj1 = createObject('rectangle');
       expect(obj1.name).toBe('Object 1');
-      const obj2 = createGenericObject('circle');
+      const obj2 = createObject('circle');
       expect(obj2.name).toBe('Object 2');
     });
 
@@ -60,7 +60,7 @@ describe('objects.js', () => {
         appearance: { backgroundColor: '#FF0000' },
         name: 'CustomRect',
       };
-      const rect = createGenericObject('rectangle', customProps);
+      const rect = createObject('rectangle', customProps);
       expect(rect.shape).toBe('rectangle');
       expect(rect.x).toBe(10);
       expect(rect.y).toBe(20);
@@ -80,7 +80,7 @@ describe('objects.js', () => {
         appearance: { backgroundColor: '#00FF00' },
         name: 'CustomCircle',
       };
-      const circle = createGenericObject('circle', customProps);
+      const circle = createObject('circle', customProps);
       expect(circle.shape).toBe('circle');
       expect(circle.x).toBe(30);
       expect(circle.y).toBe(40);
@@ -92,49 +92,49 @@ describe('objects.js', () => {
     });
 
     test('two objects created consecutively should have different IDs', () => {
-      const obj1 = createGenericObject('rectangle');
-      const obj2 = createGenericObject('circle');
+      const obj1 = createObject('rectangle');
+      const obj2 = createObject('circle');
       expect(obj1.id).not.toBe(obj2.id);
       expect(isUUID(obj1.id)).toBe(true);
       expect(isUUID(obj2.id)).toBe(true);
     });
   });
 
-  describe('getLocalObject and getAllLocalObjects', () => {
-    test('getAllLocalObjects should return created objects', () => {
-      const rect = createGenericObject('rectangle');
-      const circle = createGenericObject('circle');
-      const allObjects = getAllLocalObjects();
+  describe('getObject and getAllObjects', () => {
+    test('getAllObjects should return created objects', () => {
+      const rect = createObject('rectangle');
+      const circle = createObject('circle');
+      const allObjects = getAllObjects();
       expect(allObjects).toHaveLength(2);
       // Check if the objects are in the array (order might not be guaranteed)
       expect(allObjects.some(obj => obj.id === rect.id)).toBe(true);
       expect(allObjects.some(obj => obj.id === circle.id)).toBe(true);
     });
 
-    test('getLocalObject should return the correct object by ID', () => {
+    test('getObject should return the correct object by ID', () => {
       const rectProps = { name: 'TestRect' };
-      const rect = createGenericObject('rectangle', rectProps);
-      const retrievedRect = getLocalObject(rect.id);
+      const rect = createObject('rectangle', rectProps);
+      const retrievedRect = getObject(rect.id);
       expect(retrievedRect).toEqual(expect.objectContaining(rectProps));
       expect(retrievedRect.id).toBe(rect.id);
     });
 
-    test('getLocalObject should return undefined for a non-existent ID', () => {
-      createGenericObject('rectangle'); // Create one to make sure store is not empty
-      const retrieved = getLocalObject('non-existent-id');
+    test('getObject should return undefined for a non-existent ID', () => {
+      createObject('rectangle'); // Create one to make sure store is not empty
+      const retrieved = getObject('non-existent-id');
       expect(retrieved).toBeUndefined();
     });
 
-    test('getAllLocalObjects should return an empty array after clearLocalObjects', () => {
-      createGenericObject('rectangle');
-      clearLocalObjects();
-      expect(getAllLocalObjects()).toEqual([]);
-      expect(getAllLocalObjects().length).toBe(0); // Check via public API
+    test('getAllObjects should return an empty array after clearAllObjects', () => {
+      createObject('rectangle');
+      clearAllObjects();
+      expect(getAllObjects()).toEqual([]);
+      expect(getAllObjects().length).toBe(0); // Check via public API
     });
   });
 
-  // New describe block for updateLocalObject
-  describe('updateLocalObject', () => {
+  // New describe block for updateObject
+  describe('updateObject', () => {
     let testObjId;
     const initialProps = {
       x: 10,
@@ -151,35 +151,53 @@ describe('objects.js', () => {
     };
 
     beforeEach(() => {
-      const obj = createGenericObject('rectangle', initialProps);
+      const obj = createObject('rectangle', initialProps);
       testObjId = obj.id;
     });
 
     test('should update only the name', () => {
-      updateLocalObject(testObjId, { name: 'NewName' });
-      const updated = getLocalObject(testObjId);
+      updateObject(testObjId, { name: 'NewName' });
+      const updated = getObject(testObjId);
       expect(updated.name).toBe('NewName');
       expect(updated.x).toBe(initialProps.x);
       expect(updated.y).toBe(initialProps.y);
       expect(updated.width).toBe(initialProps.width);
       expect(updated.height).toBe(initialProps.height);
-      expect(updated.appearance).toEqual(initialProps.appearance);
+      // Check initialProps.appearance values
+      expect(updated.appearance.backgroundColor).toBe(initialProps.appearance.backgroundColor); // 'red'
+      expect(updated.appearance.text).toBe(initialProps.appearance.text); // 'Hello'
+      // Check default appearance values for other properties
+      expect(updated.appearance.borderColor).toBe('#333333');
+      expect(updated.appearance.borderWidth).toBe(1);
+      expect(updated.appearance.textColor).toBe('#000000');
+      expect(updated.appearance.fontFamily).toBe('Arial');
+      expect(updated.appearance.fontSize).toBe(14);
+      expect(updated.appearance.showLabel).toBe(false);
       expect(updated.zIndex).toBe(initialProps.zIndex);
     });
 
     test('should update only width and height', () => {
-      updateLocalObject(testObjId, { width: 150, height: 75 });
-      const updated = getLocalObject(testObjId);
+      updateObject(testObjId, { width: 150, height: 75 });
+      const updated = getObject(testObjId);
       expect(updated.width).toBe(150);
       expect(updated.height).toBe(75);
       expect(updated.name).toBe(initialProps.name);
       expect(updated.x).toBe(initialProps.x);
-      expect(updated.appearance).toEqual(initialProps.appearance);
+      // Check initialProps.appearance values
+      expect(updated.appearance.backgroundColor).toBe(initialProps.appearance.backgroundColor); // 'red'
+      expect(updated.appearance.text).toBe(initialProps.appearance.text); // 'Hello'
+      // Check default appearance values for other properties
+      expect(updated.appearance.borderColor).toBe('#333333');
+      expect(updated.appearance.borderWidth).toBe(1);
+      expect(updated.appearance.textColor).toBe('#000000');
+      expect(updated.appearance.fontFamily).toBe('Arial');
+      expect(updated.appearance.fontSize).toBe(14);
+      expect(updated.appearance.showLabel).toBe(false);
     });
 
     test('should update name, width, and height simultaneously', () => {
-      updateLocalObject(testObjId, { name: 'SimulName', width: 200, height: 120 });
-      const updated = getLocalObject(testObjId);
+      updateObject(testObjId, { name: 'SimulName', width: 200, height: 120 });
+      const updated = getObject(testObjId);
       expect(updated.name).toBe('SimulName');
       expect(updated.width).toBe(200);
       expect(updated.height).toBe(120);
@@ -187,45 +205,61 @@ describe('objects.js', () => {
     });
 
     test('should store 0, negative, or NaN dimensions if provided', () => {
-      updateLocalObject(testObjId, { width: 0, height: -10 });
-      let updated = getLocalObject(testObjId);
+      updateObject(testObjId, { width: 0, height: -10 });
+      let updated = getObject(testObjId);
       expect(updated.width).toBe(0);
       expect(updated.height).toBe(-10);
 
-      updateLocalObject(testObjId, { width: NaN });
-      updated = getLocalObject(testObjId);
+      updateObject(testObjId, { width: NaN });
+      updated = getObject(testObjId);
       expect(updated.width).toBeNaN(); // NaN is stored as is
     });
     
     test('should update other properties (x, y, appearance) along with name, width, or height', () => {
-      const newAppearance = { backgroundColor: 'blue', text: 'World' };
-      updateLocalObject(testObjId, {
+      const newAppearanceProps = { backgroundColor: 'blue', text: 'World' };
+      updateObject(testObjId, {
         name: 'ComplexUpdate',
         width: 250,
         x: 100,
-        appearance: newAppearance
+        appearance: newAppearanceProps
       });
-      const updated = getLocalObject(testObjId);
+      const updated = getObject(testObjId);
       expect(updated.name).toBe('ComplexUpdate');
       expect(updated.width).toBe(250);
       expect(updated.height).toBe(initialProps.height); // Height should remain unchanged
       expect(updated.x).toBe(100);
       expect(updated.y).toBe(initialProps.y); // Y should remain unchanged
-      expect(updated.appearance).toEqual(newAppearance);
+      // Check updated appearance properties
+      expect(updated.appearance.backgroundColor).toBe(newAppearanceProps.backgroundColor); // 'blue'
+      expect(updated.appearance.text).toBe(newAppearanceProps.text); // 'World'
+      // Check that other appearance properties retain their values from the existing object's appearance (which includes defaults)
+      expect(updated.appearance.borderColor).toBe('#333333'); // Default, as initialProps.appearance didn't define it
+      expect(updated.appearance.borderWidth).toBe(1); // Default
+      expect(updated.appearance.textColor).toBe('#000000'); // Default
+      expect(updated.appearance.fontFamily).toBe('Arial'); // Default
+      expect(updated.appearance.fontSize).toBe(14); // Default
+      expect(updated.appearance.showLabel).toBe(false); // Default
     });
 
     test('should deeply merge appearance properties', () => {
-      updateLocalObject(testObjId, { appearance: { text: 'Updated Text' } });
-      const updated = getLocalObject(testObjId);
+      updateObject(testObjId, { appearance: { text: 'Updated Text' } });
+      const updated = getObject(testObjId);
       // Check that the original backgroundColor is preserved and text is updated.
-      expect(updated.appearance.backgroundColor).toBe(initialProps.appearance.backgroundColor);
+      expect(updated.appearance.backgroundColor).toBe(initialProps.appearance.backgroundColor); // 'red'
       expect(updated.appearance.text).toBe('Updated Text');
+      // Check that other appearance properties still hold their default values (or initial if they were set)
+      expect(updated.appearance.borderColor).toBe('#333333');
+      expect(updated.appearance.borderWidth).toBe(1);
+      expect(updated.appearance.textColor).toBe('#000000');
+      expect(updated.appearance.fontFamily).toBe('Arial');
+      expect(updated.appearance.fontSize).toBe(14);
+      expect(updated.appearance.showLabel).toBe(false);
     });
 
     test('should not update if ID does not exist, and return undefined', () => {
-      const result = updateLocalObject('non-existent-id', { name: 'Ghost' });
-      expect(result).toBeUndefined();
-      const originalObject = getLocalObject(testObjId); // Check original object is unchanged
+      const result = updateObject('non-existent-id', { name: 'Ghost' });
+      expect(result).toBeNull(); // In model.js, updateObject returns null for non-existent ID
+      const originalObject = getObject(testObjId); // Check original object is unchanged
       expect(originalObject.name).toBe(initialProps.name);
     });
   });

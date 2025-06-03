@@ -1,34 +1,32 @@
 // src/canvas.js
-const MM_PER_UNIT = {
-  'in': 25.4,
-  'ft': 304.8,
-  'm': 1000,
-  'cm': 10,
-  'mm': 1,
-};
+import { VTT_API } from './api.js';
+import * as model from './model.js'; // For getObjectAtPosition
+
+// MM_PER_UNIT, panZoomState, tableBackground, selectedObjectId, boardPhysical, mapInterpretationScale moved to model.js
 
 let canvas;
 let ctx;
-let panZoomState = { panX: 0, panY: 0, zoom: 1.0 };
-let tableBackground = { type: 'color', value: '#cccccc' }; // Default background for objects/tokens, if needed, or for table itself if not overridden by boardPhysical
-let selectedObjectId = null;
 
-let boardPhysical = {
-  widthUser: 36,    // Default physical width
-  heightUser: 24,   // Default physical height
-  unitForDimensions: 'in', // Default unit for the above dimensions
-  // Calculated pixel dimensions (1px = 1mm)
-  widthPx: 36 * MM_PER_UNIT['in'], // Initial calculation based on 'in'
-  heightPx: 24 * MM_PER_UNIT['in'], // Initial calculation based on 'in'
+// --- Canvas ViewModel ---
+// These variables will store the canvas's local copy of the state needed for rendering.
+// They will be populated by data received from main.js (originating from model.js via VTT_API).
+let viewModelObjects = new Map();
+let viewModelPanZoom = { panX: 0, panY: 0, zoom: 1.0 };
+let viewModelTableBackground = { type: 'color', value: '#cccccc' }; // Default background
+let viewModelSelectedObjectId = null;
+let viewModelBoardProperties = { 
+    widthUser: 36, heightUser: 24, unitForDimensions: 'in', // User-facing dimensions
+    widthPx: 1000, heightPx: 800, // Pixel dimensions for rendering (example defaults)
+    scaleRatio: 1, unitForRatio: 'mm' // Scale interpretation
 };
 
-// This scale is for interpreting map features, not setting board pixel size directly.
-let mapInterpretationScale = {
-  ratio: 1,          // Default ratio for "1 map unit = X units"
-  unitForRatio: 'mm', // Default unit for this ratio
-};
-// let isPanning = false; // isPanning and lastMousePosition are not used in this file, managed by main.js
-// let lastMousePosition = { x: 0, y: 0 };
+// Variables for canvas interaction states
+let isDragging = false;
+let isPanning = false;
+let dragOffsetX = 0;
+let dragOffsetY = 0;
+let lastPanX = 0;
+let lastPanY = 0;
 
 // Cache for loaded images (for object appearances and table background)
 const loadedImages = new Map(); // url -> { img: Image, status: 'loading' | 'loaded' | 'error' }
@@ -62,8 +60,170 @@ export const initCanvas = (canvasElement, drawNeededCallback, displayMessageCall
 
   setCanvasSize(); // Set initial size
   window.addEventListener('resize', debounce(setCanvasSize, 250));
+
+  // Register event listeners
+  canvas.addEventListener('mousedown', handleMouseDown);
+  canvas.addEventListener('mousemove', handleMouseMove);
+  canvas.addEventListener('mouseup', handleMouseUp);
+  canvas.addEventListener('mouseleave', handleMouseLeave);
+  canvas.addEventListener('wheel', handleWheel);
+
   console.log('Canvas initialized');
 };
+
+// --- ViewModel Population ---
+export const loadStateIntoViewModel = (initialState) => {
+  if (!initialState) {
+    console.error('[canvas.js] loadStateIntoViewModel: initialState is undefined. Cannot populate ViewModel.');
+    // Initialize ViewModel with default values or handle error appropriately
+    viewModelObjects.clear();
+    viewModelPanZoom = { panX: 0, panY: 0, zoom: 1.0 };
+    viewModelTableBackground = { type: 'color', value: '#cccccc' };
+    viewModelSelectedObjectId = null;
+    viewModelBoardProperties = { 
+        widthUser: 36, heightUser: 24, unitForDimensions: 'in',
+        widthPx: 1000, heightPx: 800, 
+        scaleRatio: 1, unitForRatio: 'mm' 
+    };
+    return;
+  }
+
+  viewModelObjects.clear();
+  if (initialState.objects && Array.isArray(initialState.objects)) {
+    initialState.objects.forEach(obj => viewModelObjects.set(obj.id, { ...obj }));
+  } else if (initialState.objects && initialState.objects instanceof Map) { // Fallback if API changes
+      initialState.objects.forEach((obj, id) => viewModelObjects.set(id, { ...obj }));
+  }
+
+
+  if (initialState.panZoomState) {
+    viewModelPanZoom = { ...initialState.panZoomState };
+  } else {
+    viewModelPanZoom = { panX: 0, panY: 0, zoom: 1.0 }; // Default
+  }
+
+  if (initialState.tableBackground) {
+    viewModelTableBackground = { ...initialState.tableBackground };
+  } else {
+    viewModelTableBackground = { type: 'color', value: '#cccccc' }; // Default
+  }
+
+  viewModelSelectedObjectId = initialState.selectedObjectId !== undefined ? initialState.selectedObjectId : null;
+
+  if (initialState.boardProperties) {
+    viewModelBoardProperties = { ...initialState.boardProperties };
+  } else {
+    viewModelBoardProperties = { // Default
+        widthUser: 36, heightUser: 24, unitForDimensions: 'in',
+        widthPx: 1000, heightPx: 800, 
+        scaleRatio: 1, unitForRatio: 'mm' 
+    };
+  }
+  
+  // console.log('[canvas.js] ViewModel populated:', {
+  //   objectsCount: viewModelObjects.size,
+  //   panZoom: viewModelPanZoom,
+  //   background: viewModelTableBackground,
+  //   selectedId: viewModelSelectedObjectId,
+  //   boardProps: viewModelBoardProperties
+  // });
+};
+
+// --- ViewModel Update Functions ---
+// These functions are called by main.js when modelChanged events occur.
+
+export const addObjectToViewModel = (objectData) => {
+  if (!objectData || !objectData.id) {
+    console.error('[canvas.js] addObjectToViewModel: Invalid objectData provided.', objectData);
+    return;
+  }
+  viewModelObjects.set(objectData.id, { ...objectData });
+  if (objectData.appearance && objectData.appearance.imageUrl) {
+    loadImage(objectData.appearance.imageUrl, objectData.appearance.imageUrl, onDrawNeededCallback);
+  }
+};
+
+export const updateObjectInViewModel = (objectId, updatedProps) => {
+  if (!viewModelObjects.has(objectId)) {
+    console.warn(`[canvas.js] updateObjectInViewModel: Object ID ${objectId} not found in ViewModel.`);
+    // Optionally, add it if it's a new object not caught by addObjectToViewModel for some reason
+    // addObjectToViewModel({ id: objectId, ...updatedProps }); 
+    return;
+  }
+  const obj = viewModelObjects.get(objectId);
+  // Perform a deep merge for nested properties like appearance, data, scripts
+  const newAppearance = { ...(obj.appearance || {}), ...(updatedProps.appearance || {}) };
+  const newData = { ...(obj.data || {}), ...(updatedProps.data || {}) };
+  const newScripts = { ...(obj.scripts || {}), ...(updatedProps.scripts || {}) };
+
+  viewModelObjects.set(objectId, { 
+    ...obj, 
+    ...updatedProps,
+    appearance: newAppearance,
+    data: newData,
+    scripts: newScripts
+  });
+
+  if (updatedProps.appearance && updatedProps.appearance.imageUrl) {
+    loadImage(updatedProps.appearance.imageUrl, updatedProps.appearance.imageUrl, onDrawNeededCallback);
+  } else if (updatedProps.appearance && updatedProps.appearance.imageUrl === '') { // Image removed
+    // If loadImage handles null/empty string for removal from cache, this is fine.
+    // Otherwise, specific logic might be needed here if images are cached under old URLs.
+    // For now, assuming loadImage(null, ...) or loadImage('',...) handles removal or cache correctly.
+    loadImage(null, obj.appearance?.imageUrl, onDrawNeededCallback); // Attempt to clear old image if necessary
+  }
+};
+
+export const removeObjectFromViewModel = (objectId) => {
+  if (!viewModelObjects.has(objectId)) {
+    console.warn(`[canvas.js] removeObjectFromViewModel: Object ID ${objectId} not found in ViewModel.`);
+    return;
+  }
+  // Potentially handle image cache cleanup if the object had an image, though
+  // `loadedImages` is a general cache not strictly tied to objects in viewModel.
+  // If an image URL is unique to this object and no longer needed, it could be cleaned up.
+  // However, this is complex if images are shared. For now, leave cache as is.
+  viewModelObjects.delete(objectId);
+};
+
+export const setPanZoomInViewModel = (panZoomState) => {
+  if (!panZoomState) {
+    console.error('[canvas.js] setPanZoomInViewModel: panZoomState is undefined.');
+    return;
+  }
+  viewModelPanZoom = { ...panZoomState };
+};
+
+export const setBackgroundInViewModel = (backgroundState) => {
+  if (!backgroundState) {
+    console.error('[canvas.js] setBackgroundInViewModel: backgroundState is undefined.');
+    return;
+  }
+  viewModelTableBackground = { ...backgroundState };
+  if (backgroundState.type === 'image' && backgroundState.value) {
+    loadImage(backgroundState.value, backgroundState.value, onDrawNeededCallback);
+  }
+};
+
+export const setSelectedObjectInViewModel = (selectedId) => {
+  // selectedId can be null
+  viewModelSelectedObjectId = selectedId;
+};
+
+export const setBoardPropertiesInViewModel = (boardProps) => {
+  if (!boardProps) {
+    console.error('[canvas.js] setBoardPropertiesInViewModel: boardProps is undefined.');
+    return;
+  }
+  viewModelBoardProperties = { ...boardProps };
+};
+
+export const clearAllViewModelObjects = () => {
+  viewModelObjects.clear();
+  // viewModelSelectedObjectId = null; // This will be handled by a 'selectionChanged' event if selection is cleared in model
+  console.log('[canvas.js] All viewModel objects cleared.');
+};
+
 
 export const setCanvasSize = () => {
   if (!canvas || !canvas.parentElement) return;
@@ -89,79 +249,12 @@ export const setCanvasSize = () => {
   onDrawNeededCallback();
 };
 
-// --- Getters and Setters ---
-export const getPanZoomState = () => {
-  return { ...panZoomState };
-};
-
-export const setPanZoomState = (newState) => {
-  const { panX: newPanX, panY: newPanY, zoom: newZoom } = newState;
-  let changed = false;
-
-  if (newPanX !== undefined && newPanX !== panZoomState.panX) {
-    panZoomState.panX = newPanX;
-    changed = true;
-  }
-  if (newPanY !== undefined && newPanY !== panZoomState.panY) {
-    panZoomState.panY = newPanY;
-    changed = true;
-  }
-  if (newZoom !== undefined && newZoom !== panZoomState.zoom) {
-    panZoomState.zoom = Math.max(0.1, Math.min(newZoom, 10));
-    changed = true;
-  }
-
-  if (changed) {
-    onDrawNeededCallback();
-  }
-};
-
-export const getTableBackground = () => {
-  return { ...tableBackground };
-};
-
-export const setTableBackground = (newBackground) => {
-  if (newBackground && typeof newBackground === 'object') {
-    const { type: newType, value: newValue } = newBackground;
-    const oldType = tableBackground.type;
-    const oldValue = tableBackground.value;
-
-    tableBackground.type = newType;
-    tableBackground.value = newValue;
-
-    if (newType === 'image') {
-      if (newValue) { // If a new image URL/dataURI is provided
-        loadImage(newValue, newValue, onDrawNeededCallback);
-      }
-      // Always request a redraw when the type is 'image',
-      // either to draw the new image, a loading state, an error state, or to clear a previous image if newValue is null.
-      onDrawNeededCallback(); 
-    } else if (newType === 'color') {
-      // Only redraw if color actually changed or type changed from image to color
-      if (oldType !== newType || oldValue !== newValue) {
-        onDrawNeededCallback();
-      }
-    } else {
-      // If type is not image or color but changed (e.g. background removed completely)
-      if (oldType !== newType || oldValue !== newValue) {
-        onDrawNeededCallback();
-      }
-    }
-  }
-};
-
-export const getSelectedObjectId = () => {
-  return selectedObjectId;
-};
-
-export const setSelectedObjectId = (id) => {
-  if (selectedObjectId !== id) {
-    selectedObjectId = id;
-    onDrawNeededCallback();
-  }
-};
-
 // --- Image Loading ---
+// Getters and Setters for panZoomState, tableBackground, selectedObjectId, boardPhysical, mapInterpretationScale
+// have been moved to model.js. canvas.js will now rely on model.js for these states.
+// The onDrawNeededCallback for setters is now handled by the modelChanged event listener in main.js.
+// The loadImage call within setTableBackground is a special case; if model.setTableBackground
+// changes the background to an image, main.js's modelChanged listener will need to call canvas.loadImage.
 export const loadImage = (url, cacheKey, callback) => {
   if (!url) {
     if (loadedImages.has(cacheKey)) {
@@ -209,18 +302,14 @@ export const loadImage = (url, cacheKey, callback) => {
 };
 
 // --- Drawing Logic ---
-export const drawVTT = (
-  objectsMap,
-  currentPZS,
-  currentTblBg,
-  currentSelectedId
-) => {
+// Now uses internal viewModel variables instead of passed arguments
+export const drawVTT = () => {
   if (!ctx || !canvas) return;
 
   const dpr = window.devicePixelRatio || 1;
-  const { panX, panY, zoom } = currentPZS;
-  // Destructure background type and value, providing a fallback if currentTblBg is undefined
-  const { type: bgType, value: bgValue } = currentTblBg || {};
+  // Use viewModel variables
+  const { panX, panY, zoom } = viewModelPanZoom;
+  const { type: bgType, value: bgValue } = viewModelTableBackground || {};
 
 
   // Save the current canvas context state (transformations, styles, etc.)
@@ -240,22 +329,23 @@ export const drawVTT = (
   ctx.translate(panX, panY);
   ctx.scale(zoom, zoom);
 
-  // (panX, panY, zoom are from currentPZS argument to drawVTT)
-  // (currentTblBg is also from arguments to drawVTT)
-  // const { type: bgType, value: bgValue } = currentTblBg || {}; // Already destructured above
+  // (panX, panY, zoom are from viewModelPanZoom)
+  // (bgType, bgValue are from viewModelTableBackground)
+  // boardPhysical state is now in viewModelBoardProperties
+  const { widthPx: currentBoardWidthPx, heightPx: currentBoardHeightPx } = viewModelBoardProperties || { widthPx: 0, heightPx: 0};
 
   // Draw the board's actual background (color or image)
-  // This background covers boardPhysical.widthPx by boardPhysical.heightPx.
+  // This background covers currentBoardWidthPx by currentBoardHeightPx.
   if (bgType === 'color' && bgValue) {
       ctx.fillStyle = bgValue;
-      ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+      ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
   } else if (bgType === 'image' && bgValue) {
       const bgImageEntry = loadedImages.get(bgValue);
       if (bgImageEntry && bgImageEntry.status === 'loaded' && bgImageEntry.img) {
-          ctx.drawImage(bgImageEntry.img, 0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+          ctx.drawImage(bgImageEntry.img, 0, 0, currentBoardWidthPx, currentBoardHeightPx);
       } else { // Loading or error for board background image
           ctx.fillStyle = (bgImageEntry && bgImageEntry.status === 'error') ? '#A08080' : '#C0C0C0'; // Error or Loading color
-          ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+          ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
           if (!bgImageEntry || bgImageEntry.status === 'loading') { // Check if undefined or still loading
               if(!loadedImages.has(bgValue) || loadedImages.get(bgValue).status !== 'loading') { // Avoid re-triggering load if already loading
                   loadImage(bgValue, bgValue, onDrawNeededCallback); // Start loading
@@ -264,16 +354,17 @@ export const drawVTT = (
       }
   } else { // Default board background if no specific one is set from currentTblBg
       ctx.fillStyle = '#888888'; // Default board color if nothing else is set
-      ctx.fillRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+      ctx.fillRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
   }
 
   // Draw a border for the board itself
   ctx.strokeStyle = '#111111'; // Dark border for the board
   ctx.lineWidth = Math.max(0.5, 1 / zoom); // Ensure border is visible but not too thick on zoom
-  ctx.strokeRect(0, 0, boardPhysical.widthPx, boardPhysical.heightPx);
+  ctx.strokeRect(0, 0, currentBoardWidthPx, currentBoardHeightPx);
 
   // 2. Draw Objects (sorted by zIndex)
-  const sortedObjects = Array.from(objectsMap.values()).sort(
+  // Use viewModelObjects
+  const sortedObjects = Array.from(viewModelObjects.values()).sort(
     (a, b) => (a.zIndex || 0) - (b.zIndex || 0)
   );
 
@@ -400,7 +491,8 @@ export const drawVTT = (
       ctx.fillText(obj.name, width / 2, -nameTopMargin);
     }
 
-    if (id === currentSelectedId) {
+    // Use viewModelSelectedObjectId
+    if (id === viewModelSelectedObjectId) {
       ctx.strokeStyle = 'rgba(0, 150, 255, 0.9)'; // Bright blue for selection
       // Adjust line width of selection highlight based on zoom, ensuring it's visible but not too thick/thin.
       // Max(0.5, ...) ensures a minimum line width even when zoomed out.
@@ -424,13 +516,12 @@ export const drawVTT = (
 };
 
 // --- Coordinate Conversion & Object Picking ---
-export const getMousePositionOnCanvas = (event, currentPZS) => {
+// Uses viewModelPanZoom internally now
+export const getMousePositionOnCanvas = (event) => {
   if (!canvas) return { x: 0, y: 0 };
 
-  // const { clientX, clientY } = event; // Not needed with offsetX/Y
-  // const rect = canvas.getBoundingClientRect(); // Get canvas position and size in CSS pixels
-  // const { left: rectLeft, top: rectTop } = rect; // Destructure for clarity
-  const { panX, panY, zoom } = currentPZS; // Current pan and zoom state
+  // Use viewModelPanZoom for panX, panY, zoom
+  const { panX, panY, zoom } = viewModelPanZoom;
 
   // Convert mouse click coordinates (relative to viewport) to canvas screen coordinates (CSS pixels)
   // Use event.offsetX and event.offsetY which are relative to the padding edge of the target element (canvas)
@@ -446,19 +537,21 @@ export const getMousePositionOnCanvas = (event, currentPZS) => {
   return { x: worldX, y: worldY };
 };
 
-export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
+// Uses viewModelObjects internally now
+export const getObjectAtPosition = (worldX, worldY) => {
   // Ensure inputs are valid numbers
   if (typeof worldX !== 'number' || isNaN(worldX) || typeof worldY !== 'number' || isNaN(worldY)) {
     console.error('getObjectAtPosition: Invalid worldX or worldY input', { worldX, worldY });
     return null;
   }
 
-  if (!(objectsMap instanceof Map)) {
-    console.error('getObjectAtPosition: objectsMap is not a Map', objectsMap);
+  // Use viewModelObjects instead of passed objectsMap
+  if (!(viewModelObjects instanceof Map)) {
+    console.error('getObjectAtPosition: viewModelObjects is not a Map', viewModelObjects);
     return null;
   }
 
-  const sortedObjects = Array.from(objectsMap.values()).sort(
+  const sortedObjects = Array.from(viewModelObjects.values()).sort(
     (a, b) => (b.zIndex || 0) - (a.zIndex || 0)
   );
 
@@ -541,66 +634,166 @@ export const getObjectAtPosition = (worldX, worldY, objectsMap) => {
   return null;
 };
 
-export const updateBoardProperties = (newProps) => {
-  // newProps can contain: width, height, dimensionUnit, scaleRatio, scaleRatioUnit
-  let physicalPropertiesChanged = false; // Determines if board boundary redraw is needed
+// updateBoardProperties and getBoardProperties have been moved to model.js
+// canvas.js will receive board properties via drawVTT arguments.
 
-  // Update physical board dimensions and their unit
-  const newWidthUser = parseFloat(newProps.width);
-  if (newProps.width !== undefined && !isNaN(newWidthUser) && boardPhysical.widthUser !== newWidthUser) {
-    boardPhysical.widthUser = newWidthUser;
-    physicalPropertiesChanged = true;
-  }
-  const newHeightUser = parseFloat(newProps.height);
-  if (newProps.height !== undefined && !isNaN(newHeightUser) && boardPhysical.heightUser !== newHeightUser) {
-    boardPhysical.heightUser = newHeightUser;
-    physicalPropertiesChanged = true;
-  }
-  if (newProps.dimensionUnit && MM_PER_UNIT[newProps.dimensionUnit] && boardPhysical.unitForDimensions !== newProps.dimensionUnit) {
-    boardPhysical.unitForDimensions = newProps.dimensionUnit;
-    physicalPropertiesChanged = true;
-  }
+// --- Canvas Event Handlers ---
+function handleMouseDown(e) {
+    // Use local getMousePositionOnCanvas which now uses viewModelPanZoom
+    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e); 
+    // Use local getObjectAtPosition which now uses viewModelObjects
+    const clickedObjectId = getObjectAtPosition(mouseX, mouseY); 
 
-  // Update map interpretation scale properties
-  const newScaleRatio = parseFloat(newProps.scaleRatio);
-  if (newProps.scaleRatio !== undefined && !isNaN(newScaleRatio) && mapInterpretationScale.ratio !== newScaleRatio) {
-    mapInterpretationScale.ratio = newScaleRatio;
-    console.log('Map interpretation scale ratio updated:', mapInterpretationScale.ratio);
-  }
-  if (newProps.scaleRatioUnit && MM_PER_UNIT[newProps.scaleRatioUnit] && mapInterpretationScale.unitForRatio !== newProps.scaleRatioUnit) {
-    mapInterpretationScale.unitForRatio = newProps.scaleRatioUnit;
-    console.log('Map interpretation scale unit updated:', mapInterpretationScale.unitForRatio);
-  }
+    if (clickedObjectId) {
+        const objectDetails = viewModelObjects.get(clickedObjectId); // Get from ViewModel
+        if (objectDetails.isMovable) {
+            isDragging = true;
+            dragOffsetX = mouseX - objectDetails.x;
+            dragOffsetY = mouseY - objectDetails.y;
+        }
+        if (viewModelSelectedObjectId !== clickedObjectId) {
+            viewModelSelectedObjectId = clickedObjectId;
+            VTT_API.setSelectedObjectId(clickedObjectId); // Propagate to main model
+            // No direct onDrawNeededCallback here, selection highlight change will be part of next draw cycle
+        }
+    } else {
+        isPanning = true;
+        lastPanX = e.clientX;
+        lastPanY = e.clientY;
+        if (viewModelSelectedObjectId !== null) {
+            viewModelSelectedObjectId = null;
+            VTT_API.setSelectedObjectId(null); // Propagate to main model
+        }
+    }
+    // Call onDrawNeededCallback if immediate feedback for selection/deselection is desired
+    // without waiting for VTT_API to trigger modelChanged.
+    // However, VTT_API.setSelectedObjectId should trigger a modelChanged event.
+    // onDrawNeededCallback(); 
+}
 
-  if (physicalPropertiesChanged) {
-    const unitMultiplier = MM_PER_UNIT[boardPhysical.unitForDimensions] || MM_PER_UNIT['in']; // Fallback
-    boardPhysical.widthPx = boardPhysical.widthUser * unitMultiplier;
-    boardPhysical.heightPx = boardPhysical.heightUser * unitMultiplier;
+function handleMouseMove(e) {
+    const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e); // Uses viewModelPanZoom
+
+    if (isDragging && viewModelSelectedObjectId) {
+        const draggedObject = viewModelObjects.get(viewModelSelectedObjectId);
+        if (draggedObject) {
+            draggedObject.x = mouseX - dragOffsetX;
+            draggedObject.y = mouseY - dragOffsetY;
+            onDrawNeededCallback(); // Redraw with local ViewModel changes
+        }
+    } else if (isPanning) {
+        const dx = e.clientX - lastPanX;
+        const dy = e.clientY - lastPanY;
+        
+        viewModelPanZoom.panX += dx;
+        viewModelPanZoom.panY += dy;
+        
+        lastPanX = e.clientX;
+        lastPanY = e.clientY;
+        onDrawNeededCallback(); // Redraw with local ViewModel changes
+    }
+}
+
+function handleMouseUp(e) {
+    const wasDragging = isDragging;
+    const wasPanning = isPanning;
+
+    if (isDragging && viewModelSelectedObjectId) {
+        const draggedObject = viewModelObjects.get(viewModelSelectedObjectId);
+        if (draggedObject) {
+            VTT_API.updateObject(viewModelSelectedObjectId, { x: draggedObject.x, y: draggedObject.y });
+        }
+    }
     
-    console.log('Board physical properties updated, triggering redraw:', boardPhysical);
-    onDrawNeededCallback(); // Request a redraw for board boundary changes
-  }
+    if (isPanning) {
+        VTT_API.setPanZoomState({ 
+            panX: viewModelPanZoom.panX, 
+            panY: viewModelPanZoom.panY, 
+            zoom: viewModelPanZoom.zoom 
+        });
+    }
 
-  // Return the comprehensive current state of all board-related properties
-  return {
-     widthUser: boardPhysical.widthUser,
-     heightUser: boardPhysical.heightUser,
-     unitForDimensions: boardPhysical.unitForDimensions,
-     widthPx: boardPhysical.widthPx,
-     heightPx: boardPhysical.heightPx,
-     scaleRatio: mapInterpretationScale.ratio,
-     unitForRatio: mapInterpretationScale.unitForRatio
-  };
-};
+    isDragging = false;
+    isPanning = false;
 
-export const getBoardProperties = () => {
-  return {
-     widthUser: boardPhysical.widthUser,
-     heightUser: boardPhysical.heightUser,
-     unitForDimensions: boardPhysical.unitForDimensions,
-     widthPx: boardPhysical.widthPx,
-     heightPx: boardPhysical.heightPx,
-     scaleRatio: mapInterpretationScale.ratio,
-     unitForRatio: mapInterpretationScale.unitForRatio
-  };
-};
+    // Script execution for non-drag clicks
+    if (!wasDragging && !wasPanning) {
+        const { x: mouseX, y: mouseY } = getMousePositionOnCanvas(e);
+        const clickedObjectId = getObjectAtPosition(mouseX, mouseY); // Uses viewModelObjects
+
+        if (clickedObjectId) {
+            // Fetch latest from main model for script execution to ensure consistency
+            const objectDetailsFromModel = VTT_API.getObject(clickedObjectId); 
+            if (objectDetailsFromModel && objectDetailsFromModel.scripts && objectDetailsFromModel.scripts.onClick) {
+                console.log(`Executing onClick for ${objectDetailsFromModel.id}:`, objectDetailsFromModel.scripts.onClick);
+                try {
+                    // Script execution context still needs direct model access if scripts directly mutate object reference
+                    // This is a known point from previous steps.
+                    const objectRefForScript = model.currentObjects.get(objectDetailsFromModel.id); 
+                    new Function('VTT', 'object', objectDetailsFromModel.scripts.onClick)(
+                        VTT_API,
+                        objectRefForScript 
+                    );
+                } catch (scriptError) {
+                    console.error('Script execution error:', scriptError);
+                    VTT_API.showMessage(
+                        `Script Error in onClick for object ${objectDetailsFromModel.id}: ${scriptError.message}`,
+                        'error'
+                    );
+                }
+            }
+        }
+    }
+    // VTT_API calls above should trigger modelChanged and thus a redraw.
+    // Call onDrawNeededCallback() if an immediate redraw is needed for snapping back or visual finalization
+    // not covered by model changes (e.g. if VTT_API calls are debounced/batched later)
+    // For now, relying on VTT_API calls to trigger redraw.
+}
+
+function handleMouseLeave() {
+    if (isDragging && viewModelSelectedObjectId) {
+        const object = viewModelObjects.get(viewModelSelectedObjectId);
+        if (object) {
+            VTT_API.updateObject(viewModelSelectedObjectId, { x: object.x, y: object.y });
+        }
+    }
+    if (isPanning) {
+        VTT_API.setPanZoomState(viewModelPanZoom);
+    }
+
+    isDragging = false;
+    isPanning = false;
+    // onDrawNeededCallback(); // Consider if a final draw based on local state is needed before API confirms
+}
+
+function handleWheel(e) {
+    e.preventDefault();
+    // Ensure canvas is available, though it should be if this event is firing
+    if (!canvas) return; 
+    const { left, top } = canvas.getBoundingClientRect();
+
+    const mouseXCanvas = e.clientX - left; // Mouse position relative to canvas element
+    const mouseYCanvas = e.clientY - top;
+
+    const oldZoom = viewModelPanZoom.zoom;
+    const newZoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
+    const newZoom = Math.max(0.1, Math.min(oldZoom * newZoomFactor, 10));
+
+    // Calculate new pan position to keep the point under the mouse cursor fixed
+    const newPanX = mouseXCanvas - (newZoom / oldZoom) * (mouseXCanvas - viewModelPanZoom.panX);
+    const newPanY = mouseYCanvas - (newZoom / oldZoom) * (mouseYCanvas - viewModelPanZoom.panY);
+
+    // Update local view-model first
+    viewModelPanZoom.panX = newPanX;
+    viewModelPanZoom.panY = newPanY;
+    viewModelPanZoom.zoom = newZoom;
+    
+    onDrawNeededCallback(); // Redraw with local ViewModel changes for immediate feedback
+
+    // Then, synchronize with the main model
+    VTT_API.setPanZoomState({ 
+        panX: viewModelPanZoom.panX, 
+        panY: viewModelPanZoom.panY, 
+        zoom: viewModelPanZoom.zoom 
+    });
+}

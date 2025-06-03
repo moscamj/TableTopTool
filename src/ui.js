@@ -768,14 +768,14 @@ const handleDeleteObjectFromInspector = () => {
           text: 'Delete',
           type: 'danger',
           onClickCallback: () => {
-            const success = VTT_API.deleteObject(objectId);
-            if (success) {
-              populateObjectInspector(null);
-              VTT_API.showMessage(`Object "${objectName}" deleted.`, 'info');
-            } else {
-              VTT_API.showMessage(`Failed to delete object "${objectName}". It might have been already deleted.`, 'error');
-            }
-            // hideModal() is called by default unless preventHide is true
+            // Dispatch event for controller to handle deletion
+            document.dispatchEvent(new CustomEvent('uiObjectDeleteRequested', { 
+              detail: { objectId: objectId, objectName: objectName },
+              bubbles: true, 
+              composed: true 
+            }));
+            // Original direct API calls and UI updates are removed here.
+            // hideModal() is called by default by showModal's button handler
           },
         },
       ]
@@ -837,15 +837,13 @@ export const displayCreateObjectModal = () => { // createCallback parameter remo
             backgroundColor: document.getElementById('create-obj-bgcolor').value,
           },
         };
-        // Directly call VTT_API.createObject
-        const newObject = VTT_API.createObject(shape, props);
-        if (newObject) {
-          VTT_API.showMessage(`Object "${newObject.name || newObject.id}" created.`, 'success');
-          // Optionally, select the new object or update UI further
-          // populateObjectInspector(newObject); // This would show it in the inspector
-        } else {
-          VTT_API.showMessage('Failed to create object.', 'error');
-        }
+        // Dispatch event for controller to handle creation
+        document.dispatchEvent(new CustomEvent('uiCreateObjectRequested', {
+          detail: { shape: shape, props: props },
+          bubbles: true,
+          composed: true
+        }));
+        // Original direct API calls and UI updates are removed here.
         // hideModal() is called by default by showModal's button handler
       },
     },

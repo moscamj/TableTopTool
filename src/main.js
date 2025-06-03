@@ -1,200 +1,38 @@
 // src/main.js
-import * as objects from './objects.js';
-import * as canvas from './canvas.js';
+// import * as model from './model.js'; // Removed unused direct model import
+import * as canvas from './canvas.js'; // Still need for initCanvas, and drawVTT (though drawVTT takes no args now)
+import { 
+    loadStateIntoViewModel,
+    addObjectToViewModel,
+    updateObjectInViewModel,
+    removeObjectFromViewModel,
+    setPanZoomInViewModel,
+    setBackgroundInViewModel,
+    setSelectedObjectInViewModel,
+    setBoardPropertiesInViewModel,
+    clearAllViewModelObjects // Import the new clear function
+} from './canvas.js'; // Import the new ViewModel update functions
 import * as ui from './ui.js';
 import { setBackgroundUrlInputText, setObjectImageUrlText, getModalContentElement } from './ui.js'; // Import the new functions
 import * as api from './api.js'; // VTT Scripting API
+import Controller from './controller.js'; // Import Controller
 // Firebase is imported for its stubbed functions in offline mode
 import * as firebase from './firebase.js';
+import * as sessionManagement from './session_management.js';
 
-// In-memory state storage
-let inMemoryStates = [];
-const MAX_IN_MEMORY_STATES = 5;
-
-let currentSessionId = 'local-session'; // Can be updated on load
-let localUserId = 'offline-user';
+// All session-related state variables (inMemoryStates, MAX_IN_MEMORY_STATES, currentSessionId)
+// have been moved to src/session_management.js
+let localUserId = 'offline-user'; // This remains as it's not strictly session management
 
 // --- Main Redraw Function ---
 const requestRedraw = () => {
-  canvas.drawVTT(
-    api.VTT_API.getAllObjects(), // Expects an array
-    canvas.getPanZoomState(),
-    canvas.getTableBackground(),
-    canvas.getSelectedObjectId()
-  );
+  // canvas.drawVTT() now uses its internal viewModel, so no arguments are needed here.
+  // The viewModel in canvas.js is updated by functions called from the modelChanged event listener.
+  canvas.drawVTT();
 };
 
-// --- Local Save/Load ---
-const triggerDownload = (filename, data) => {
-  const blob = new Blob([data], { type: 'application/json' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  ui.displayMessage('Table state saved!', 'success');
-};
-
-const handleSaveTableState = () => {
-  const state = {
-    sessionId: currentSessionId,
-    savedAt: new Date().toISOString(),
-    objects: api.VTT_API.getAllObjects(), // Already returns array of copies
-    background: canvas.getTableBackground(),
-    viewState: canvas.getPanZoomState(),
-    appVersion: 'TableTopTool-MVP-Offline-v1', // Optional versioning
-  };
-  const filename = `session_${currentSessionId}_${new Date().toISOString().slice(0, 10)}.ttt.json`;
-  triggerDownload(filename, JSON.stringify(state, null, 2));
-};
-
-const handleLoadTableState = (fileContent) => {
-  try {
-    const loadedState = JSON.parse(fileContent);
-    if (
-      !loadedState ||
-      typeof loadedState !== 'object'
-      // !Array.isArray(loadedState.objects) // objects property checked below
-    ) {
-      throw new Error('Invalid file format or missing critical data.');
-    }
-    // Destructure loadedState.
-    // 'objects' is renamed to 'loadedObjectsArray' to avoid conflict with the imported 'objects' module.
-    const {
-      objects: loadedObjectsArray,
-      background: loadedBackground,
-      viewState: loadedViewState,
-      sessionId: loadedSessionId,
-    } = loadedState;
-
-    if (!Array.isArray(loadedObjectsArray)) {
-      throw new Error('Invalid file format: objects is not an array.');
-    }
-
-    api.VTT_API.clearAllObjects();
-    // After loading objects from file, iterate and explicitly trigger image loading
-    // for any objects that have an image URL. This ensures images are displayed.
-    loadedObjectsArray.forEach((obj) => {
-      objects.currentObjects.set(obj.id, obj);
-      if (obj.appearance && obj.appearance.imageUrl) {
-        canvas.loadImage(
-          obj.appearance.imageUrl,
-          obj.appearance.imageUrl,
-          requestRedraw // Request a redraw once the image is loaded/failed
-        );
-      }
-    });
-
-    if (loadedBackground) canvas.setTableBackground(loadedBackground);
-    if (loadedViewState) canvas.setPanZoomState(loadedViewState);
-    if (loadedSessionId) currentSessionId = loadedSessionId;
-
-    // ui.updateSessionIdDisplay(currentSessionId); // Already hidden, but if re-enabled
-    ui.displayMessage(
-      `Session '${currentSessionId}' loaded successfully.`,
-      'success'
-    );
-    requestRedraw();
-  } catch (error) {
-    console.error('Error loading table state:', error);
-    ui.showModal('Load Error', `Could not load file: ${error.message}`); // This line should already be correct
-    ui.displayMessage('Failed to load table state.', 'error');
-  }
-};
-
-// --- In-Memory Save/Load ---
-export const handleSaveMemoryState = () => {
-  const state = {
-    timestamp: new Date().toISOString(), // For identification
-    name: `State saved at ${new Date().toLocaleTimeString()}`, // Default name
-    objects: api.VTT_API.getAllObjects(),
-    background: canvas.getTableBackground(),
-    viewState: canvas.getPanZoomState(),
-    boardProperties: api.VTT_API.getBoardProperties() // Also save board properties
-  };
-
-  inMemoryStates.unshift(state); // Add to the beginning
-
-  if (inMemoryStates.length > MAX_IN_MEMORY_STATES) {
-    inMemoryStates.length = MAX_IN_MEMORY_STATES; // Trim oldest states
-  }
-
-  api.VTT_API.showMessage('Board state saved to memory.', 'success');
-  // TODO: Update UI for Load State button (e.g., enable it, show number of states)
-};
-
-const applyLoadedMemoryState = (stateObject) => {
-  if (!stateObject) {
-    api.VTT_API.showMessage('Invalid state object provided.', 'error');
-    return;
-  }
-
-  api.VTT_API.clearAllObjects();
-
-  stateObject.objects.forEach(obj => {
-    objects.currentObjects.set(obj.id, obj); // Direct manipulation, ensure this is desired or use API if exists
-    if (obj.appearance && obj.appearance.imageUrl) {
-      canvas.loadImage(obj.appearance.imageUrl, obj.appearance.imageUrl, requestRedraw);
-    }
-  });
-
-  if (stateObject.background) canvas.setTableBackground(stateObject.background);
-  if (stateObject.viewState) canvas.setPanZoomState(stateObject.viewState);
-  if (stateObject.boardProperties) {
-    api.VTT_API.setBoardProperties(stateObject.boardProperties);
-    // Also update the UI display for board settings if they are visible
-    ui.updateBoardSettingsDisplay(stateObject.boardProperties);
-  }
-
-  requestRedraw();
-  api.VTT_API.showMessage(`Board state loaded: ${stateObject.name}`, 'success');
-};
-
-export const handleLoadMemoryStateRequest = () => {
-  if (inMemoryStates.length === 0) {
-    api.VTT_API.showMessage('No states saved in memory.', 'info');
-    return;
-  }
-
-  let modalContentHtml = '<p>Select a state to load:</p><div class="flex flex-col space-y-2 mt-2">';
-  inMemoryStates.forEach((state, index) => {
-    // Using more Tailwind-like classes for buttons within the modal
-    modalContentHtml += `<button class="w-full text-left p-2 bg-gray-600 hover:bg-gray-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" data-state-index="${index}">
-                           ${state.name || `State ${index + 1} - ${new Date(state.timestamp).toLocaleString()}`}
-                         </button>`;
-  });
-  modalContentHtml += '</div>';
-
-  const modalButtonsArray = [
-    { text: 'Cancel', type: 'secondary' }
-  ];
-
-  ui.showModal('Load State from Memory', modalContentHtml, modalButtonsArray);
-
-  // Add event listeners to the dynamically created buttons
-  const modalContentElement = getModalContentElement(); // Get modal content div from ui.js
-  if (modalContentElement) {
-    const stateButtons = modalContentElement.querySelectorAll('[data-state-index]');
-    stateButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const index = parseInt(button.getAttribute('data-state-index'));
-        if (inMemoryStates[index]) {
-          applyLoadedMemoryState(inMemoryStates[index]);
-          ui.hideModal(); // Explicitly hide modal
-        } else {
-          api.VTT_API.showMessage('Selected state not found.', 'error');
-        }
-      });
-    });
-  } else {
-    console.error('[main.js] Modal content element not found. Cannot attach listeners for load state.');
-    api.VTT_API.showMessage('Error setting up load state options.', 'error');
-  }
-};
-
+// All session save/load and canvas event listener logic has been moved to respective modules.
+// main.js primarily initializes modules and orchestrates UI updates based on model changes.
 
 // --- Application Initialization ---
 const initializeApplication = async () => {
@@ -209,16 +47,16 @@ const initializeApplication = async () => {
     // onSetBackground: () => { ... }, // Removed: ui.js handles directly
     // onApplyObjectChanges: () => { ... }, // Removed: ui.js handles directly
     // onDeleteObject: () => { ... }, // Removed: ui.js handles directly
-    onSaveToFile: handleSaveTableState,
-    onSaveMemoryState: handleSaveMemoryState, // Added for in-memory save
-    onLoadMemoryStateRequest: handleLoadMemoryStateRequest, // Added for in-memory load
+    onSaveToFile: sessionManagement.handleSaveTableState, 
+    onSaveMemoryState: sessionManagement.handleSaveMemoryState, 
+    onLoadMemoryStateRequest: sessionManagement.handleLoadMemoryStateRequest, 
     onLoadFromFileInputChange: (event) => {
       const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
-        reader.onload = (e) => handleLoadTableState(e.target.result);
+        reader.onload = (e) => sessionManagement.handleLoadTableState(e.target.result); 
         reader.onerror = (e) =>
-          ui.showModal('File Read Error', 'Could not read file.');
+          api.VTT_API.showMessage('File Read Error: Could not read file.', 'error'); 
         reader.readAsText(file);
       }
     },
@@ -227,8 +65,7 @@ const initializeApplication = async () => {
     // onInspectorPropertyChange: (props) => { console.log("Inspector props changed (live):", props); } // For live updates
   };
 
-  // ADD THIS LOG:
-  // console.log('[main.js] uiCallbacks object before calling ui.initUIEventListeners:', uiCallbacks);
+  Controller.init(api.VTT_API); // Initialize Controller
 
   ui.initUIEventListeners(uiCallbacks);
   // Pass requestRedraw and ui.displayMessage to canvas module
@@ -259,172 +96,87 @@ const initializeApplication = async () => {
   });
 
   // --- Canvas Event Listeners ---
-  const canvasEl = document.getElementById('vtt-canvas'); // Or get from canvas.getCanvasElement()
-  let isDragging = false;
-  let isPanning = false;
-  let dragOffsetX = 0;
-  let dragOffsetY = 0;
-  let lastPanX = 0;
-  let lastPanY = 0;
+  // All canvas event listeners (mousedown, mousemove, mouseup, mouseleave, wheel)
+  // have been moved to src/canvas.js.
+  // src/canvas.js now directly uses VTT_API for state changes,
+  // which trigger 'modelChanged' events.
 
-  canvasEl.addEventListener('mousedown', (e) => {
-    const currentPZSState = canvas.getPanZoomState(); // Get PZS once for this event
-    const { x: mouseX, y: mouseY } = canvas.getMousePositionOnCanvas(
-      e,
-      currentPZSState
-    );
-    const clickedObjectId = canvas.getObjectAtPosition(
-      mouseX,
-      mouseY,
-      objects.currentObjects
-    );
+  // The 'stateChangedForRedraw' event listener has been removed.
+  // It is assumed that all necessary redraws are triggered by 'modelChanged' events,
+  // which should be dispatched by model.js whenever the application state changes.
 
-    if (clickedObjectId) {
-      // Destructure object properties.
-      // 'objIsMovable', 'objX', 'objY' are used for drag logic.
-      // '...objDetails' captures all other properties to pass to the inspector.
-      const { isMovable: objIsMovable, x: objX, y: objY, ...objDetails } = api.VTT_API.getObject(clickedObjectId);
-      if (objIsMovable) {
-        isDragging = true;
-        dragOffsetX = mouseX - objX; // Calculate offset from mouse to object's top-left
-        dragOffsetY = mouseY - objY;
-      }
-      if (canvas.getSelectedObjectId() !== clickedObjectId) {
-        canvas.setSelectedObjectId(clickedObjectId);
-        // Populate inspector with all object details, including those captured by '...objDetails'.
-        ui.populateObjectInspector({ isMovable: objIsMovable, x: objX, y: objY, ...objDetails });
-        // No redraw here; selection change will be visually updated on mouseup or drag.
-      }
-    } else {
-      // Clicked on empty space
-      isPanning = true;
-      lastPanX = e.clientX;
-      lastPanY = e.clientY;
-      if (canvas.getSelectedObjectId() !== null) {
-        // Deselect if clicking empty space
-        canvas.setSelectedObjectId(null);
-        ui.populateObjectInspector(null);
-        requestRedraw(); // Redraw to remove selection highlight immediately
-      }
-    }
-  });
+  // Add new event listener for model changes
+  document.addEventListener('modelChanged', (event) => {
+    // console.log('modelChanged event received in main.js:', event.detail); // Optional: for debugging
 
-  canvasEl.addEventListener('mousemove', (e) => {
-    const currentPZS = canvas.getPanZoomState(); // Get PZS for this event
-    const { x: mouseX, y: mouseY } = canvas.getMousePositionOnCanvas(e, currentPZS);
-
-    if (isDragging && canvas.getSelectedObjectId()) {
-      const selectedObjId = canvas.getSelectedObjectId();
-      api.VTT_API.updateObject(selectedObjId, {
-        x: mouseX - dragOffsetX,
-        y: mouseY - dragOffsetY,
-      });
-      // requestRedraw(); // Redundant: updateObject triggers stateChangedForRedraw
-      // Add this line:
-      ui.populateObjectInspector(api.VTT_API.getObject(selectedObjId));
-    } else if (isPanning) {
-      const { panX, panY, zoom } = currentPZS; // Destructure PZS for panning
-      const dx = e.clientX - lastPanX;
-      const dy = e.clientY - lastPanY;
-      lastPanX = e.clientX;
-      lastPanY = e.clientY;
-      canvas.setPanZoomState({
-        panX: panX + dx,
-        panY: panY + dy,
-        zoom: zoom, // zoom doesn't change here
-      });
-      // requestRedraw is called by setPanZoomState
-    }
-  });
-
-  canvasEl.addEventListener('mouseup', (e) => {
-    const currentPZS = canvas.getPanZoomState();
-    const { x: mouseX, y: mouseY } = canvas.getMousePositionOnCanvas(e, currentPZS);
-    const clickedObjectId = canvas.getObjectAtPosition(
-      mouseX,
-      mouseY,
-      objects.currentObjects
-    );
-
-    let objectWasActuallyClicked = false;
-    if (clickedObjectId && !isDragging && !isPanning) {
-      objectWasActuallyClicked = true;
-    }
-
-    if (objectWasActuallyClicked) {
-      // Destructure object for script execution.
-      // 'objId' (renamed from 'id') and 'scripts' are key.
-      // '...objProps' gathers remaining properties, though not directly used in this script block.
-      const { scripts, id: objId, ...objProps } = api.VTT_API.getObject(clickedObjectId);
-      if (scripts && scripts.onClick) {
-        console.log(`Executing onClick for ${objId}:`, scripts.onClick);
-        try {
-          // Execute the script string using 'new Function'.
-          // This allows dynamic code execution but should be used with caution
-          // due to potential security risks if scripts come from untrusted sources.
-          // The script has access to 'VTT' (the VTT_API) and 'object' (a direct reference to the object in the store).
-          const objectRefForScript = objects.currentObjects.get(objId);
-          new Function('VTT', 'object', scripts.onClick)(
-            api.VTT_API,
-            objectRefForScript
-          );
-          // After script execution, re-fetch and populate the inspector as the script might have changed the object.
-          ui.populateObjectInspector(api.VTT_API.getObject(objId));
-        } catch (scriptError) {
-          console.error('Script execution error:', scriptError);
-          ui.showModal(
-            'Script Error',
-            `Error in onClick script for object ${objId}:<br><pre>${scriptError.message}</pre>`
-          );
-        }
+    // Handle UI updates based on model changes
+    if (event.detail) {
+      const { type, payload } = event.detail;
+      switch (type) {
+        case 'allObjectsCleared':
+          clearAllViewModelObjects();
+          // Explicitly update selection in canvas view model and UI after all objects are cleared
+          setSelectedObjectInViewModel(null); 
+          ui.populateObjectInspector(null);
+          break;
+        case 'selectionChanged':
+          setSelectedObjectInViewModel(payload); // payload is expected to be selectedId (or null)
+          // Update UI inspector based on the new selection from the main model
+          const selectedObjectForUI = payload ? api.VTT_API.getObject(payload) : null;
+          ui.populateObjectInspector(selectedObjectForUI);
+          break;
+        case 'objectAdded':
+          addObjectToViewModel(payload); // payload is the new object
+          // If the new object becomes selected, model should dispatch 'selectionChanged'
+          // which will then populate the inspector.
+          break;
+        case 'objectUpdated':
+          // Assuming payload is the full updated object or {id, changes}
+          // If model sends full object: updateObjectInViewModel(payload.id, payload);
+          // If model sends {id, changes}: updateObjectInViewModel(payload.id, payload.changes);
+          // For now, let's assume payload is the full updated object as per typical model events.
+          updateObjectInViewModel(payload.id, payload); 
+          
+          // Update UI inspector if the updated object is the currently selected one
+          if (payload && payload.id === api.VTT_API.getSelectedObjectId()) {
+            // Fetch again from API to ensure UI gets the absolute source of truth,
+            // though canvas view model is also updated.
+            ui.populateObjectInspector(api.VTT_API.getObject(payload.id));
+          }
+          break;
+        case 'objectDeleted':
+          removeObjectFromViewModel(payload.id); // payload is expected to be {id, ...otherProps}
+          if (payload.id === api.VTT_API.getSelectedObjectId()) { // Check if selected object was deleted
+             setSelectedObjectInViewModel(null); // Update canvas view model
+             ui.populateObjectInspector(null); // Clear inspector
+          }
+          break;
+        case 'panZoomChanged':
+          setPanZoomInViewModel(payload); // payload is the new panZoomState
+          break;
+        case 'backgroundChanged':
+          setBackgroundInViewModel(payload); // payload is the new background state
+          break;
+        case 'boardPropertiesChanged': 
+          setBoardPropertiesInViewModel(payload); // payload is the new boardProperties
+          // Update UI display for board settings
+          ui.updateBoardSettingsDisplay(payload); // Pass the new properties directly
+          break;
+        // Add other cases as needed
       }
     }
-
-    // Always redraw on mouseup to finalize selection highlights or deselection.
-    // This also covers cases where a drag finished or a pan finished.
-    requestRedraw();
-
-    isDragging = false;
-    isPanning = false;
+    requestRedraw(); // Redraw canvas using its updated internal view-model
   });
 
-  canvasEl.addEventListener('mouseleave', () => {
-    // Stop dragging/panning if mouse leaves canvas
-    if (isDragging || isPanning) {
-      requestRedraw(); // Finalize any visual state
-    }
-    isDragging = false;
-    isPanning = false;
-  });
-
-  canvasEl.addEventListener('wheel', (e) => {
-    e.preventDefault();
-    const { zoom, panX, panY } = canvas.getPanZoomState(); // Destructure PZS
-    const { left, top } = canvasEl.getBoundingClientRect(); // Destructure rect
-
-    const mouseXCanvas = e.clientX - left;
-    const mouseYCanvas = e.clientY - top;
-
-    const zoomFactor = e.deltaY < 0 ? 1.1 : 1 / 1.1;
-    const newZoom = Math.max(0.1, Math.min(zoom * zoomFactor, 10));
-
-    // Calculate new pan position to keep the point under the mouse cursor fixed during zoom.
-    // This is achieved by:
-    // 1. Calculating the mouse position in world coordinates before zoom: (mouseXCanvas - panX) / zoom
-    // 2. The new panX must satisfy: (mouseXCanvas - newPanX) / newZoom = (mouseXCanvas - panX) / zoom
-    //    Solving for newPanX: newPanX = mouseXCanvas - (newZoom / zoom) * (mouseXCanvas - panX)
-    //    Similarly for newPanY.
-    const newPanX =
-      mouseXCanvas - (newZoom / zoom) * (mouseXCanvas - panX);
-    const newPanY =
-      mouseYCanvas - (newZoom / zoom) * (mouseYCanvas - panY);
-
-    canvas.setPanZoomState({ panX: newPanX, panY: newPanY, zoom: newZoom });
-    // requestRedraw is called by setPanZoomState if changes occur
-  });
-
-  // Custom event listener for API-triggered state changes
-  document.addEventListener('stateChangedForRedraw', requestRedraw);
+  // Load initial state from model into canvas ViewModel
+  const initialStateForCanvas = {
+      objects: api.VTT_API.getAllObjects(), // Returns an array of copies
+      panZoomState: api.VTT_API.getPanZoomState(),
+      tableBackground: api.VTT_API.getTableBackground(),
+      selectedObjectId: api.VTT_API.getSelectedObjectId(),
+      boardProperties: api.VTT_API.getBoardProperties()
+  };
+  loadStateIntoViewModel(initialStateForCanvas); // Call the imported function
 
   // Initial draw
   requestRedraw();
