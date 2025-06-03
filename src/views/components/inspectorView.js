@@ -128,6 +128,7 @@ const populateObjectInspector = (objectData) => {
                 }
 
                 domElements.objId.textContent = id || "";
+                // This log was part of a previous step, retaining for now as it's specific to populateObjectInspector
                 console.log('[TEMP_LOG InspectorView] populateObjectInspector: domElements.objId.textContent AFTER SET = "' + domElements.objId.textContent + '"');
                 if (domElements.objName) domElements.objName.value = name || "";
                 domElements.objX.value = x;
@@ -175,6 +176,7 @@ const populateObjectInspector = (objectData) => {
         } else {
                 // objectData is null
                 if (domElements.objId) domElements.objId.textContent = "";
+                // This log was part of a previous step, retaining for now
                 console.log('[TEMP_LOG InspectorView] populateObjectInspector: domElements.objId.textContent CLEARED. Value = "' + domElements.objId.textContent + '"');
                 if (inspectorContentDiv && inspectorContentDiv.querySelector("p")) {
                         inspectorContentDiv.querySelector("p").textContent =
@@ -205,68 +207,77 @@ const populateObjectInspector = (objectData) => {
  *                          or null if no object is currently being inspected (ID field is empty).
  */
 const readObjectInspector = () => {
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: ENTERING. Value of domElements.objId.textContent ON ENTRY = "' + (domElements.objId ? domElements.objId.textContent : 'domElements.objId_IS_NULL') + '"');
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: typeof domElements.objId.textContent = ' + typeof domElements.objId.textContent);
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent.length = ' + domElements.objId.textContent.length);
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent.trim() = "' + domElements.objId.textContent.trim() + '"');
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: !domElements.objId.textContent.trim() = ' + !domElements.objId.textContent.trim());
-        const idIsNullOrEmpty = (domElements.objId && domElements.objId.textContent) ? !domElements.objId.textContent.trim() : true;
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: Intermediate const "idIsNullOrEmpty" = ' + idIsNullOrEmpty + '; (Derived from textContent: "' + (domElements.objId && domElements.objId.textContent ? domElements.objId.textContent.trim() : 'N/A_FOR_LOG') + '")');
-        if (!domElements.objId || idIsNullOrEmpty) {
-                console.log('[TEMP_LOG InspectorView] readObjectInspector: IF_CONDITION_MET! Value of domElements.objId.textContent.trim() was: "' + (domElements.objId && domElements.objId.textContent ? domElements.objId.textContent.trim() : 'COULD_NOT_READ_TEXT_CONTENT_FOR_LOG') + '"');
-                dInspector("readObjectInspector: No object ID found, returning null.");
-                return null;
-        }
+    console.log('[TEMP_LOG InspectorView] readObjectInspector: Function START.');
 
-        const dataStr = domElements.objData.value;
-        let data = {};
-        try {
-                data = JSON.parse(dataStr);
-        } catch (e) {
-                log.error("Invalid JSON in data field:", e);
-                dInspector(
-                        "readObjectInspector error: Invalid JSON in data field. Error: %o",
-                        e,
-                );
-                if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
-                        uiViewModelInstance.displayMessage(
-                                "Error: Custom Data is not valid JSON.",
-                                "error",
-                        );
-                } else {
-                        alert("Error: Custom Data is not valid JSON."); // Fallback
-                }
+    let objectIdValue = null;
+    if (domElements.objId && typeof domElements.objId.textContent === 'string') {
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent IS a string. Value before trim: "' + domElements.objId.textContent + '"');
+        objectIdValue = domElements.objId.textContent.trim();
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: objectIdValue AFTER trim: "' + objectIdValue + '"');
+    } else if (domElements.objId) {
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId found, but .textContent is NOT a string. typeof is: ' + typeof domElements.objId.textContent);
+    } else {
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId is NULL or UNDEFINED.');
+    }
+
+    const isInvalidId = !objectIdValue || objectIdValue.length === 0;
+    console.log('[TEMP_LOG InspectorView] readObjectInspector: Final derived objectIdValue = "' + objectIdValue + '". isInvalidId = ' + isInvalidId);
+
+    if (isInvalidId) {
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: Condition (isInvalidId) is TRUE. Returning null.');
+        // dInspector("readObjectInspector: No object ID found, returning null."); // Original debug log
+        return null;
+    }
+
+    console.log('[TEMP_LOG InspectorView] readObjectInspector: Condition (isInvalidId) is FALSE. Proceeding to create snapshot with ID: "' + objectIdValue + '"');
+
+    const dataStr = domElements.objData.value;
+    let data = {};
+    try {
+        data = JSON.parse(dataStr);
+    } catch (e) {
+        log.error("Invalid JSON in data field:", e);
+        // dInspector("readObjectInspector error: Invalid JSON in data field. Error: %o", e); // Original debug log
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage(
+                "Error: Custom Data is not valid JSON.",
+                "error",
+            );
+        } else {
+            alert("Error: Custom Data is not valid JSON."); // Fallback
         }
-        const snapshot = {
-                id: domElements.objId.textContent,
-                name: domElements.objName ? domElements.objName.value.trim() : "",
-                x: parseFloat(domElements.objX.value) || 0,
-                y: parseFloat(domElements.objY.value) || 0,
-                width: (() => {
-                        let w = parseFloat(domElements.objWidth.value);
-                        return isNaN(w) || w < 1 ? 1 : w;
-                })(),
-                height: (() => {
-                        let h = parseFloat(domElements.objHeight.value);
-                        return isNaN(h) || h < 1 ? 1 : h;
-                })(),
-                rotation: parseFloat(domElements.objRotation.value) || 0,
-                zIndex: parseInt(domElements.objZIndex.value, 10) || 0,
-                isMovable: domElements.objIsMovable.checked,
-                shape: domElements.objShape.value,
-                appearance: {
-                        backgroundColor: domElements.objBgColor.value,
-                        imageUrl: domElements.objImageUrl.value.trim(),
-                        text: domElements.objLabelText ? domElements.objLabelText.value : "",
-                        showLabel: domElements.objShowLabel
-                                ? domElements.objShowLabel.checked
-                                : false,
-                },
-                data: data,
-                scripts: {
-                        onClick: domElements.objScriptOnClick.value.trim(),
-                },
-        };
+    }
+
+    const snapshot = {
+        id: objectIdValue,
+        name: domElements.objName ? domElements.objName.value.trim() : "",
+        x: parseFloat(domElements.objX ? domElements.objX.value : '0') || 0,
+        y: parseFloat(domElements.objY ? domElements.objY.value : '0') || 0,
+        width: (() => {
+                let w = parseFloat(domElements.objWidth ? domElements.objWidth.value : '0');
+                return isNaN(w) || w < 1 ? 1 : w;
+        })(),
+        height: (() => {
+                let h = parseFloat(domElements.objHeight ? domElements.objHeight.value : '0');
+                return isNaN(h) || h < 1 ? 1 : h;
+        })(),
+        rotation: parseFloat(domElements.objRotation ? domElements.objRotation.value : '0') || 0,
+        zIndex: parseInt(domElements.objZIndex ? domElements.objZIndex.value : '0', 10) || 0,
+        isMovable: domElements.objIsMovable ? domElements.objIsMovable.checked : true,
+        shape: domElements.objShape ? domElements.objShape.value : 'rectangle',
+        appearance: {
+            backgroundColor: domElements.objBgColor ? domElements.objBgColor.value : '#CCCCCC',
+            imageUrl: domElements.objImageUrl ? domElements.objImageUrl.value.trim() : '',
+            text: domElements.objLabelText ? domElements.objLabelText.value : "",
+            showLabel: domElements.objShowLabel ? domElements.objShowLabel.checked : false,
+        },
+        data: data,
+        scripts: {
+            onClick: domElements.objScriptOnClick ? domElements.objScriptOnClick.value.trim() : "",
+        },
+    };
+    console.log('[TEMP_LOG InspectorView] readObjectInspector: Returning snapshot for ID: "' + snapshot.id + '"');
+    return snapshot;
 };
 
 /**
