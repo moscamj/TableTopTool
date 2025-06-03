@@ -127,6 +127,7 @@ const initializeApplication = async () => {
                                 d("CanvasViewModel: allObjectsCleared and selection reset");
                                 break;
                         case "selectionChanged":
+                                console.log('[TEMP_LOG Main] modelChanged_selectionChanged for CanvasVM: RECEIVED PAYLOAD_ID=' + payload + '. CALLING canvasViewModel.setSelectedObjectInViewModel.');
                                 canvasViewModel.setSelectedObjectInViewModel(payload);
                                 d("CanvasViewModel: selectionChanged to %s", payload);
                                 break;

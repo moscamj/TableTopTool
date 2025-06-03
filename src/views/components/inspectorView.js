@@ -90,6 +90,7 @@ const cacheDOMElements = () => {
  *                                      or null to clear the inspector. Typically from UiViewModel.
  */
 const populateObjectInspector = (objectData) => {
+        console.log('[TEMP_LOG InspectorView] populateObjectInspector: CALLED with objectData=' + (objectData ? 'OBJECT_ID=' + objectData.id : 'NULL_OR_UNDEFINED') + (objectData ? ', NAME=' + objectData.name : ''));
         dInspector("populateObjectInspector called with objectData: %o", objectData);
         if (!domElements.inspectorContent) {
                 log.warn(
@@ -264,8 +265,10 @@ const readObjectInspector = () => {
  * and then calls `uiViewModelInstance.applyInspectorChanges` to update the model.
  */
 const handleApplyObjectChanges = () => {
+        console.log('[TEMP_LOG InspectorView] handleApplyObjectChanges: CALLED.');
         dInspector("handleApplyObjectChanges called");
         const updatedProps = readObjectInspector();
+        console.log('[TEMP_LOG InspectorView] handleApplyObjectChanges: readObjectInspector returned: ' + (updatedProps ? 'OBJECT_ID=' + updatedProps.id : 'NULL'));
         dInspector("Read inspector properties: %o", updatedProps);
         if (updatedProps && updatedProps.id && uiViewModelInstance) {
                 uiViewModelInstance.applyInspectorChanges(updatedProps.id, updatedProps);

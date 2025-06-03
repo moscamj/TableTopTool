@@ -191,7 +191,10 @@ export const createObject = (shapeArgument, initialProps = {}) => {
                 },
         };
 
+        console.log('[TEMP_LOG MODEL] createObject: ID_TO_USE=' + idToUse + ', SHAPE_TO_USE=' + shapeToUse + ', NAME=' + (initialProps.name || newObject.name) + ', X=' + (initialProps.x || newObject.x));
+        console.log('[TEMP_LOG MODEL] createObject: currentObjects WILL BE SET with ID: ' + idToUse);
         currentObjects.set(idToUse, newObject);
+        console.log('[TEMP_LOG MODEL] createObject: currentObjects HAS BEEN SET for ID: ' + idToUse + '. Map size: ' + currentObjects.size);
         dModel(
                 "New object added to currentObjects map. ID: %s, Object: %o",
                 idToUse,
@@ -318,12 +321,15 @@ export const deleteObject = (objectId) => {
  * @returns {VTTObject | undefined} A copy of the object if found, otherwise undefined.
  */
 export const getObject = (objectId) => {
+        console.log('[TEMP_LOG MODEL] getObject: CALLED for ID=' + objectId);
         dModel("getObject called for id: %s", objectId);
         if (!currentObjects.has(objectId)) {
+                console.log('[TEMP_LOG MODEL] getObject: ID=' + objectId + ' NOT FOUND in currentObjects. Map size: ' + currentObjects.size);
                 dModel("getObject: Object %s not found.", objectId);
                 return undefined;
         }
         const obj = currentObjects.get(objectId);
+        console.log('[TEMP_LOG MODEL] getObject: ID=' + objectId + ' FOUND. Returning object copy.');
         dModel("getObject returning copy for %s: %o", objectId, obj);
         return { ...obj };
 };
@@ -555,10 +561,12 @@ export const setTableBackground = (newBackground) => {
  * @param {string | null} id - The ID of the object to select, or null to deselect.
  */
 export const setSelectedObjectId = (id) => {
+        console.log('[TEMP_LOG MODEL] setSelectedObjectId: CALLED with ID=' + id);
         dModel("setSelectedObjectId called with id: %s", id);
         if (selectedObjectId !== id) {
                 dModel("Selected object ID changed from %s to %s", selectedObjectId, id);
                 selectedObjectId = id;
+                console.log('[TEMP_LOG MODEL] setSelectedObjectId: DISPATCHING selectionChanged with PAYLOAD_ID=' + selectedObjectId);
                 dispatchModelChangeEvent({
                         type: "selectionChanged",
                         payload: selectedObjectId,
