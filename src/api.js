@@ -1,6 +1,6 @@
 // src/api.js
-import * as model from './model.js';
-import * as ui from './ui.js'; // Optional: for displaying logs as UI messages
+import * as model from './model/model.js';
+import * as uiView from './views/uiView.js'; // Optional: for displaying logs as UI messages
 // Removed canvas imports for setTableBackground, updateBoardProperties, getBoardProperties
 
 /**
@@ -43,7 +43,7 @@ export const VTT_API = {
       // If the update was on the contextObject itself, its reference might be stale.
       // However, scripts are short-lived. The main concern is the central store being updated.
       requestRedrawEvent(); // Signal that the canvas needs to be redrawn
-      ui.displayMessage(`Object ${objectId} updated by script.`, 'info', 1500); // Optional feedback
+      uiView.displayMessage(`Object ${objectId} updated by script.`, 'info', 1500); // Optional feedback
     } else {
       console.warn(`[VTT_API.updateObjectState] Object ${objectId} not found.`);
     }
@@ -122,7 +122,7 @@ export const VTT_API = {
   },
 
   showMessage: (text, type, duration) => {
-    ui.displayMessage(text, type, duration);
+    uiView.displayMessage(text, type, duration);
   },
 
   setBoardProperties: (properties) => {

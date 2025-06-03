@@ -1,5 +1,5 @@
 // src/controller.js
-import { populateObjectInspector } from './ui.js'; // Added import
+// import { populateObjectInspector } from './ui.js'; // Removed: UiViewModel handles inspector updates
 
 let vttApi = null;
 
@@ -8,7 +8,7 @@ const Controller = {
     vttApi = api;
     console.log('Controller initialized with VTT_API.');
     this.setupUIEventListeners();
-    this.setupModelEventListeners();
+    // this.setupModelEventListeners(); // Removed: UiViewModel handles model-driven UI updates
   },
 
   setupUIEventListeners: function() {
@@ -23,32 +23,7 @@ const Controller = {
     // Other listeners will be added as we refactor ui.js
   },
 
-  setupModelEventListeners: function() {
-    // Listen for modelChanged events to update views if necessary
-    document.addEventListener('modelChanged', (event) => {
-      if (!event.detail) return;
-      // console.log('Controller detected modelChanged:', event.detail); // For debugging
-
-      const { type, payload } = event.detail;
-
-      if (type === 'objectDeleted') {
-            const currentSelectedId = vttApi.getSelectedObjectId ? vttApi.getSelectedObjectId() : null;
-            if (currentSelectedId === payload.id) {
-                populateObjectInspector(null);
-            }
-      } else if (type === 'selectionChanged') {
-            const selectedObject = payload ? vttApi.getObject(payload) : null;
-            populateObjectInspector(selectedObject);
-      } else if (type === 'objectCreated') {
-            const newObject = payload;
-            if (newObject && vttApi.setSelectedObjectId) {
-                vttApi.setSelectedObjectId(newObject.id); // This will trigger 'selectionChanged'
-                                                       // which then calls populateObjectInspector.
-            }
-      }
-    });
-    console.log('Controller: Setting up Model event listeners.');
-  },
+  // setupModelEventListeners: function() { ... } // Entire method removed
 
   handleObjectDelete: function(detail) {
     if (!detail || !detail.objectId) return;

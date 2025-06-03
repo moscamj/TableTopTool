@@ -8,7 +8,7 @@ import {
   // getPanZoomState, // Removed, was moved to model.js
   // getTableBackground, // Removed, was moved to model.js
   getObjectAtPosition, 
-} from '../canvas.js';
+} from '../views/canvasView.js';
 
 // Mock the global Image constructor
 global.Image = class {
