@@ -1,23 +1,19 @@
 // src/main.js
 // import * as model from './model.js'; // Removed unused direct model import
-import * as canvas from './canvas.js'; // Still need for initCanvas, and drawVTT (though drawVTT takes no args now)
-import { 
-    loadStateIntoViewModel,
-    addObjectToViewModel,
-    updateObjectInViewModel,
-    removeObjectFromViewModel,
-    setPanZoomInViewModel,
-    setBackgroundInViewModel,
-    setSelectedObjectInViewModel,
-    setBoardPropertiesInViewModel,
-    clearAllViewModelObjects // Import the new clear function
-} from './canvas.js'; // Import the new ViewModel update functions
-import * as ui from './ui.js';
-import { setBackgroundUrlInputText, setObjectImageUrlText, getModalContentElement } from './ui.js'; // Import the new functions
+// import * as canvas from './canvas.js'; // Replaced by canvasView
+import * as canvasView from './views/canvasView.js'; // Import the new canvasView
+import CanvasViewModel from './viewmodels/canvasViewModel.js'; // Import CanvasViewModel
+import UiViewModel from './viewmodels/uiViewModel.js'; // Import UiViewModel
+// ViewModel update functions are no longer imported directly from canvas.js/canvasView.js
+// They will be methods on the canvasViewModel instance.
+import * as uiView from './views/uiView.js'; // Renamed from ui.js
+// The following specific imports from ui.js are likely unused in main.js now.
+// Their functionality should be handled within ui.js/uiView.js, driven by UiViewModel.
+// import { setBackgroundUrlInputText, setObjectImageUrlText, getModalContentElement } from './views/uiView.js'; 
 import * as api from './api.js'; // VTT Scripting API
 import Controller from './controller.js'; // Import Controller
-// Firebase is imported for its stubbed functions in offline mode
-import * as firebase from './firebase.js';
+// Firebase import is currently unused in main.js
+// import * as firebase from './firebase.js'; 
 import * as sessionManagement from './session_management.js';
 
 // All session-related state variables (inMemoryStates, MAX_IN_MEMORY_STATES, currentSessionId)
@@ -26,20 +22,29 @@ let localUserId = 'offline-user'; // This remains as it's not strictly session m
 
 // --- Main Redraw Function ---
 const requestRedraw = () => {
-  // canvas.drawVTT() now uses its internal viewModel, so no arguments are needed here.
-  // The viewModel in canvas.js is updated by functions called from the modelChanged event listener.
-  canvas.drawVTT();
+  // canvasView.drawVTT() will be called. It uses its configured ViewModel.
+  canvasView.drawVTT();
 };
 
 // All session save/load and canvas event listener logic has been moved to respective modules.
 // main.js primarily initializes modules and orchestrates UI updates based on model changes.
 
 // --- Application Initialization ---
+let canvasViewModel; // To hold the CanvasViewModel instance
+let uiViewModel; // To hold the UiViewModel instance
+
 const initializeApplication = async () => {
   // Attempt to initialize Firebase (it will run in offline mode)
   // const { auth, db, appIdString } = firebase.initializeAppFirebase();
   // localUserId = await firebase.signInUserAnonymously(auth); // Stubbed
   // ui.updateUserIdDisplay(localUserId); // Element is hidden
+
+  // Create ViewModel instances
+  uiViewModel = new UiViewModel(); // Create UiViewModel first
+  uiViewModel.init(api.VTT_API); // Initialize UiViewModel with VTT_API
+  
+  // Pass UiViewModel's public displayMessage method to CanvasViewModel
+  canvasViewModel = new CanvasViewModel(requestRedraw, uiViewModel.displayMessage.bind(uiViewModel)); 
 
   // Define UI Callbacks
   const uiCallbacks = {
@@ -67,14 +72,17 @@ const initializeApplication = async () => {
 
   Controller.init(api.VTT_API); // Initialize Controller
 
-  ui.initUIEventListeners(uiCallbacks);
-  // Pass requestRedraw and ui.displayMessage to canvas module
-  canvas.initCanvas(
-    document.getElementById('vtt-canvas'),
-    requestRedraw,
-    ui.displayMessage // Pass the actual ui.displayMessage function
-  );
+  // Initialize uiView and pass UiViewModel to it.
+  // uiView now orchestrates its components, which will register their specific callbacks with UiViewModel.
+  uiView.init(uiViewModel, api.VTT_API); 
+  uiView.initUIEventListeners(uiCallbacks); // Existing UI event listeners in uiView
 
+  // Pass the CanvasViewModel instance to canvasView.initCanvas
+  canvasView.initCanvas(
+    document.getElementById('vtt-canvas'),
+    canvasViewModel // Pass the created ViewModel instance
+  );
+  
   // Create default objects for testing
   api.VTT_API.createObject('rectangle', {
     x: 50,
@@ -110,77 +118,70 @@ const initializeApplication = async () => {
     // console.log('modelChanged event received in main.js:', event.detail); // Optional: for debugging
 
     // Handle UI updates based on model changes
-    if (event.detail) {
+    // UiViewModel now listens to modelChanged events directly for inspector and board settings.
+    // So, main.js's modelChanged listener only needs to handle canvasViewModel updates.
+    if (event.detail && canvasViewModel) { // Ensure canvasViewModel is initialized
       const { type, payload } = event.detail;
       switch (type) {
+        // Cases primarily for CanvasViewModel
         case 'allObjectsCleared':
-          clearAllViewModelObjects();
-          // Explicitly update selection in canvas view model and UI after all objects are cleared
-          setSelectedObjectInViewModel(null); 
-          ui.populateObjectInspector(null);
+          canvasViewModel.clearAllViewModelObjects();
+          canvasViewModel.setSelectedObjectInViewModel(null); 
           break;
         case 'selectionChanged':
-          setSelectedObjectInViewModel(payload); // payload is expected to be selectedId (or null)
-          // Update UI inspector based on the new selection from the main model
-          const selectedObjectForUI = payload ? api.VTT_API.getObject(payload) : null;
-          ui.populateObjectInspector(selectedObjectForUI);
+          canvasViewModel.setSelectedObjectInViewModel(payload);
           break;
         case 'objectAdded':
-          addObjectToViewModel(payload); // payload is the new object
-          // If the new object becomes selected, model should dispatch 'selectionChanged'
-          // which will then populate the inspector.
+          canvasViewModel.addObjectToViewModel(payload);
           break;
         case 'objectUpdated':
-          // Assuming payload is the full updated object or {id, changes}
-          // If model sends full object: updateObjectInViewModel(payload.id, payload);
-          // If model sends {id, changes}: updateObjectInViewModel(payload.id, payload.changes);
-          // For now, let's assume payload is the full updated object as per typical model events.
-          updateObjectInViewModel(payload.id, payload); 
-          
-          // Update UI inspector if the updated object is the currently selected one
-          if (payload && payload.id === api.VTT_API.getSelectedObjectId()) {
-            // Fetch again from API to ensure UI gets the absolute source of truth,
-            // though canvas view model is also updated.
-            ui.populateObjectInspector(api.VTT_API.getObject(payload.id));
-          }
+          canvasViewModel.updateObjectInViewModel(payload.id, payload);
           break;
         case 'objectDeleted':
-          removeObjectFromViewModel(payload.id); // payload is expected to be {id, ...otherProps}
-          if (payload.id === api.VTT_API.getSelectedObjectId()) { // Check if selected object was deleted
-             setSelectedObjectInViewModel(null); // Update canvas view model
-             ui.populateObjectInspector(null); // Clear inspector
+          canvasViewModel.removeObjectFromViewModel(payload.id);
+          if (payload.id === api.VTT_API.getSelectedObjectId()) { 
+             canvasViewModel.setSelectedObjectInViewModel(null);
           }
           break;
         case 'panZoomChanged':
-          setPanZoomInViewModel(payload); // payload is the new panZoomState
+          canvasViewModel.setPanZoomInViewModel(payload);
           break;
         case 'backgroundChanged':
-          setBackgroundInViewModel(payload); // payload is the new background state
+          canvasViewModel.setBackgroundInViewModel(payload);
           break;
         case 'boardPropertiesChanged': 
-          setBoardPropertiesInViewModel(payload); // payload is the new boardProperties
-          // Update UI display for board settings
-          ui.updateBoardSettingsDisplay(payload); // Pass the new properties directly
+          canvasViewModel.setBoardPropertiesInViewModel(payload);
           break;
-        // Add other cases as needed
+        // Other UI-specific updates (inspector, board settings display) are handled by UiViewModel's own listener.
       }
     }
     requestRedraw(); // Redraw canvas using its updated internal view-model
   });
 
-  // Load initial state from model into canvas ViewModel
-  const initialStateForCanvas = {
-      objects: api.VTT_API.getAllObjects(), // Returns an array of copies
-      panZoomState: api.VTT_API.getPanZoomState(),
-      tableBackground: api.VTT_API.getTableBackground(),
-      selectedObjectId: api.VTT_API.getSelectedObjectId(),
-      boardProperties: api.VTT_API.getBoardProperties()
-  };
-  loadStateIntoViewModel(initialStateForCanvas); // Call the imported function
+  // Load initial state from model into ViewModels
+  if (canvasViewModel) {
+    const initialStateForCanvas = {
+        objects: api.VTT_API.getAllObjects(),
+        panZoomState: api.VTT_API.getPanZoomState(),
+        tableBackground: api.VTT_API.getTableBackground(),
+        selectedObjectId: api.VTT_API.getSelectedObjectId(),
+        boardProperties: api.VTT_API.getBoardProperties()
+    };
+    canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
+  }
+  // UiViewModel's init already fetches initial boardProperties and selectedObject.
+  // If uiView was already refactored, it would register its callbacks here, and UiViewModel would call them.
+  // For now, we might need to manually trigger initial UI updates if ui.js isn't yet using UiViewModel.
+  // This depends on how ui.js is structured. If ui.js still pulls data on its own, this might be fine.
+  // However, the goal is for UiViewModel to push data to uiView.
+  // The temporary manual calls to ui.populateObjectInspector and ui.updateBoardSettingsDisplay have been removed.
+  // Expectation: uiView.js's init method (and its components' init methods) 
+  // handle initial data population by calling uiViewModel getters and registering callbacks.
 
   // Initial draw
   requestRedraw();
-  ui.displayMessage('Application initialized (Offline Mode).', 'info');
+  // Use UiViewModel to display the initial message, now that messageAreaView is set up by uiView.init
+  uiViewModel.displayMessage('Application initialized (Offline Mode).', 'info'); 
 }
 
 // Start the application

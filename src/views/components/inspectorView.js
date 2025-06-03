@@ -1,0 +1,276 @@
+// src/views/components/inspectorView.js
+
+let uiViewModelInstance = null;
+// let vttApiInstance = null; // May not be needed if all actions go via UiViewModel
+
+const domElements = {
+    inspectorSidebar: null,
+    inspectorContent: null, // The div holding all fields
+    inspectorActions: null,
+    objId: null,
+    objName: null,
+    objX: null,
+    objY: null,
+    objWidth: null,
+    objHeight: null,
+    objRotation: null,
+    objBgColor: null,
+    objImageUrl: null,
+    objZIndex: null,
+    objIsMovable: null,
+    objShape: null,
+    objData: null,
+    objScriptOnClick: null,
+    objLabelText: null,
+    objShowLabel: null,
+    updateObjectButton: null,
+    deleteObjectButton: null,
+    chooseObjectImageButton: null,
+    objectImageFileInput: null,
+};
+
+const cacheDOMElements = () => {
+    domElements.inspectorSidebar = document.getElementById('inspector-sidebar');
+    domElements.inspectorContent = document.getElementById('inspector-content');
+    domElements.inspectorActions = document.getElementById('inspector-actions');
+    domElements.objId = document.getElementById('obj-id');
+    domElements.objName = document.getElementById('obj-name');
+    domElements.objX = document.getElementById('obj-x');
+    domElements.objY = document.getElementById('obj-y');
+    domElements.objWidth = document.getElementById('obj-width');
+    domElements.objHeight = document.getElementById('obj-height');
+    domElements.objRotation = document.getElementById('obj-rotation');
+    domElements.objBgColor = document.getElementById('obj-bg-color');
+    domElements.objImageUrl = document.getElementById('obj-image-url');
+    domElements.objZIndex = document.getElementById('obj-z-index');
+    domElements.objIsMovable = document.getElementById('obj-is-movable');
+    domElements.objShape = document.getElementById('obj-shape');
+    domElements.objData = document.getElementById('obj-data');
+    domElements.objScriptOnClick = document.getElementById('obj-script-onclick');
+    domElements.objLabelText = document.getElementById('obj-label-text');
+    domElements.objShowLabel = document.getElementById('obj-show-label');
+    domElements.updateObjectButton = document.getElementById('update-object-button');
+    domElements.deleteObjectButton = document.getElementById('delete-object-button');
+    domElements.chooseObjectImageButton = document.getElementById('choose-object-image-button');
+    domElements.objectImageFileInput = document.getElementById('objectImageFileInput');
+    // console.log('[inspectorView.js] Inspector DOM elements cached.');
+};
+
+const populateObjectInspector = (objectData) => {
+    if (!domElements.inspectorContent) {
+        console.warn('[inspectorView.js] Inspector content DOM not cached/found. Cannot populate.');
+        return;
+    }
+
+    const inspectorContentDiv = domElements.inspectorContent.querySelector('div:first-child'); // Assuming this is the placeholder paragraph's parent
+    const inspectorFieldsContainer = domElements.inspectorContent;
+
+    if (objectData) {
+        const {
+            id, name = '', x = 0, y = 0, width = 0, height = 0, rotation = 0,
+            zIndex = 0, isMovable = true, shape = 'rectangle',
+            appearance, data, scripts,
+        } = objectData;
+
+        if (inspectorContentDiv && inspectorContentDiv.querySelector('p')) {
+            inspectorContentDiv.querySelector('p').style.display = 'none';
+        }
+
+        domElements.objId.textContent = id || '';
+        if (domElements.objName) domElements.objName.value = name || '';
+        domElements.objX.value = x;
+        domElements.objY.value = y;
+        domElements.objWidth.value = width;
+        domElements.objHeight.value = height;
+        domElements.objRotation.value = rotation;
+        domElements.objZIndex.value = zIndex;
+        domElements.objIsMovable.checked = isMovable;
+        domElements.objShape.value = shape;
+
+        if (appearance) {
+            const { backgroundColor = '#CCCCCC', imageUrl = '', text = '', showLabel = false } = appearance;
+            domElements.objBgColor.value = backgroundColor;
+            domElements.objImageUrl.value = imageUrl;
+            if (domElements.objLabelText) domElements.objLabelText.value = text || '';
+            if (domElements.objShowLabel) domElements.objShowLabel.checked = showLabel || false;
+        } else {
+            domElements.objBgColor.value = '#CCCCCC';
+            domElements.objImageUrl.value = '';
+            if (domElements.objLabelText) domElements.objLabelText.value = '';
+            if (domElements.objShowLabel) domElements.objShowLabel.checked = false;
+        }
+
+        domElements.objData.value = data ? JSON.stringify(data, null, 2) : '{}';
+        domElements.objScriptOnClick.value = scripts && scripts.onClick ? scripts.onClick : '';
+
+        if (domElements.inspectorActions) domElements.inspectorActions.classList.remove('hidden');
+        Array.from(inspectorFieldsContainer.children).forEach((child) => {
+            if (child !== inspectorContentDiv && child !== domElements.inspectorActions) {
+                child.style.display = '';
+            }
+        });
+    } else {
+        if (inspectorContentDiv && inspectorContentDiv.querySelector('p')) {
+            inspectorContentDiv.querySelector('p').textContent = 'Select an object to inspect.';
+            inspectorContentDiv.querySelector('p').style.display = '';
+        }
+        Array.from(inspectorFieldsContainer.children).forEach((child) => {
+            if (child !== inspectorContentDiv && child !== domElements.inspectorActions) {
+                child.style.display = 'none';
+            }
+        });
+        if (domElements.objName) domElements.objName.value = '';
+        if (domElements.objLabelText) domElements.objLabelText.value = '';
+        if (domElements.objShowLabel) domElements.objShowLabel.checked = false;
+        if (domElements.inspectorActions) domElements.inspectorActions.classList.add('hidden');
+    }
+};
+
+const readObjectInspector = () => {
+    if (!domElements.objId || !domElements.objId.textContent) return null;
+
+    const dataStr = domElements.objData.value;
+    let data = {};
+    try {
+        data = JSON.parse(dataStr);
+    } catch (e) {
+        // Consider using uiViewModelInstance to display message if available
+        console.error("Invalid JSON in data field:", e);
+        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
+            // This assumes onDisplayMessage is set up to call the actual displayMessage function
+             uiViewModelInstance.onDisplayMessage('Error: Custom Data is not valid JSON.', 'error');
+        } else {
+            alert('Error: Custom Data is not valid JSON.'); // Fallback
+        }
+    }
+
+    return {
+        id: domElements.objId.textContent,
+        name: domElements.objName ? domElements.objName.value.trim() : '',
+        x: parseFloat(domElements.objX.value) || 0,
+        y: parseFloat(domElements.objY.value) || 0,
+        width: (() => { let w = parseFloat(domElements.objWidth.value); return isNaN(w) || w < 1 ? 1 : w; })(),
+        height: (() => { let h = parseFloat(domElements.objHeight.value); return isNaN(h) || h < 1 ? 1 : h; })(),
+        rotation: parseFloat(domElements.objRotation.value) || 0,
+        zIndex: parseInt(domElements.objZIndex.value, 10) || 0,
+        isMovable: domElements.objIsMovable.checked,
+        shape: domElements.objShape.value,
+        appearance: {
+            backgroundColor: domElements.objBgColor.value,
+            imageUrl: domElements.objImageUrl.value.trim(),
+            text: domElements.objLabelText ? domElements.objLabelText.value : '',
+            showLabel: domElements.objShowLabel ? domElements.objShowLabel.checked : false,
+        },
+        data: data,
+        scripts: {
+            onClick: domElements.objScriptOnClick.value.trim(),
+        },
+    };
+};
+
+const handleApplyObjectChanges = () => {
+    const updatedProps = readObjectInspector();
+    if (updatedProps && updatedProps.id && uiViewModelInstance) {
+        uiViewModelInstance.applyInspectorChanges(updatedProps.id, updatedProps);
+    } else if (!uiViewModelInstance) {
+        console.error('[inspectorView.js] UiViewModel not initialized. Cannot apply object changes.');
+        // Fallback or direct error display if needed
+    } else {
+        console.warn('[inspectorView.js] No object selected or ID missing for update.');
+         if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
+             uiViewModelInstance.onDisplayMessage('No object selected or ID missing for update.', 'warning');
+        }
+    }
+};
+
+const handleDeleteObject = () => {
+    const currentObject = readObjectInspector();
+    if (currentObject && currentObject.id && uiViewModelInstance) {
+        // The confirmation modal is part of the global uiView's showModal for now.
+        // Ideally, showModal would also be a service or part of uiView that inspectorView can call.
+        // For this step, we assume uiView.showModal is accessible or we dispatch an event.
+        // Let's keep the dispatch event pattern for deletion, handled by controller.
+        document.dispatchEvent(new CustomEvent('uiObjectDeleteRequested', {
+            detail: { objectId: currentObject.id, objectName: currentObject.name || currentObject.id },
+            bubbles: true,
+            composed: true
+        }));
+    } else if (!uiViewModelInstance) {
+        console.error('[inspectorView.js] UiViewModel not initialized. Cannot delete object.');
+    } else {
+         if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
+            uiViewModelInstance.onDisplayMessage('No object selected to delete.', 'warning');
+        }
+    }
+};
+
+const setObjectImageUrlText = (text) => {
+    if (domElements.objImageUrl) {
+        domElements.objImageUrl.value = text;
+    } else {
+        console.error('[inspectorView.js] objImageUrl element not found. Cannot set text.');
+    }
+};
+
+const handleObjectImageFileChange = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
+            uiViewModelInstance.onDisplayMessage('Please select an image file for the object.', 'error');
+        }
+        return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+        setObjectImageUrlText(e.target.result);
+        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
+            uiViewModelInstance.onDisplayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
+        }
+    };
+    reader.onerror = () => {
+        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
+            uiViewModelInstance.onDisplayMessage('Error reading object image file.', 'error');
+        }
+        console.error('[inspectorView.js] Error reading object image file:', reader.error);
+    };
+    reader.readAsDataURL(file);
+};
+
+export const init = (uiViewModel, vttApi) => { // vttApi might not be needed here
+    uiViewModelInstance = uiViewModel;
+    // vttApiInstance = vttApi; 
+
+    if (!uiViewModelInstance) {
+        console.error('[inspectorView.js] UiViewModel not provided during init!');
+        return;
+    }
+
+    cacheDOMElements();
+
+    if (domElements.updateObjectButton) {
+        domElements.updateObjectButton.addEventListener('click', handleApplyObjectChanges);
+    }
+    if (domElements.deleteObjectButton) {
+        domElements.deleteObjectButton.addEventListener('click', handleDeleteObject);
+    }
+    if (domElements.chooseObjectImageButton && domElements.objectImageFileInput) {
+        domElements.chooseObjectImageButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            domElements.objectImageFileInput.value = null;
+            domElements.objectImageFileInput.click();
+        });
+        domElements.objectImageFileInput.addEventListener('change', handleObjectImageFileChange);
+    }
+    
+    uiViewModelInstance.onInspectorDataChanged(populateObjectInspector);
+    
+    // Initial population
+    populateObjectInspector(uiViewModelInstance.getInspectorData());
+    console.log('[inspectorView.js] Initialized.');
+};
+
+// No other functions need to be exported if uiView.js only calls init.
+// export { populateObjectInspector, readObjectInspector }; // Removed exports for better encapsulation

@@ -5,7 +5,7 @@ import {
   getAllObjects,
   updateObject, // Added import
   currentObjects, 
-} from '../model.js';
+} from '../model/model.js';
 
 // Helper to validate UUID
 const isUUID = (uuid) => {

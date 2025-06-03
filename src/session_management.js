@@ -2,7 +2,7 @@
 import { VTT_API } from './api.js';
 // Import specific UI functions that are hard to decouple immediately for handleLoadMemoryStateRequest.
 // This is a temporary measure and should be refactored for better separation of concerns.
-import { getModalContentElement, hideModal, showModal as uiShowModal } from './ui.js';
+import { getModalContentElement, hideModal, showModal as uiShowModal } from './views/components/modalView.js';
 
 // --- State Variables (Moved from main.js) ---
 let currentSessionId = 'local-session'; // Can be updated on load by handleLoadTableState
