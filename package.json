@@ -1,43 +1,46 @@
 {
-  "name": "app",
-  "version": "1.0.0",
-  "description": "Lightweight extendable virtual tabletop webapp that supports any token based game",
-  "main": "index.js",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "lint": "eslint src/**/*.js index.html"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+https://github.com/moscamj/TableTopTool.git"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "type": "module",
-  "bugs": {
-    "url": "https://github.com/moscamj/TableTopTool/issues"
-  },
-  "homepage": "https://github.com/moscamj/TableTopTool#readme",
-  "devDependencies": {
-    "@babel/core": "^7.27.1",
-    "@babel/preset-env": "^7.27.2",
-    "cypress": "^13.6.0",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^8.57.0",
-    "postcss": "^8.5.3",
-    "prettier": "^3.5.3",
-    "tailwindcss": "^3.4.17",
-    "vite": "^5.4.19"
-  },
-  "dependencies": {
-    "firebase": "^11.8.1",
-    "loglevel": "^1.9.1",
-    "debug": "^4.3.5",
-    "dotenv": "^16.4.5"
-  },
-  "engines": {
-    "node": ">=22.0.0"
-  }
+        "name": "app",
+        "version": "1.0.0",
+        "description": "Lightweight extendable virtual tabletop webapp that supports any token based game",
+        "main": "index.js",
+        "scripts": {
+                "dev": "vite",
+                "build": "vite build",
+                "lint": "eslint src/**/*.js index.html"
+        },
+        "repository": {
+                "type": "git",
+                "url": "git+https://github.com/moscamj/TableTopTool.git"
+        },
+        "keywords": [],
+        "author": "",
+        "license": "ISC",
+        "type": "module",
+        "bugs": {
+                "url": "https://github.com/moscamj/TableTopTool/issues"
+        },
+        "homepage": "https://github.com/moscamj/TableTopTool#readme",
+        "devDependencies": {
+                "@babel/core": "^7.27.1",
+                "@babel/preset-env": "^7.27.2",
+                "@eslint/eslintrc": "^3.3.1",
+                "@eslint/js": "^9.28.0",
+                "autoprefixer": "^10.4.21",
+                "cypress": "^13.6.0",
+                "eslint": "^8.57.0",
+                "globals": "^16.2.0",
+                "postcss": "^8.5.3",
+                "prettier": "^3.5.3",
+                "tailwindcss": "^3.4.17",
+                "vite": "^5.4.19"
+        },
+        "dependencies": {
+                "debug": "^4.3.5",
+                "dotenv": "^16.4.5",
+                "firebase": "^11.8.1",
+                "loglevel": "^1.9.1"
+        },
+        "engines": {
+                "node": ">=22.0.0"
+        }
 }
