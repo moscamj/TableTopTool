@@ -283,44 +283,57 @@ export const setSelectedObjectId = (id) => {
 };
 
 export const updateBoardProperties = (newProps) => {
-  let modelPropertiesChanged = false;
+  let anyPropertyChanged = false;
+
+  // Store old pixel values for comparison later
+  const oldWidthPx = boardPhysical.widthPx;
+  const oldHeightPx = boardPhysical.heightPx;
 
   // Update physical board dimensions and their unit
   const newWidthUser = newProps.widthUser !== undefined ? parseFloat(newProps.widthUser) : boardPhysical.widthUser;
-  if (!isNaN(newWidthUser) && boardPhysical.widthUser !== newWidthUser) {
+  // Ensure positive
+  if (!isNaN(newWidthUser) && boardPhysical.widthUser !== newWidthUser && newWidthUser > 0) {
     boardPhysical.widthUser = newWidthUser;
-    modelPropertiesChanged = true;
+    anyPropertyChanged = true;
   }
 
   const newHeightUser = newProps.heightUser !== undefined ? parseFloat(newProps.heightUser) : boardPhysical.heightUser;
-  if (!isNaN(newHeightUser) && boardPhysical.heightUser !== newHeightUser) {
+  // Ensure positive
+  if (!isNaN(newHeightUser) && boardPhysical.heightUser !== newHeightUser && newHeightUser > 0) {
     boardPhysical.heightUser = newHeightUser;
-    modelPropertiesChanged = true;
+    anyPropertyChanged = true;
   }
 
   if (newProps.unitForDimensions && MM_PER_UNIT[newProps.unitForDimensions] && boardPhysical.unitForDimensions !== newProps.unitForDimensions) {
     boardPhysical.unitForDimensions = newProps.unitForDimensions;
-    modelPropertiesChanged = true;
+    anyPropertyChanged = true;
   }
 
   // Update map interpretation scale properties
   const newScaleRatio = newProps.scaleRatio !== undefined ? parseFloat(newProps.scaleRatio) : mapInterpretationScale.ratio;
-  if (!isNaN(newScaleRatio) && mapInterpretationScale.ratio !== newScaleRatio) {
+  // Allow scaleRatio = 0, but not negative.
+  if (!isNaN(newScaleRatio) && mapInterpretationScale.ratio !== newScaleRatio && newScaleRatio >= 0) {
     mapInterpretationScale.ratio = newScaleRatio;
-    modelPropertiesChanged = true;
+    anyPropertyChanged = true;
   }
 
   if (newProps.unitForRatio && MM_PER_UNIT[newProps.unitForRatio] && mapInterpretationScale.unitForRatio !== newProps.unitForRatio) {
     mapInterpretationScale.unitForRatio = newProps.unitForRatio;
-    modelPropertiesChanged = true;
+    anyPropertyChanged = true;
   }
 
-  if (modelPropertiesChanged) {
-    const unitMultiplier = MM_PER_UNIT[boardPhysical.unitForDimensions] || MM_PER_UNIT['in'];
-    boardPhysical.widthPx = boardPhysical.widthUser * unitMultiplier;
-    boardPhysical.heightPx = boardPhysical.heightUser * unitMultiplier;
-    
+  // Always recalculate pixel dimensions using the potentially updated user values and units
+  const unitMultiplier = MM_PER_UNIT[boardPhysical.unitForDimensions] || MM_PER_UNIT['in'];
+  boardPhysical.widthPx = boardPhysical.widthUser * unitMultiplier;
+  boardPhysical.heightPx = boardPhysical.heightUser * unitMultiplier;
+
+  // Check if pixel dimensions actually changed
+  const pixelDimensionsChanged = boardPhysical.widthPx !== oldWidthPx || boardPhysical.heightPx !== oldHeightPx;
+
+  // Dispatch event if any user-facing property changed OR if pixel dimensions changed
+  if (anyPropertyChanged || pixelDimensionsChanged) {
     dispatchModelChangeEvent({ type: 'boardPropertiesChanged', payload: getBoardProperties() });
   }
+
   return getBoardProperties(); // Return the current state
 };
