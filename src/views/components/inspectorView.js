@@ -136,7 +136,8 @@ const populateObjectInspector = (objectData) => {
                 child.style.display = '';
             }
         });
-    } else {
+    } else { // objectData is null
+        if (domElements.objId) domElements.objId.textContent = ''; // <-- ADD THIS LINE
         if (inspectorContentDiv && inspectorContentDiv.querySelector('p')) {
             inspectorContentDiv.querySelector('p').textContent = 'Select an object to inspect.';
             inspectorContentDiv.querySelector('p').style.display = '';

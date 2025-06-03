@@ -220,6 +220,7 @@ export const updateObject = (objectId, updatedProps) => {
   if (!objectsAreEqual(existingObject, newObjectState)) {
       currentObjects.set(objectId, newObjectState);
       dModel('Object %s updated in currentObjects map. New state: %o', objectId, newObjectState);
+      log.info(`Object [${objectId}] updated. Name: '${newObjectState.name || 'N/A'}'`, newObjectState);
       dispatchModelChangeEvent({ type: 'objectUpdated', payload: { ...newObjectState } });
       // console.log(`Object updated: ${objectId}`, newObjectState); // Removed for cleaner logs
   } else {
