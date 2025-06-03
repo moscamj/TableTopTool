@@ -67,9 +67,29 @@ export const VTT_API = {
 
   // --- Future API methods (examples, not for current MVP implementation) ---
 
-  createObject: (shape, initialProps) => {
-    const newObj = model.createObject(shape, initialProps);
-    requestRedrawEvent();
+  createObject: (arg1, arg2) => { // arg1 can be shape (string) or full object props
+    let shape, initialProps;
+    if (typeof arg1 === 'string' && (typeof arg2 === 'object' || arg2 === undefined)) { 
+      // Called as VTT_API.createObject('rectangle', {x:10, ...}) or VTT_API.createObject('rectangle')
+      shape = arg1;
+      initialProps = arg2 || {}; // Ensure initialProps is an object
+    } else if (typeof arg1 === 'object' && arg2 === undefined) { 
+      // Called as VTT_API.createObject({id:'id1', shape:'circle', ...})
+      initialProps = arg1;
+      shape = initialProps.shape; // Get shape from the object itself
+      if (!shape) {
+        console.error("VTT_API.createObject: Object argument missing 'shape' property.", arg1);
+        return null; // Or throw error
+      }
+    } else {
+      console.error("VTT_API.createObject: Invalid arguments.", arg1, arg2);
+      return null; // Or throw error
+    }
+    // model.createObject now expects (shapeArgument, initialProps)
+    // initialProps contains the full object data if loaded from file, including its own shape.
+    // shape (derived above) acts as shapeArgument for model.createObject.
+    const newObj = model.createObject(shape, initialProps); 
+    // requestRedrawEvent(); // Removed: model.createObject now dispatches 'modelChanged' event
     return newObj;
   },
 

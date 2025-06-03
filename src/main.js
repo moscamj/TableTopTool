@@ -9,7 +9,8 @@ import {
     setPanZoomInViewModel,
     setBackgroundInViewModel,
     setSelectedObjectInViewModel,
-    setBoardPropertiesInViewModel
+    setBoardPropertiesInViewModel,
+    clearAllViewModelObjects // Import the new clear function
 } from './canvas.js'; // Import the new ViewModel update functions
 import * as ui from './ui.js';
 import { setBackgroundUrlInputText, setObjectImageUrlText, getModalContentElement } from './ui.js'; // Import the new functions
@@ -112,6 +113,12 @@ const initializeApplication = async () => {
     if (event.detail) {
       const { type, payload } = event.detail;
       switch (type) {
+        case 'allObjectsCleared':
+          clearAllViewModelObjects();
+          // Explicitly update selection in canvas view model and UI after all objects are cleared
+          setSelectedObjectInViewModel(null); 
+          ui.populateObjectInspector(null);
+          break;
         case 'selectionChanged':
           setSelectedObjectInViewModel(payload); // payload is expected to be selectedId (or null)
           // Update UI inspector based on the new selection from the main model

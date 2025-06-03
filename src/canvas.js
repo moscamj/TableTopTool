@@ -218,6 +218,12 @@ export const setBoardPropertiesInViewModel = (boardProps) => {
   viewModelBoardProperties = { ...boardProps };
 };
 
+export const clearAllViewModelObjects = () => {
+  viewModelObjects.clear();
+  // viewModelSelectedObjectId = null; // This will be handled by a 'selectionChanged' event if selection is cleared in model
+  console.log('[canvas.js] All viewModel objects cleared.');
+};
+
 
 export const setCanvasSize = () => {
   if (!canvas || !canvas.parentElement) return;

@@ -64,19 +64,24 @@ const generateUUID = () => {
   });
 };
 
-export const createObject = (shape, initialProps = {}) => {
-  const id = generateUUID();
+export const createObject = (shapeArgument, initialProps = {}) => { // Renamed 'shape' to 'shapeArgument'
+  // Determine ID: Use ID from initialProps if available, otherwise generate a new one.
+  const idToUse = initialProps.id || generateUUID();
+
+  // Determine Shape: Use shape from initialProps if available, otherwise use shapeArgument.
+  const shapeToUse = initialProps.shape || shapeArgument;
+
   const defaults = {
-    type: shape === 'rectangle' ? 'generic-rectangle' : 'generic-circle',
+    type: shapeToUse === 'rectangle' ? 'generic-rectangle' : 'generic-circle', // Use shapeToUse
     x: 50,
     y: 50,
     zIndex: 0,
     width: shape === 'rectangle' ? 100 : 50, // Default width (radius for circle)
-    height: shape === 'rectangle' ? 100 : 50, // Default height (radius for circle)
+    height: shapeToUse === 'rectangle' ? 100 : 50, // Default height, use shapeToUse
     rotation: 0,
-    shape: shape,
+    // shape is set below using shapeToUse
     appearance: {
-      backgroundColor: '#CCCCCC',
+      backgroundColor: '#CCCCCC', // Default appearance
       borderColor: '#333333',
       borderWidth: 1,
       textColor: '#000000',
@@ -92,27 +97,28 @@ export const createObject = (shape, initialProps = {}) => {
   };
 
   const newObject = {
-    ...defaults,
-    ...initialProps,
-    id,
-    shape,
-    appearance: {
+    ...defaults,                 // Start with defaults
+    ...initialProps,             // Overlay with all initialProps (from file/caller)
+    id: idToUse,                 // Ensure the determined ID is final
+    shape: shapeToUse,           // Ensure the determined shape is final
+    appearance: {                // Deep merge for appearance
       ...defaults.appearance,
       ...(initialProps.appearance || {}),
     },
-    data: {
+    data: {                      // Deep merge for data
       ...defaults.data,
       ...(initialProps.data || {}),
     },
-    scripts: {
+    scripts: {                   // Deep merge for scripts
       ...defaults.scripts,
       ...(initialProps.scripts || {}),
     },
   };
 
-  currentObjects.set(id, newObject);
-  console.log(`Object created: ${id}`, newObject);
-  return { ...newObject };
+  currentObjects.set(idToUse, newObject);
+  dispatchModelChangeEvent({ type: 'objectAdded', payload: { ...newObject } }); // Dispatch event
+  console.log(`Object created/loaded: ${idToUse}`, newObject);
+  return { ...newObject };       // Return a copy
 };
 
 export const updateObject = (objectId, updatedProps) => {
@@ -173,6 +179,7 @@ export const getAllObjects = () => {
 export const clearAllObjects = () => {
   currentObjects.clear();
   console.log('All local objects cleared.');
+  dispatchModelChangeEvent({ type: 'allObjectsCleared', payload: null });
 };
 
 // --- Board State Management ---
