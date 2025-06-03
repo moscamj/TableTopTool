@@ -127,7 +127,6 @@ const initializeApplication = async () => {
                                 d("CanvasViewModel: allObjectsCleared and selection reset");
                                 break;
                         case "selectionChanged":
-                                console.log('[TEMP_LOG Main] modelChanged_selectionChanged for CanvasVM: RECEIVED PAYLOAD_ID=' + payload + '. CALLING canvasViewModel.setSelectedObjectInViewModel.');
                                 canvasViewModel.setSelectedObjectInViewModel(payload);
                                 d("CanvasViewModel: selectionChanged to %s", payload);
                                 break;
@@ -197,13 +196,12 @@ const initializeApplication = async () => {
         d("Application initialization complete");
 };
 
-// Ensures the application initializes after the DOM is fully loaded.
-if (document.readyState === "loading") {
-        d(
-                "DOM not fully loaded, adding DOMContentLoaded listener for initializeApplication",
-        );
-        document.addEventListener("DOMContentLoaded", initializeApplication);
-} else {
-        d("DOM already loaded, calling initializeApplication directly");
+// Ensures the application initializes after the entire page (including stylesheets and images) is fully loaded.
+if (document.readyState === 'complete') {
+        // If the page is already loaded by the time this script runs
+        d("Window already loaded, calling initializeApplication directly");
         initializeApplication();
+} else {
+        d("Window not fully loaded, adding load event listener for initializeApplication");
+        window.addEventListener('load', initializeApplication);
 }

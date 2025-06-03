@@ -266,17 +266,19 @@ export const drawVTT = () => {
                                 ctx.lineWidth = borderWidth; // Use borderWidth from object's appearance
                                 ctx.strokeRect(0, 0, width, height);
                         }
-                } else if (shape === "circle") {
-                        const radius = width / 2; // Assuming width is diameter for circle
+                } else if (shape === "circle") { // Will now be an ellipse
+                        const radiusX = width / 2;
+                        const radiusY = height / 2;
                         ctx.fillStyle = baseFill;
                         ctx.beginPath();
-                        ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+                        // Ellipse is drawn from its center (width/2, height/2) in the object's local, rotated coordinate system
+                        ctx.ellipse(radiusX, radiusY, radiusX, radiusY, 0, 0, 2 * Math.PI);
                         ctx.fill();
                         if (borderColor && borderWidth > 0) {
                                 ctx.strokeStyle = borderColor;
                                 ctx.lineWidth = borderWidth;
                                 ctx.beginPath();
-                                ctx.arc(radius, radius, radius, 0, 2 * Math.PI);
+                                ctx.ellipse(radiusX, radiusY, radiusX, radiusY, 0, 0, 2 * Math.PI);
                                 ctx.stroke();
                         }
                 }
@@ -324,18 +326,14 @@ export const drawVTT = () => {
 
                 // Draw selection highlight if object is selected
                 if (id === viewModelSelectedObjectId) {
-                        ctx.strokeStyle = "rgba(0, 150, 255, 0.9)"; // Bright blue for selection
-                        ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / zoom)); // Ensure highlight is visible
-                        const offset = (appearance && appearance.borderWidth || 0) / 2 + ctx.lineWidth / 2; // Adjusted to safely access appearance
+                        ctx.strokeStyle = "rgba(0, 150, 255, 0.9)";
+                        ctx.lineWidth = Math.max(0.5, Math.min(4, 2 / zoom));
+                        const offset = (appearance && appearance.borderWidth || 0) / 2 + ctx.lineWidth / 2;
 
-                        let highlightWidth = width;
-                        let highlightHeight = height;
-
-                        if (shape === 'circle') {
-                            highlightHeight = width; // For circles, make the highlight square based on the width (diameter)
-                        }
-
-                        ctx.strokeRect(-offset, -offset, highlightWidth + 2 * offset, highlightHeight + 2 * offset);
+                        // No special handling for 'circle' shape's highlight dimensions needed here anymore,
+                        // as the highlight should just use the object's actual width and height.
+                        // The `highlightWidth` and `highlightHeight` variables can be removed if only used for this.
+                        ctx.strokeRect(-offset, -offset, width + 2 * offset, height + 2 * offset);
                 }
                 ctx.restore(); // Restore context state for next object
         });

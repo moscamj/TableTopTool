@@ -90,7 +90,6 @@ const cacheDOMElements = () => {
  *                                      or null to clear the inspector. Typically from UiViewModel.
  */
 const populateObjectInspector = (objectData) => {
-        console.log('[TEMP_LOG InspectorView] populateObjectInspector: CALLED with objectData=' + (objectData ? 'OBJECT_ID=' + objectData.id : 'NULL_OR_UNDEFINED') + (objectData ? ', NAME=' + objectData.name : ''));
         dInspector("populateObjectInspector called with objectData: %o", objectData);
         if (!domElements.inspectorContent) {
                 log.warn(
@@ -129,7 +128,6 @@ const populateObjectInspector = (objectData) => {
 
                 domElements.objId.textContent = id || "";
                 // This log was part of a previous step, retaining for now as it's specific to populateObjectInspector
-                console.log('[TEMP_LOG InspectorView] populateObjectInspector: domElements.objId.textContent AFTER SET = "' + domElements.objId.textContent + '"');
                 if (domElements.objName) domElements.objName.value = name || "";
                 domElements.objX.value = x;
                 domElements.objY.value = y;
@@ -177,7 +175,6 @@ const populateObjectInspector = (objectData) => {
                 // objectData is null
                 if (domElements.objId) domElements.objId.textContent = "";
                 // This log was part of a previous step, retaining for now
-                console.log('[TEMP_LOG InspectorView] populateObjectInspector: domElements.objId.textContent CLEARED. Value = "' + domElements.objId.textContent + '"');
                 if (inspectorContentDiv && inspectorContentDiv.querySelector("p")) {
                         inspectorContentDiv.querySelector("p").textContent =
         "Select an object to inspect.";
@@ -207,29 +204,21 @@ const populateObjectInspector = (objectData) => {
  *                          or null if no object is currently being inspected (ID field is empty).
  */
 const readObjectInspector = () => {
-    console.log('[TEMP_LOG InspectorView] readObjectInspector: Function START.');
-
     let objectIdValue = null;
     if (domElements.objId && typeof domElements.objId.textContent === 'string') {
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent IS a string. Value before trim: "' + domElements.objId.textContent + '"');
         objectIdValue = domElements.objId.textContent.trim();
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: objectIdValue AFTER trim: "' + objectIdValue + '"');
     } else if (domElements.objId) {
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId found, but .textContent is NOT a string. typeof is: ' + typeof domElements.objId.textContent);
+        // domElements.objId found, but .textContent is NOT a string.
     } else {
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId is NULL or UNDEFINED.');
+        // domElements.objId is NULL or UNDEFINED.
     }
 
     const isInvalidId = !objectIdValue || objectIdValue.length === 0;
-    console.log('[TEMP_LOG InspectorView] readObjectInspector: Final derived objectIdValue = "' + objectIdValue + '". isInvalidId = ' + isInvalidId);
 
     if (isInvalidId) {
-        console.log('[TEMP_LOG InspectorView] readObjectInspector: Condition (isInvalidId) is TRUE. Returning null.');
-        // dInspector("readObjectInspector: No object ID found, returning null."); // Original debug log
+        dInspector("readObjectInspector: No object ID found, returning null."); // Original debug log
         return null;
     }
-
-    console.log('[TEMP_LOG InspectorView] readObjectInspector: Condition (isInvalidId) is FALSE. Proceeding to create snapshot with ID: "' + objectIdValue + '"');
 
     const dataStr = domElements.objData.value;
     let data = {};
@@ -276,7 +265,7 @@ const readObjectInspector = () => {
             onClick: domElements.objScriptOnClick ? domElements.objScriptOnClick.value.trim() : "",
         },
     };
-    console.log('[TEMP_LOG InspectorView] readObjectInspector: Returning snapshot for ID: "' + snapshot.id + '"');
+    dInspector("readObjectInspector: Returning snapshot for ID: %s", snapshot.id);
     return snapshot;
 };
 
@@ -286,10 +275,8 @@ const readObjectInspector = () => {
  * and then calls `uiViewModelInstance.applyInspectorChanges` to update the model.
  */
 const handleApplyObjectChanges = () => {
-        console.log('[TEMP_LOG InspectorView] handleApplyObjectChanges: CALLED.');
         dInspector("handleApplyObjectChanges called");
         const updatedProps = readObjectInspector();
-        console.log('[TEMP_LOG InspectorView] handleApplyObjectChanges: readObjectInspector returned: ' + (updatedProps ? 'OBJECT_ID=' + updatedProps.id : 'NULL'));
         dInspector("Read inspector properties: %o", updatedProps);
         if (updatedProps && updatedProps.id && uiViewModelInstance) {
                 uiViewModelInstance.applyInspectorChanges(updatedProps.id, updatedProps);

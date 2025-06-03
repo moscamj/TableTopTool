@@ -204,9 +204,7 @@ class UiViewModel {
 
                 switch (type) {
                 case "selectionChanged":
-                        console.log('[TEMP_LOG UiViewModel] _handleModelChange selectionChanged: RECEIVED event with PAYLOAD_ID=' + payload);
                         const newSelectedObject = payload ? this.vttApi.getObject(payload) : null;
-                        console.log('[TEMP_LOG UiViewModel] _handleModelChange selectionChanged: vttApi.getObject RESULT for ID=' + payload + ' IS ' + (newSelectedObject ? 'OBJECT_FOUND (ID=' + newSelectedObject.id + ')' : 'NULL_OR_UNDEFINED'));
                         if (payload && !newSelectedObject) {
                             log.warn(`[UiViewModel] selectionChanged: Object with ID '${payload}' not found via API, though it was selected. Inspector will be cleared.`);
                             dUiVM(`[UiViewModel] selectionChanged: Object with ID '${payload}' not found via API. Forcing inspectorData to null.`);
@@ -264,7 +262,6 @@ class UiViewModel {
                         refreshInspector &&
       typeof this._onInspectorDataChanged === "function"
                 ) {
-                        console.log('[TEMP_LOG UiViewModel] _handleModelChange selectionChanged: CALLING _onInspectorDataChanged with inspectorData=' + (this.inspectorData ? 'OBJECT_ID=' + this.inspectorData.id : 'NULL'));
                         dUiVM("Inspector needs refresh, calling _onInspectorDataChanged.");
                         this._onInspectorDataChanged(this.inspectorData);
                 }
