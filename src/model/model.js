@@ -397,7 +397,6 @@ export const getBoardProperties = () => {
  * @param {{panX?: number, panY?: number, zoom?: number}} newState - An object containing new panX, panY, or zoom values.
  */
 export const setPanZoomState = (newState) => {
-  const { panX: newPanX, panY: newPanY, zoom: newZoom } = newState;
   dModel('setPanZoomState called with newState: %o', newState);
   const { panX: newPanX, panY: newPanY, zoom: newZoom } = newState;
   let changed = false;
