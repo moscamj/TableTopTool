@@ -7,7 +7,6 @@ class UiViewModel {
         // Internal state
         this.inspectorData = null;
         this.boardProperties = {}; // Will hold the current board properties
-        // this.activeModal = null; // Example for future modal management
 
         // Callbacks to be registered by the View (uiView.js or components)
         this._onInspectorDataChanged = null;
@@ -33,6 +32,19 @@ class UiViewModel {
             this.inspectorData = this.vttApi.getObject(selectedId);
         } else {
             this.inspectorData = null;
+        }
+    }
+
+    requestObjectDelete(objectId, objectName = 'object') {
+        if (!this.vttApi || !objectId) {
+            this.displayMessage('Cannot delete object: API or Object ID missing.', 'error');
+            return;
+        }
+        const success = this.vttApi.deleteObject(objectId);
+        if (success) {
+            this.displayMessage(`Object "${objectName}" deleted.`, 'success');
+        } else {
+            this.displayMessage(`Failed to delete object "${objectName}". It might have been already deleted.`, 'error');
         }
     }
 
@@ -106,20 +118,11 @@ class UiViewModel {
         }
     }
 
-    // --- Action Methods (called by View or Controller) ---
-
-    // Note: updateInspectorField is not strictly necessary if changes are applied via a snapshot.
-    // If live field-by-field updates to VTT_API were desired, it would go here.
-    // For now, we'll use applyInspectorChanges with a snapshot.
+    // --- Action Methods (called by View) ---
 
     applyInspectorChanges(objectId, inspectorSnapshot) {
         if (!this.vttApi) return;
         try {
-            // We need to ensure that the snapshot contains only properties
-            // that VTT_API.updateObject can handle.
-            // For example, 'id' should not be in the props to change.
-            // Also, nested structures like 'appearance' need to be handled correctly.
-            
             const currentObject = this.vttApi.getObject(objectId);
             if (!currentObject) {
                 if(this._onDisplayMessage) this._onDisplayMessage(`Object with ID ${objectId} not found. Cannot apply changes.`, 'error');
@@ -257,8 +260,6 @@ class UiViewModel {
     }
 
     // Placeholder for image upload handling if needed directly in ViewModel
-    // handleImageUploadForBackground(file, callback) { ... }
-    // handleImageUploadForObject(objectId, file, callback) { ... }
 }
 
 export default UiViewModel;

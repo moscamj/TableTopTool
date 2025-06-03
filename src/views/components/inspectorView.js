@@ -1,7 +1,6 @@
 // src/views/components/inspectorView.js
 
 let uiViewModelInstance = null;
-// let vttApiInstance = null; // May not be needed if all actions go via UiViewModel
 
 const domElements = {
     inspectorSidebar: null,
@@ -53,7 +52,6 @@ const cacheDOMElements = () => {
     domElements.deleteObjectButton = document.getElementById('delete-object-button');
     domElements.chooseObjectImageButton = document.getElementById('choose-object-image-button');
     domElements.objectImageFileInput = document.getElementById('objectImageFileInput');
-    // console.log('[inspectorView.js] Inspector DOM elements cached.');
 };
 
 const populateObjectInspector = (objectData) => {
@@ -134,11 +132,9 @@ const readObjectInspector = () => {
     try {
         data = JSON.parse(dataStr);
     } catch (e) {
-        // Consider using uiViewModelInstance to display message if available
         console.error("Invalid JSON in data field:", e);
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            // This assumes onDisplayMessage is set up to call the actual displayMessage function
-             uiViewModelInstance.onDisplayMessage('Error: Custom Data is not valid JSON.', 'error');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+             uiViewModelInstance.displayMessage('Error: Custom Data is not valid JSON.', 'error');
         } else {
             alert('Error: Custom Data is not valid JSON.'); // Fallback
         }
@@ -174,11 +170,10 @@ const handleApplyObjectChanges = () => {
         uiViewModelInstance.applyInspectorChanges(updatedProps.id, updatedProps);
     } else if (!uiViewModelInstance) {
         console.error('[inspectorView.js] UiViewModel not initialized. Cannot apply object changes.');
-        // Fallback or direct error display if needed
     } else {
         console.warn('[inspectorView.js] No object selected or ID missing for update.');
-         if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-             uiViewModelInstance.onDisplayMessage('No object selected or ID missing for update.', 'warning');
+         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+             uiViewModelInstance.displayMessage('No object selected or ID missing for update.', 'warning');
         }
     }
 };
@@ -186,20 +181,18 @@ const handleApplyObjectChanges = () => {
 const handleDeleteObject = () => {
     const currentObject = readObjectInspector();
     if (currentObject && currentObject.id && uiViewModelInstance) {
-        // The confirmation modal is part of the global uiView's showModal for now.
-        // Ideally, showModal would also be a service or part of uiView that inspectorView can call.
-        // For this step, we assume uiView.showModal is accessible or we dispatch an event.
-        // Let's keep the dispatch event pattern for deletion, handled by controller.
-        document.dispatchEvent(new CustomEvent('uiObjectDeleteRequested', {
-            detail: { objectId: currentObject.id, objectName: currentObject.name || currentObject.id },
-            bubbles: true,
-            composed: true
-        }));
+        if (uiViewModelInstance && uiViewModelInstance.requestObjectDelete) {
+            uiViewModelInstance.requestObjectDelete(currentObject.id, currentObject.name || currentObject.id);
+        } else {
+            console.error('[inspectorView.js] uiViewModelInstance or requestObjectDelete method not available.');
+            // Fallback message if necessary, though displayMessage on ViewModel is preferred
+            alert('Error: Could not initiate object deletion.');
+        }
     } else if (!uiViewModelInstance) {
         console.error('[inspectorView.js] UiViewModel not initialized. Cannot delete object.');
     } else {
-         if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('No object selected to delete.', 'warning');
+         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('No object selected to delete.', 'warning');
         }
     }
 };
@@ -217,8 +210,8 @@ const handleObjectImageFileChange = (event) => {
     if (!file) return;
 
     if (!file.type.startsWith('image/')) {
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('Please select an image file for the object.', 'error');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('Please select an image file for the object.', 'error');
         }
         return;
     }
@@ -226,22 +219,21 @@ const handleObjectImageFileChange = (event) => {
     const reader = new FileReader();
     reader.onload = (e) => {
         setObjectImageUrlText(e.target.result);
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
         }
     };
     reader.onerror = () => {
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('Error reading object image file.', 'error');
+        if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
+            uiViewModelInstance.displayMessage('Error reading object image file.', 'error');
         }
         console.error('[inspectorView.js] Error reading object image file:', reader.error);
     };
     reader.readAsDataURL(file);
 };
 
-export const init = (uiViewModel, vttApi) => { // vttApi might not be needed here
+export const init = (uiViewModel, vttApi) => {
     uiViewModelInstance = uiViewModel;
-    // vttApiInstance = vttApi; 
 
     if (!uiViewModelInstance) {
         console.error('[inspectorView.js] UiViewModel not provided during init!');
@@ -271,6 +263,3 @@ export const init = (uiViewModel, vttApi) => { // vttApi might not be needed her
     populateObjectInspector(uiViewModelInstance.getInspectorData());
     console.log('[inspectorView.js] Initialized.');
 };
-
-// No other functions need to be exported if uiView.js only calls init.
-// export { populateObjectInspector, readObjectInspector }; // Removed exports for better encapsulation
