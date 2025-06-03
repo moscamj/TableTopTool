@@ -5,6 +5,10 @@
  * and allowing users to edit these properties. It interacts with the UiViewModel to receive
  * selected object data and to send updates.
  */
+import log from 'loglevel';
+import debug from 'debug';
+
+const dInspector = debug('app:view:inspector');
 
 /** @type {UiViewModel | null} Instance of the UiViewModel, used for data and actions. */
 let uiViewModelInstance = null;
@@ -44,6 +48,7 @@ const domElements = {
  * This is called once during initialization to improve performance by avoiding repeated DOM queries.
  */
 const cacheDOMElements = () => {
+    dInspector('cacheDOMElements called');
     domElements.inspectorSidebar = document.getElementById('inspector-sidebar');
     domElements.inspectorContent = document.getElementById('inspector-content');
     domElements.inspectorActions = document.getElementById('inspector-actions');
@@ -77,8 +82,10 @@ const cacheDOMElements = () => {
  *                                      or null to clear the inspector. Typically from UiViewModel.
  */
 const populateObjectInspector = (objectData) => {
+    dInspector('populateObjectInspector called with objectData: %o', objectData);
     if (!domElements.inspectorContent) {
-        console.warn('[inspectorView.js] Inspector content DOM not cached/found. Cannot populate.');
+        log.warn('[inspectorView.js] Inspector content DOM not cached/found. Cannot populate.');
+        dInspector('populateObjectInspector warning: inspectorContent DOM not found.');
         return;
     }
 
@@ -154,22 +161,25 @@ const populateObjectInspector = (objectData) => {
  *                          or null if no object is currently being inspected (ID field is empty).
  */
 const readObjectInspector = () => {
-    if (!domElements.objId || !domElements.objId.textContent) return null;
+    if (!domElements.objId || !domElements.objId.textContent) {
+        dInspector('readObjectInspector: No object ID found, returning null.');
+        return null;
+    }
 
     const dataStr = domElements.objData.value;
     let data = {};
     try {
         data = JSON.parse(dataStr);
     } catch (e) {
-        console.error("Invalid JSON in data field:", e);
+        log.error("Invalid JSON in data field:", e);
+        dInspector('readObjectInspector error: Invalid JSON in data field. Error: %o', e);
         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
              uiViewModelInstance.displayMessage('Error: Custom Data is not valid JSON.', 'error');
         } else {
             alert('Error: Custom Data is not valid JSON.'); // Fallback
         }
     }
-
-    return {
+    const snapshot = {
         id: domElements.objId.textContent,
         name: domElements.objName ? domElements.objName.value.trim() : '',
         x: parseFloat(domElements.objX.value) || 0,
@@ -199,13 +209,18 @@ const readObjectInspector = () => {
  * and then calls `uiViewModelInstance.applyInspectorChanges` to update the model.
  */
 const handleApplyObjectChanges = () => {
+    dInspector('handleApplyObjectChanges called');
     const updatedProps = readObjectInspector();
+    dInspector('Read inspector properties: %o', updatedProps);
     if (updatedProps && updatedProps.id && uiViewModelInstance) {
         uiViewModelInstance.applyInspectorChanges(updatedProps.id, updatedProps);
+        dInspector('Called uiViewModelInstance.applyInspectorChanges for ID: %s', updatedProps.id);
     } else if (!uiViewModelInstance) {
-        console.error('[inspectorView.js] UiViewModel not initialized. Cannot apply object changes.');
+        log.error('[inspectorView.js] UiViewModel not initialized. Cannot apply object changes.');
+        dInspector('handleApplyObjectChanges error: UiViewModel not initialized.');
     } else {
-        console.warn('[inspectorView.js] No object selected or ID missing for update.');
+        log.warn('[inspectorView.js] No object selected or ID missing for update.');
+        dInspector('handleApplyObjectChanges warning: No object selected or ID missing for update.');
          if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
              uiViewModelInstance.displayMessage('No object selected or ID missing for update.', 'warning');
         }
@@ -218,18 +233,24 @@ const handleApplyObjectChanges = () => {
  * and then calls `uiViewModelInstance.requestObjectDelete` to initiate deletion.
  */
 const handleDeleteObject = () => {
+    dInspector('handleDeleteObject called');
     const currentObject = readObjectInspector();
+    dInspector('Read inspector properties for delete: %o', currentObject);
     if (currentObject && currentObject.id && uiViewModelInstance) {
         if (uiViewModelInstance.requestObjectDelete) { // Check if method exists on ViewModel
             uiViewModelInstance.requestObjectDelete(currentObject.id, currentObject.name || currentObject.id);
+            dInspector('Called uiViewModelInstance.requestObjectDelete for ID: %s', currentObject.id);
         } else {
-            console.error('[inspectorView.js] uiViewModelInstance or requestObjectDelete method not available.');
+            log.error('[inspectorView.js] uiViewModelInstance or requestObjectDelete method not available.');
+            dInspector('handleDeleteObject error: requestObjectDelete method not available on UiViewModel.');
             // Fallback message if necessary, though displayMessage on ViewModel is preferred
             alert('Error: Could not initiate object deletion.');
         }
     } else if (!uiViewModelInstance) {
-        console.error('[inspectorView.js] UiViewModel not initialized. Cannot delete object.');
+        log.error('[inspectorView.js] UiViewModel not initialized. Cannot delete object.');
+        dInspector('handleDeleteObject error: UiViewModel not initialized.');
     } else {
+        dInspector('handleDeleteObject warning: No object selected to delete.');
          if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
             uiViewModelInstance.displayMessage('No object selected to delete.', 'warning');
         }
@@ -242,10 +263,12 @@ const handleDeleteObject = () => {
  * @param {string} text - The text to set in the image URL input field.
  */
 const setObjectImageUrlText = (text) => {
+    dInspector('setObjectImageUrlText called with text: %s', text);
     if (domElements.objImageUrl) {
         domElements.objImageUrl.value = text;
     } else {
-        console.error('[inspectorView.js] objImageUrl element not found. Cannot set text.');
+        log.error('[inspectorView.js] objImageUrl element not found. Cannot set text.');
+        dInspector('setObjectImageUrlText error: objImageUrl DOM element not found.');
     }
 };
 
@@ -257,10 +280,15 @@ const setObjectImageUrlText = (text) => {
  * @param {Event} event - The file input change event, containing the selected file(s).
  */
 const handleObjectImageFileChange = (event) => {
+    dInspector('handleObjectImageFileChange event triggered. File: %o', event.target.files[0]);
     const file = event.target.files[0];
-    if (!file) return;
+    if (!file) {
+        dInspector('No file selected.');
+        return;
+    }
 
     if (!file.type.startsWith('image/')) {
+        dInspector('Selected file is not an image: %s', file.type);
         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
             uiViewModelInstance.displayMessage('Please select an image file for the object.', 'error');
         }
@@ -269,18 +297,21 @@ const handleObjectImageFileChange = (event) => {
 
     const reader = new FileReader();
     reader.onload = (e) => {
+        dInspector('File loaded as data URL. Length: %d', e.target.result.length);
         setObjectImageUrlText(e.target.result);
         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
             uiViewModelInstance.displayMessage('Object image updated in inspector. Click "Update Object" to apply.', 'info');
         }
     };
     reader.onerror = () => {
+        log.error('[inspectorView.js] Error reading object image file:', reader.error);
+        dInspector('Error reading object image file: %o', reader.error);
         if (uiViewModelInstance && uiViewModelInstance.displayMessage) {
             uiViewModelInstance.displayMessage('Error reading object image file.', 'error');
         }
-        console.error('[inspectorView.js] Error reading object image file:', reader.error);
     };
     reader.readAsDataURL(file);
+    dInspector('Started reading file as data URL: %s', file.name);
 };
 
 /**
@@ -293,33 +324,44 @@ const handleObjectImageFileChange = (event) => {
  * @param {object} vttApi - The VTT_API instance (passed but not directly used in event handlers, actions go via ViewModel).
  */
 export const init = (uiViewModel, vttApi) => {
+    dInspector('init called with uiViewModel: %o, vttApi: %o', uiViewModel, vttApi);
     uiViewModelInstance = uiViewModel;
 
     if (!uiViewModelInstance) {
-        console.error('[inspectorView.js] UiViewModel not provided during init!');
+        log.error('[inspectorView.js] UiViewModel not provided during init!');
+        dInspector('init error: UiViewModel not provided.');
         return;
     }
+    dInspector('UiViewModel instance stored.');
 
     cacheDOMElements();
+    dInspector('DOM elements cached.');
 
     if (domElements.updateObjectButton) {
         domElements.updateObjectButton.addEventListener('click', handleApplyObjectChanges);
+        dInspector('Event listener added for updateObjectButton.');
     }
     if (domElements.deleteObjectButton) {
         domElements.deleteObjectButton.addEventListener('click', handleDeleteObject);
+        dInspector('Event listener added for deleteObjectButton.');
     }
     if (domElements.chooseObjectImageButton && domElements.objectImageFileInput) {
         domElements.chooseObjectImageButton.addEventListener('click', (e) => {
             e.preventDefault();
-            domElements.objectImageFileInput.value = null;
+            dInspector('Choose Object Image button clicked.');
+            domElements.objectImageFileInput.value = null; // Reset file input
             domElements.objectImageFileInput.click();
+            dInspector('Hidden objectImageFileInput clicked.');
         });
         domElements.objectImageFileInput.addEventListener('change', handleObjectImageFileChange);
+        dInspector('Event listener added for objectImageFileInput change.');
     }
     
     uiViewModelInstance.onInspectorDataChanged(populateObjectInspector);
+    dInspector('Registered populateObjectInspector with uiViewModelInstance.onInspectorDataChanged.');
     
     // Initial population of the inspector with currently selected object data (if any)
     populateObjectInspector(uiViewModelInstance.getInspectorData());
-    // console.log('[inspectorView.js] Initialized.'); // Removed for cleaner logs
+    dInspector('Initial population of inspector complete.');
+    // log.debug('[inspectorView.js] Initialized.'); // Removed for cleaner logs
 };

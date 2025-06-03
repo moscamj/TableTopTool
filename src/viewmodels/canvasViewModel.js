@@ -1,4 +1,8 @@
 // src/viewmodels/canvasViewModel.js
+import log from 'loglevel';
+import debug from 'debug';
+
+const dCanvasVM = debug('app:vm:canvas');
 
 /**
  * Manages the state and logic specific to the canvas view.
@@ -14,11 +18,18 @@ class CanvasViewModel {
      * @param {function(text: string, type: string, duration?: number): void} displayMessageFn - A function to display messages to the user (delegated from UiViewModel).
      */
     constructor(onDrawNeededCallback, displayMessageFn) {
+        dCanvasVM('CanvasViewModel constructor called');
         /** @type {function(): void} Callback to request a redraw of the canvas. */
-        this.onDrawNeededCallback = onDrawNeededCallback || (() => console.warn('onDrawNeededCallback not set in ViewModel'));
+        this.onDrawNeededCallback = onDrawNeededCallback || (() => {
+            log.warn('onDrawNeededCallback not set in ViewModel');
+            dCanvasVM('onDrawNeededCallback not set, logging warning.');
+        });
 
         /** @type {function(text: string, type: string, duration?: number): void} Function to display user messages. */
-        this.displayMessageFn = displayMessageFn || ((msg, type) => console.warn('displayMessageFn not set in ViewModel:', msg, type));
+        this.displayMessageFn = displayMessageFn || ((msg, type) => {
+            log.warn('displayMessageFn not set in ViewModel:', msg, type);
+            dCanvasVM('displayMessageFn not set, logging warning. Message: %s, Type: %s', msg, type);
+        });
 
         /** @type {Map<string, VTTObject>} Stores VTT objects for rendering, keyed by ID. */
         this.viewModelObjects = new Map();
@@ -93,8 +104,10 @@ class CanvasViewModel {
      * @param {object} initialState.boardProperties - Initial board properties.
      */
     loadStateIntoViewModel(initialState) {
+        dCanvasVM('loadStateIntoViewModel called with initialState: %o', initialState);
         if (!initialState) {
-            console.error('[CanvasViewModel] loadStateIntoViewModel: initialState is undefined. Cannot populate ViewModel.');
+            log.error('[CanvasViewModel] loadStateIntoViewModel: initialState is undefined. Cannot populate ViewModel.');
+            dCanvasVM('loadStateIntoViewModel error: initialState is undefined.');
             this.viewModelObjects.clear();
             this.viewModelPanZoom = { panX: 0, panY: 0, zoom: 1.0 };
             this.viewModelTableBackground = { type: 'color', value: '#cccccc' };
@@ -144,12 +157,16 @@ class CanvasViewModel {
      * @param {VTTObject} objectData - The data for the new object.
      */
     addObjectToViewModel(objectData) {
+        dCanvasVM('addObjectToViewModel called with objectData: %o', objectData);
         if (!objectData || !objectData.id) {
-            console.error('[CanvasViewModel] addObjectToViewModel: Invalid objectData provided.', objectData);
+            log.error('[CanvasViewModel] addObjectToViewModel: Invalid objectData provided.', objectData);
+            dCanvasVM('addObjectToViewModel error: Invalid objectData. ID: %s', objectData?.id);
             return;
         }
         this.viewModelObjects.set(objectData.id, { ...objectData });
+        dCanvasVM('Object %s added to viewModelObjects.', objectData.id);
         if (objectData.appearance && objectData.appearance.imageUrl) {
+            dCanvasVM('Object %s has imageUrl, calling loadImage: %s', objectData.id, objectData.appearance.imageUrl);
             this.loadImage(objectData.appearance.imageUrl, objectData.appearance.imageUrl);
         }
     }
@@ -163,26 +180,33 @@ class CanvasViewModel {
      * @param {Partial<VTTObject>} updatedProps - The properties to update on the object.
      */
     updateObjectInViewModel(objectId, updatedProps) {
+        dCanvasVM('updateObjectInViewModel called for objectId: %s, updatedProps: %o', objectId, updatedProps);
         if (!this.viewModelObjects.has(objectId)) {
-            console.warn(`[CanvasViewModel] updateObjectInViewModel: Object ID ${objectId} not found in ViewModel.`);
+            log.warn(`[CanvasViewModel] updateObjectInViewModel: Object ID ${objectId} not found in ViewModel.`);
+            dCanvasVM('updateObjectInViewModel warning: Object ID %s not found.', objectId);
             return;
         }
         const obj = this.viewModelObjects.get(objectId);
+        dCanvasVM('Existing object %s state: %o', objectId, obj);
         const newAppearance = { ...(obj.appearance || {}), ...(updatedProps.appearance || {}) };
         const newData = { ...(obj.data || {}), ...(updatedProps.data || {}) };
         const newScripts = { ...(obj.scripts || {}), ...(updatedProps.scripts || {}) };
 
-        this.viewModelObjects.set(objectId, {
+        const finalUpdatedObject = {
             ...obj,
             ...updatedProps,
             appearance: newAppearance,
             data: newData,
             scripts: newScripts
-        });
+        };
+        this.viewModelObjects.set(objectId, finalUpdatedObject);
+        dCanvasVM('Object %s updated in viewModelObjects. New state: %o', objectId, finalUpdatedObject);
 
         if (updatedProps.appearance && updatedProps.appearance.imageUrl) {
+            dCanvasVM('Updated object %s has new imageUrl, calling loadImage: %s', objectId, updatedProps.appearance.imageUrl);
             this.loadImage(updatedProps.appearance.imageUrl, updatedProps.appearance.imageUrl);
         } else if (updatedProps.appearance && updatedProps.appearance.imageUrl === '') {
+            dCanvasVM('Updated object %s has imageUrl cleared, calling loadImage with null.', objectId);
             this.loadImage(null, obj.appearance?.imageUrl);
         }
     }
@@ -193,11 +217,14 @@ class CanvasViewModel {
      * @param {string} objectId - The ID of the object to remove.
      */
     removeObjectFromViewModel(objectId) {
+        dCanvasVM('removeObjectFromViewModel called for objectId: %s', objectId);
         if (!this.viewModelObjects.has(objectId)) {
-            console.warn(`[CanvasViewModel] removeObjectFromViewModel: Object ID ${objectId} not found in ViewModel.`);
+            log.warn(`[CanvasViewModel] removeObjectFromViewModel: Object ID ${objectId} not found in ViewModel.`);
+            dCanvasVM('removeObjectFromViewModel warning: Object ID %s not found.', objectId);
             return;
         }
         this.viewModelObjects.delete(objectId);
+        dCanvasVM('Object %s removed from viewModelObjects.', objectId);
     }
 
     /**
@@ -206,11 +233,14 @@ class CanvasViewModel {
      * @param {{panX: number, panY: number, zoom: number}} panZoomState - The new pan and zoom state.
      */
     setPanZoomInViewModel(panZoomState) {
+        dCanvasVM('setPanZoomInViewModel called with panZoomState: %o', panZoomState);
         if (!panZoomState) {
-            console.error('[CanvasViewModel] setPanZoomInViewModel: panZoomState is undefined.');
+            log.error('[CanvasViewModel] setPanZoomInViewModel: panZoomState is undefined.');
+            dCanvasVM('setPanZoomInViewModel error: panZoomState is undefined.');
             return;
         }
         this.viewModelPanZoom = { ...panZoomState };
+        dCanvasVM('viewModelPanZoom updated: %o', this.viewModelPanZoom);
     }
     
     /**
@@ -222,21 +252,28 @@ class CanvasViewModel {
      * @param {number} [zoom] - The new zoom value.
      */
     locallyUpdatePanZoom(panX, panY, zoom) {
+        dCanvasVM('locallyUpdatePanZoom called. panX: %s, panY: %s, zoom: %s', panX, panY, zoom);
         let changed = false;
         if (panX !== undefined && this.viewModelPanZoom.panX !== panX) {
             this.viewModelPanZoom.panX = panX;
             changed = true;
+            dCanvasVM('Local panX updated to: %s', panX);
         }
         if (panY !== undefined && this.viewModelPanZoom.panY !== panY) {
             this.viewModelPanZoom.panY = panY;
             changed = true;
+            dCanvasVM('Local panY updated to: %s', panY);
         }
         if (zoom !== undefined && this.viewModelPanZoom.zoom !== zoom) {
             this.viewModelPanZoom.zoom = zoom;
             changed = true;
+            dCanvasVM('Local zoom updated to: %s', zoom);
         }
         if (changed) {
+            dCanvasVM('Local pan/zoom changed, calling onDrawNeededCallback.');
             this.onDrawNeededCallback();
+        } else {
+            dCanvasVM('Local pan/zoom did not change.');
         }
     }
 
@@ -249,11 +286,17 @@ class CanvasViewModel {
      * @param {number} y - The new y-coordinate.
      */
     locallyUpdateObjectPosition(objectId, x, y) {
+        dCanvasVM('locallyUpdateObjectPosition called for objectId: %s, x: %s, y: %s', objectId, x, y);
         const obj = this.viewModelObjects.get(objectId);
         if (obj && (obj.x !== x || obj.y !== y)) {
             obj.x = x;
             obj.y = y;
+            dCanvasVM('Local position of object %s updated to x: %s, y: %s. Calling onDrawNeededCallback.', objectId, x, y);
             this.onDrawNeededCallback();
+        } else if (obj) {
+            dCanvasVM('Local position of object %s not changed.', objectId);
+        } else {
+            dCanvasVM('locallyUpdateObjectPosition: Object %s not found.', objectId);
         }
     }
 
@@ -264,12 +307,16 @@ class CanvasViewModel {
      * @param {{type: 'color' | 'image', value: string}} backgroundState - The new background state.
      */
     setBackgroundInViewModel(backgroundState) {
+        dCanvasVM('setBackgroundInViewModel called with backgroundState: %o', backgroundState);
         if (!backgroundState) {
-            console.error('[CanvasViewModel] setBackgroundInViewModel: backgroundState is undefined.');
+            log.error('[CanvasViewModel] setBackgroundInViewModel: backgroundState is undefined.');
+            dCanvasVM('setBackgroundInViewModel error: backgroundState is undefined.');
             return;
         }
         this.viewModelTableBackground = { ...backgroundState };
+        dCanvasVM('viewModelTableBackground updated: %o', this.viewModelTableBackground);
         if (backgroundState.type === 'image' && backgroundState.value) {
+            dCanvasVM('Background type is image, calling loadImage for URL: %s', backgroundState.value);
             this.loadImage(backgroundState.value, backgroundState.value);
         }
     }
@@ -280,7 +327,9 @@ class CanvasViewModel {
      * @param {string | null} selectedId - The ID of the selected object, or null.
      */
     setSelectedObjectInViewModel(selectedId) {
+        dCanvasVM('setSelectedObjectInViewModel called with selectedId: %s', selectedId);
         this.viewModelSelectedObjectId = selectedId;
+        dCanvasVM('viewModelSelectedObjectId updated to: %s', this.viewModelSelectedObjectId);
     }
 
     /**
@@ -289,11 +338,14 @@ class CanvasViewModel {
      * @param {object} boardProps - The new board properties.
      */
     setBoardPropertiesInViewModel(boardProps) {
+        dCanvasVM('setBoardPropertiesInViewModel called with boardProps: %o', boardProps);
         if (!boardProps) {
-            console.error('[CanvasViewModel] setBoardPropertiesInViewModel: boardProps is undefined.');
+            log.error('[CanvasViewModel] setBoardPropertiesInViewModel: boardProps is undefined.');
+            dCanvasVM('setBoardPropertiesInViewModel error: boardProps is undefined.');
             return;
         }
         this.viewModelBoardProperties = { ...boardProps };
+        dCanvasVM('viewModelBoardProperties updated: %o', this.viewModelBoardProperties);
     }
 
     /**
@@ -301,7 +353,9 @@ class CanvasViewModel {
      * Typically called when an 'allObjectsCleared' model event occurs.
      */
     clearAllViewModelObjects() {
+        dCanvasVM('clearAllViewModelObjects called');
         this.viewModelObjects.clear();
+        dCanvasVM('viewModelObjects map cleared.');
         // console.log('[CanvasViewModel] All viewModel objects cleared.'); // Removed for cleaner logs
     }
 
@@ -316,42 +370,62 @@ class CanvasViewModel {
      * @param {string} cacheKey - The key to use for caching this image (often the same as the URL).
      */
     loadImage(url, cacheKey) { // Removed callback, will use this.onDrawNeededCallback
+        dCanvasVM('loadImage called. URL: %s, CacheKey: %s', url, cacheKey);
         if (!url) {
             if (this.loadedImages.has(cacheKey)) {
+                dCanvasVM('URL is null/empty, removing image from cache for key: %s', cacheKey);
                 this.loadedImages.delete(cacheKey);
-                if (this.onDrawNeededCallback) this.onDrawNeededCallback();
+                if (this.onDrawNeededCallback) {
+                    dCanvasVM('Calling onDrawNeededCallback after removing image from cache.');
+                    this.onDrawNeededCallback();
+                }
+            } else {
+                dCanvasVM('URL is null/empty, image not in cache for key: %s. No action.', cacheKey);
             }
             return;
         }
         const existingImage = this.loadedImages.get(cacheKey);
         if (existingImage && existingImage.status === 'loaded') {
+            dCanvasVM('Image %s already loaded and in cache. Status: %s. Triggering redraw.', cacheKey, existingImage.status);
             if (this.onDrawNeededCallback) this.onDrawNeededCallback();
             return;
         }
         if (existingImage && existingImage.status === 'loading') {
+            dCanvasVM('Image %s is currently loading. Status: %s. No action.', cacheKey, existingImage.status);
             return;
         }
 
+        dCanvasVM('Loading image: %s. Setting status to "loading" for cacheKey: %s', url, cacheKey);
         this.loadedImages.set(cacheKey, { img: null, status: 'loading' });
         const image = new Image();
         image.crossOrigin = 'Anonymous';
         image.onload = () => {
+            dCanvasVM('Successfully loaded image: %s. CacheKey: %s. Status set to "loaded".', url, cacheKey);
             this.loadedImages.set(cacheKey, { img: image, status: 'loaded' });
             // console.log(`Successfully loaded image. Key: ${cacheKey}`); // Removed for cleaner logs
-            if (this.onDrawNeededCallback) this.onDrawNeededCallback();
+            if (this.onDrawNeededCallback) {
+                dCanvasVM('Calling onDrawNeededCallback after image load success.');
+                this.onDrawNeededCallback();
+            }
         };
         image.onerror = (err) => {
+            log.error(`[CanvasViewModel] Error loading image: ${url}`, err);
+            dCanvasVM('Error loading image: %s. CacheKey: %s. Status set to "error". Error: %o', url, cacheKey, err);
             this.loadedImages.set(cacheKey, { img: null, status: 'error' });
-            if (url.startsWith('data:image/')) {
-                console.error(`[CanvasViewModel] loadImage: Error loading data URI. Key: ${cacheKey}`, err);
+            if (url.startsWith('data:image/')) { // This log is already specific enough
+                // log.error(`[CanvasViewModel] loadImage: Error loading data URI. Key: ${cacheKey}`, err);
             } else {
-                console.error(`[CanvasViewModel] Error loading image: ${url}`, err);
+                // log.error(`[CanvasViewModel] Error loading image: ${url}`, err);
             }
-            if (this.onDrawNeededCallback) this.onDrawNeededCallback();
+            if (this.onDrawNeededCallback) {
+                dCanvasVM('Calling onDrawNeededCallback after image load error.');
+                this.onDrawNeededCallback();
+            }
             const errorMsg = `Failed to load image: ${url.substring(0, 100)}${url.length > 100 ? '...' : ''}`;
             this.displayMessageFn(errorMsg, 'error');
         };
         image.src = url;
+        dCanvasVM('Image src set to: %s', url);
     }
 
     // --- Coordinate Conversion & Object Picking ---
@@ -363,13 +437,17 @@ class CanvasViewModel {
      * @returns {{x: number, y: number}} The mouse coordinates in world space.
      */
     getMousePositionOnCanvas(event, canvas) { // canvas element needed for offset calculation
-        if (!canvas) return { x: 0, y: 0 };
+        if (!canvas) {
+            dCanvasVM('getMousePositionOnCanvas: canvas element not provided, returning {0,0}');
+            return { x: 0, y: 0 };
+        }
 
         const { panX, panY, zoom } = this.viewModelPanZoom;
         const screenX = event.offsetX;
         const screenY = event.offsetY;
         const worldX = (screenX - panX) / zoom;
         const worldY = (screenY - panY) / zoom;
+        // dCanvasVM('getMousePositionOnCanvas: Screen (%f, %f) -> World (%f, %f) with Pan (%f, %f) Zoom (%f)', screenX, screenY, worldX, worldY, panX, panY, zoom);
         return { x: worldX, y: worldY };
     }
 
@@ -382,25 +460,32 @@ class CanvasViewModel {
      * @returns {string | null} The ID of the topmost object at the given coordinates, or null if no object is found.
      */
     getObjectAtPosition(worldX, worldY) {
+        // This can be very noisy, enable if specifically debugging picking
+        // dCanvasVM('getObjectAtPosition called with worldX: %f, worldY: %f', worldX, worldY);
         if (typeof worldX !== 'number' || isNaN(worldX) || typeof worldY !== 'number' || isNaN(worldY)) {
-            console.error('[CanvasViewModel] getObjectAtPosition: Invalid worldX or worldY input', { worldX, worldY });
+            log.error('[CanvasViewModel] getObjectAtPosition: Invalid worldX or worldY input', { worldX, worldY });
+            dCanvasVM('getObjectAtPosition error: Invalid worldX or worldY. worldX: %s, worldY: %s', worldX, worldY);
             return null;
         }
         if (!(this.viewModelObjects instanceof Map)) {
-            console.error('[CanvasViewModel] getObjectAtPosition: viewModelObjects is not a Map', this.viewModelObjects);
+            log.error('[CanvasViewModel] getObjectAtPosition: viewModelObjects is not a Map', this.viewModelObjects);
+            dCanvasVM('getObjectAtPosition error: viewModelObjects is not a Map. Value: %o', this.viewModelObjects);
             return null;
         }
 
         const sortedObjects = Array.from(this.viewModelObjects.values()).sort(
             (a, b) => (b.zIndex || 0) - (a.zIndex || 0)
         );
+        // dCanvasVM('Sorted objects for picking: %o', sortedObjects.map(o => ({id: o.id, zIndex: o.zIndex})));
 
         for (const obj of sortedObjects) {
             if (!obj || typeof obj !== 'object') {
-                console.warn('[CanvasViewModel] getObjectAtPosition: Encountered invalid object', obj);
+                log.warn('[CanvasViewModel] getObjectAtPosition: Encountered invalid object', obj);
+                dCanvasVM('getObjectAtPosition warning: Encountered invalid object in sorted list: %o', obj);
                 continue;
             }
             const { id, shape } = obj;
+            // dCanvasVM('Checking object %s (%s) for picking', id, shape);
             const x = parseFloat(obj.x);
             const y = parseFloat(obj.y);
             const width = parseFloat(obj.width);
@@ -408,11 +493,11 @@ class CanvasViewModel {
             let rotation = parseFloat(obj.rotation);
 
             if (isNaN(x) || isNaN(y) || isNaN(width) || isNaN(height)) {
-                console.warn('[CanvasViewModel] getObjectAtPosition: Object with id', id, 'has invalid coords/dims.', { x, y, width, height });
+                log.warn('[CanvasViewModel] getObjectAtPosition: Object with id', id, 'has invalid coords/dims.', { x, y, width, height });
                 continue;
             }
             if (width <= 0 || height <= 0) {
-                 console.warn('[CanvasViewModel] getObjectAtPosition: Object with id', id, 'has non-positive size.', {width,height});
+                 log.warn('[CanvasViewModel] getObjectAtPosition: Object with id', id, 'has non-positive size.', {width,height});
                 continue;
             }
             if (isNaN(rotation)) {

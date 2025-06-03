@@ -5,6 +5,10 @@
  * and a generic selection modal for lists of choices.
  * It interacts with UiViewModel to be shown and to report user actions.
  */
+import log from 'loglevel'; // For general logging (errors, warnings)
+import debug from 'debug';   // For verbose, development-specific logging
+
+const dModal = debug('app:view:modal');
 
 /** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
@@ -24,6 +28,7 @@ const domElements = {
  * Caches references to the core modal DOM elements.
  */
 const cacheDOMElements = () => {
+    dModal('Caching DOM elements for modal view.');
     domElements.modalContainer = document.getElementById('modal-container');
     domElements.modalTitle = document.getElementById('modal-title');
     domElements.modalContent = document.getElementById('modal-content');
@@ -42,8 +47,10 @@ const cacheDOMElements = () => {
  *        - `preventHide`: Optional boolean. If true, modal won't hide automatically after `onClickCallback`.
  */
 const showModal = (title, contentHtml, buttonsArray = [{ text: 'OK', type: 'primary' }]) => {
+    dModal('showModal called. Title: "%s", Buttons: %o', title, buttonsArray);
     if (!domElements.modalContainer) {
-        console.error('[modalView.js] Modal container not cached/found.');
+        log.error('[modalView.js] Modal container not cached/found.');
+        dModal('showModal error: Modal container DOM element not found.');
         return;
     }
 
@@ -72,18 +79,24 @@ const showModal = (title, contentHtml, buttonsArray = [{ text: 'OK', type: 'prim
         domElements.modalButtons.appendChild(button);
     });
     domElements.modalContainer.classList.remove('hidden');
+    dModal('Modal "%s" is now visible.', title);
 };
 
 /**
  * Hides the modal dialog and clears its content and buttons.
  */
 const hideModal = () => {
-    if (!domElements.modalContainer) return;
+  if (!domElements.modalContainer) {
+    dModal('hideModal: Modal container not found. Cannot hide.');
+    return;
+  }
     domElements.modalContainer.classList.add('hidden');
+  dModal('Modal hidden.');
     // Clear content for next use
     domElements.modalTitle.textContent = '';
     domElements.modalContent.innerHTML = '';
     domElements.modalButtons.innerHTML = '';
+  dModal('Modal content cleared.');
 };
 
 /**
@@ -93,11 +106,15 @@ const hideModal = () => {
  * This function is typically invoked as a callback when UiViewModel requests it.
  */
 const displayCreateObjectModal = () => {
+    dModal('displayCreateObjectModal called.');
     if (!uiViewModelInstance) {
-        console.error('[modalView.js] UiViewModel not available for create object modal.');
+        log.error('[modalView.js] UiViewModel not available for create object modal.');
+        dModal('displayCreateObjectModal error: UiViewModel not available.');
         return;
     }
     // Form HTML for creating an object. Includes basic fields and inline styles for simplicity.
+    // Note: Using inline <style> here is generally not recommended for larger applications,
+    // but acceptable for a self-contained modal example. Consider moving to a CSS file.
     const modalContentHtml = `
       <style>
         .modal-label { display: block; margin-bottom: 0.25rem; font-size: 0.875rem; color: #E2E8F0; }
@@ -131,16 +148,20 @@ const displayCreateObjectModal = () => {
                     appearance: { backgroundColor: document.getElementById('create-obj-bgcolor').value },
                 };
                 // Instead of dispatching event, call UiViewModel directly
+                dModal('Create Object modal: "Create" button clicked. Shape: %s, Props: %o', shape, props);
                 if (uiViewModelInstance.createObject) {
                     uiViewModelInstance.createObject(shape, props);
+                    dModal('Called uiViewModelInstance.createObject.');
                 } else {
-                     console.error('[modalView.js] createObject method not found on UiViewModel.');
+                     log.error('[modalView.js] createObject method not found on UiViewModel.');
+                     dModal('displayCreateObjectModal error: createObject method not found on UiViewModel.');
                 }
             },
         },
-        { text: 'Cancel', type: 'secondary' },
+        { text: 'Cancel', type: 'secondary', onClickCallback: () => dModal('Create Object modal: "Cancel" button clicked.') },
     ];
     showModal('Create New Object', modalContentHtml, buttonsArray);
+    dModal('Create New Object modal displayed.');
 };
 
 /**
@@ -161,28 +182,37 @@ const getModalContentElement = () => {
  * @param {UiViewModel} uiViewModel - The UiViewModel instance.
  */
 export const init = (uiViewModel) => {
+    dModal('Initializing modalView with uiViewModel: %o', uiViewModel);
     uiViewModelInstance = uiViewModel;
     if (!uiViewModelInstance) {
-        console.error('[modalView.js] UiViewModel not provided during init!');
+        log.error('[modalView.js] UiViewModel not provided during init!');
+        dModal('Error: UiViewModel not provided during init.');
         return;
     }
+    dModal('UiViewModel instance stored.');
     
     cacheDOMElements();
+    dModal('DOM elements cached.');
 
     // Register a handler for when UiViewModel requests the "Create Object" modal
     if (uiViewModelInstance.onCreateObjectModalRequested) {
         uiViewModelInstance.onCreateObjectModalRequested(displayCreateObjectModal);
+        dModal('Registered displayCreateObjectModal with uiViewModelInstance.onCreateObjectModalRequested.');
     } else {
-        console.warn('[modalView.js] onCreateObjectModalRequested callback registration not found on UiViewModel.');
+        log.warn('[modalView.js] onCreateObjectModalRequested callback registration not found on UiViewModel.');
+        dModal('Warning: onCreateObjectModalRequested callback registration not found on UiViewModel.');
     }
 
     // Register handler for generic selection modal (e.g., for loading memory states)
     if (uiViewModelInstance.onShowSelectionModalRequested) {
         uiViewModelInstance.onShowSelectionModalRequested(showSelectionModal);
+        dModal('Registered showSelectionModal with uiViewModelInstance.onShowSelectionModalRequested.');
     } else {
-        console.warn('[modalView.js] onShowSelectionModalRequested callback registration not found on UiViewModel.');
+        log.warn('[modalView.js] onShowSelectionModalRequested callback registration not found on UiViewModel.');
+        dModal('Warning: onShowSelectionModalRequested callback registration not found on UiViewModel.');
     }
-    // console.log('[modalView.js] Initialized.'); // Already commented out
+    log.debug('[modalView.js] Initialized.'); // This log.debug is fine as a general module init message
+    dModal('modalView initialization complete.');
 };
 
 /**
@@ -195,13 +225,17 @@ export const init = (uiViewModel) => {
  *        It receives the `id` of the selected choice, or `null` if cancelled.
  */
 const showSelectionModal = (title, choices, onSelectionCallback) => {
+    dModal('showSelectionModal called. Title: "%s", Choices count: %d', title, choices.length);
     if (!domElements.modalContainer) {
-        console.error('[modalView.js] Modal container not cached/found.');
+        log.error('[modalView.js] Modal container not cached/found.');
+        dModal('showSelectionModal error: Modal container DOM element not found.');
         if (onSelectionCallback) onSelectionCallback(null); // Indicate failure/cancellation
         return;
     }
 
     // Dynamically create HTML for choice buttons
+    // Note: Consider security implications if 'text' or 'id' in choices can come from untrusted user input.
+    // Here, we assume they are from trusted sources (e.g., session management names, predefined list).
     let contentHtml = '<div class="flex flex-col space-y-2">';
     choices.forEach(choice => {
         // Ensure text and id are treated as strings and properly escaped for HTML attributes/content if necessary.
@@ -217,36 +251,46 @@ const showSelectionModal = (title, choices, onSelectionCallback) => {
             text: 'Cancel',
             type: 'secondary',
             onClickCallback: () => {
+                dModal('Selection modal: "Cancel" button clicked.');
                 if (onSelectionCallback) onSelectionCallback(null);
             }
         }
     ];
 
     showModal(title, contentHtml, buttonsArray);
+    dModal('Selection modal "%s" displayed.', title);
 
     // Add event listeners to the newly created choice buttons
     // These listeners are added *after* showModal populates modalContent
     if (domElements.modalContent) {
         const choiceButtons = domElements.modalContent.querySelectorAll('.modal-choice-button');
+        dModal('Found %d choice buttons to add listeners to.', choiceButtons.length);
         choiceButtons.forEach(button => {
             // Important: Clone and replace to remove any old listeners from potentially reused button elements
             // if modalContent isn't perfectly cleared or buttons have generic classes that might persist.
             // However, standard addEventListener should be fine if buttons are freshly created by innerHTML.
-            const newButton = button.cloneNode(true); // Simple way to remove listeners
-            button.parentNode.replaceChild(newButton, button);
+            const newButton = button.cloneNode(true); // Simple way to remove listeners if cloning strategy is used
+            button.parentNode.replaceChild(newButton, button); // Replace old button with new one
 
             newButton.addEventListener('click', () => {
                 const selectedId = newButton.getAttribute('data-id');
+                dModal('Choice button clicked. Selected ID (data-id): %s', selectedId);
                 // The `id` from `choices` could be an index (number) or a string ID.
                 // The `onSelectionCallback` in UiViewModel expects the original index for getMemoryStateByIndex.
                 // So, if `choice.id` was set to the index, this should work.
                 // If `choice.id` was a string, the callback needs to handle that.
                 // For `requestLoadMemoryState`, `choice.id` is the index.
                 const numericId = parseInt(selectedId, 10); // Assuming id is the index
-                if (onSelectionCallback) onSelectionCallback(isNaN(numericId) ? selectedId : numericId);
+                if (onSelectionCallback) {
+                    const idToReturn = isNaN(numericId) ? selectedId : numericId;
+                    dModal('Calling onSelectionCallback with ID: %s (type: %s)', idToReturn, typeof idToReturn);
+                    onSelectionCallback(idToReturn);
+                }
                 hideModal();
             });
         });
+    } else {
+        dModal('showSelectionModal warning: modalContent DOM element not found after showModal. Cannot add choice button listeners.');
     }
 };
 

@@ -32,7 +32,10 @@
     "vite": "^5.4.19"
   },
   "dependencies": {
-    "firebase": "^11.8.1"
+    "firebase": "^11.8.1",
+    "loglevel": "^1.9.1",
+    "debug": "^4.3.5",
+    "dotenv": "^16.4.5"
   },
   "engines": {
     "node": ">=22.0.0"

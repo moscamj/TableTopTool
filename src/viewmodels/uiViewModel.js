@@ -1,5 +1,9 @@
 // src/viewmodels/uiViewModel.js
+import log from 'loglevel';
+import debug from 'debug';
 import * as sessionManagement from '../session_management.js';
+
+const dUiVM = debug('app:vm:ui');
 
 /**
  * Manages the state and logic for the main user interface, excluding the canvas.
@@ -13,6 +17,7 @@ class UiViewModel {
      * Creates an instance of UiViewModel.
      */
     constructor() {
+        dUiVM('UiViewModel constructor called');
         /** @type {object | null} Reference to the VTT_API instance. Set via init(). */
         this.vttApi = null; // To be set during init
 
@@ -42,22 +47,28 @@ class UiViewModel {
      * @param {object} vttApi - The VTT_API instance.
      */
     init(vttApi) {
+        dUiVM('init called with vttApi: %o', vttApi);
         this.vttApi = vttApi;
         if (!this.vttApi) {
-            console.error('[UiViewModel] VTT_API not provided during init!');
+            log.error('[UiViewModel] VTT_API not provided during init!');
+            dUiVM('init error: VTT_API not provided.');
             return;
         }
         // Listen for model changes directly
         document.addEventListener('modelChanged', this._handleModelChange.bind(this));
-        // console.log('[UiViewModel] Initialized and listening for modelChanged events.'); // Removed for cleaner logs
+        dUiVM('modelChanged event listener added.');
+        // log.debug('[UiViewModel] Initialized and listening for modelChanged events.'); // Removed for cleaner logs
 
         // Initialize with current state from the model
         this.boardProperties = this.vttApi.getBoardProperties() || {};
+        dUiVM('Initial boardProperties set: %o', this.boardProperties);
         const selectedId = this.vttApi.getSelectedObjectId();
         if (selectedId) {
             this.inspectorData = this.vttApi.getObject(selectedId);
+            dUiVM('Initial inspectorData set for selectedId %s: %o', selectedId, this.inspectorData);
         } else {
             this.inspectorData = null;
+            dUiVM('No object initially selected, inspectorData is null.');
         }
     }
 
@@ -68,14 +79,18 @@ class UiViewModel {
      * @param {string} [objectName='object'] - The user-friendly name of the object, for messages.
      */
     requestObjectDelete(objectId, objectName = 'object') {
+        dUiVM('requestObjectDelete called for objectId: %s, objectName: %s', objectId, objectName);
         if (!this.vttApi || !objectId) {
+            dUiVM('requestObjectDelete error: API or Object ID missing. API: %o, ID: %s', this.vttApi, objectId);
             this.displayMessage('Cannot delete object: API or Object ID missing.', 'error');
             return;
         }
         const success = this.vttApi.deleteObject(objectId);
         if (success) {
+            dUiVM('Object %s successfully deleted via API.', objectId);
             this.displayMessage(`Object "${objectName}" deleted.`, 'success');
         } else {
+            dUiVM('Failed to delete object %s via API.', objectId);
             this.displayMessage(`Failed to delete object "${objectName}". It might have been already deleted.`, 'error');
         }
     }
@@ -151,43 +166,57 @@ class UiViewModel {
      * @private
      */
     _handleModelChange(event) {
-        if (!event.detail || !this.vttApi) return;
+        dUiVM('_handleModelChange called with event: %o', event);
+        if (!event.detail || !this.vttApi) {
+            dUiVM('_handleModelChange: Event detail or VTT API missing. Detail: %o, API: %o', event.detail, this.vttApi);
+            return;
+        }
 
         const { type, payload } = event.detail;
+        dUiVM('Model changed: type=%s, payload=%o', type, payload);
         let refreshInspector = false;
         let refreshBoardSettings = false;
 
         switch (type) {
             case 'selectionChanged':
                 this.inspectorData = payload ? this.vttApi.getObject(payload) : null;
+                dUiVM('Selection changed. New inspectorData: %o', this.inspectorData);
                 refreshInspector = true;
                 break;
             case 'objectUpdated':
                 if (this.inspectorData && payload && this.inspectorData.id === payload.id) {
                     this.inspectorData = this.vttApi.getObject(payload.id); // Get the full updated object
+                    dUiVM('Currently inspected object %s updated. New inspectorData: %o', payload.id, this.inspectorData);
                     refreshInspector = true;
                 }
                 break;
             case 'objectDeleted':
                 if (this.inspectorData && payload && this.inspectorData.id === payload.id) {
                     this.inspectorData = null;
+                    dUiVM('Currently inspected object %s deleted. InspectorData set to null.', payload.id);
                     refreshInspector = true;
                 }
                 break;
             case 'allObjectsCleared':
                 this.inspectorData = null;
+                dUiVM('All objects cleared. InspectorData set to null.');
                 refreshInspector = true;
                 break;
             case 'boardPropertiesChanged':
                 this.boardProperties = { ...payload };
+                dUiVM('Board properties changed. New boardProperties: %o', this.boardProperties);
                 refreshBoardSettings = true;
                 break;
+            default:
+                dUiVM('Unhandled model change type in UiViewModel: %s', type);
         }
 
         if (refreshInspector && typeof this._onInspectorDataChanged === 'function') {
+            dUiVM('Inspector needs refresh, calling _onInspectorDataChanged.');
             this._onInspectorDataChanged(this.inspectorData);
         }
         if (refreshBoardSettings && typeof this._onBoardSettingsChanged === 'function') {
+            dUiVM('Board settings need refresh, calling _onBoardSettingsChanged.');
             this._onBoardSettingsChanged(this.boardProperties);
         }
     }
@@ -201,13 +230,19 @@ class UiViewModel {
      * @param {object} inspectorSnapshot - An object containing all properties from the inspector form.
      */
     applyInspectorChanges(objectId, inspectorSnapshot) {
-        if (!this.vttApi) return;
+        dUiVM('applyInspectorChanges called for objectId: %s, snapshot: %o', objectId, inspectorSnapshot);
+        if (!this.vttApi) {
+            dUiVM('applyInspectorChanges error: VTT API not available.');
+            return;
+        }
         try {
             const currentObject = this.vttApi.getObject(objectId);
             if (!currentObject) {
+                dUiVM('applyInspectorChanges error: Object %s not found.', objectId);
                 this.displayMessage(`Object with ID ${objectId} not found. Cannot apply changes.`, 'error');
                 return;
             }
+            dUiVM('Current state of object %s: %o', objectId, currentObject);
 
             // Prepare updatePayload by comparing snapshot with currentObject and only including changes
             // This is a simplified version; a more robust diffing or specific property mapping might be needed.
@@ -219,9 +254,13 @@ class UiViewModel {
                     // Special handling for numeric types that might come as strings from input fields
                     if (['x', 'y', 'width', 'height', 'rotation', 'zIndex'].includes(key)) {
                         const numVal = parseFloat(inspectorSnapshot[key]);
-                        if (!isNaN(numVal)) updatePayload[key] = numVal;
+                        if (!isNaN(numVal)) {
+                            updatePayload[key] = numVal;
+                            dUiVM('Inspector change detected for %s: %s -> %s (numeric)', key, currentObject[key], numVal);
+                        }
                     } else {
                         updatePayload[key] = inspectorSnapshot[key];
+                        dUiVM('Inspector change detected for %s: %s -> %s', key, currentObject[key], inspectorSnapshot[key]);
                     }
                 }
             });
@@ -234,13 +273,19 @@ class UiViewModel {
                     if (inspectorSnapshot.appearance.hasOwnProperty(key) && inspectorSnapshot.appearance[key] !== currentAppearance[key]) {
                          // Handle boolean for showLabel
                         if (key === 'showLabel') {
-                            updatePayload.appearance[key] = inspectorSnapshot.appearance[key] === true || inspectorSnapshot.appearance[key] === 'true';
+                            const boolVal = inspectorSnapshot.appearance[key] === true || inspectorSnapshot.appearance[key] === 'true';
+                            updatePayload.appearance[key] = boolVal;
+                            dUiVM('Inspector change detected for appearance.%s: %s -> %s (boolean)', key, currentAppearance[key], boolVal);
                         } else if (key === 'borderWidth' || key === 'fontSize') {
                             const numVal = parseFloat(inspectorSnapshot.appearance[key]);
-                            if(!isNaN(numVal)) updatePayload.appearance[key] = numVal;
+                            if(!isNaN(numVal)) {
+                                updatePayload.appearance[key] = numVal;
+                                dUiVM('Inspector change detected for appearance.%s: %s -> %s (numeric)', key, currentAppearance[key], numVal);
+                            }
                         }
                         else {
                             updatePayload.appearance[key] = inspectorSnapshot.appearance[key];
+                            dUiVM('Inspector change detected for appearance.%s: %s -> %s', key, currentAppearance[key], inspectorSnapshot.appearance[key]);
                         }
                     }
                 }
@@ -256,6 +301,7 @@ class UiViewModel {
                 for (const key in inspectorSnapshot.scripts) {
                     if(inspectorSnapshot.scripts.hasOwnProperty(key) && inspectorSnapshot.scripts[key] !== currentScripts[key]) {
                         updatePayload.scripts[key] = inspectorSnapshot.scripts[key];
+                        dUiVM('Inspector change detected for scripts.%s', key);
                     }
                 }
                 if (Object.keys(updatePayload.scripts).length === 0) {
@@ -263,16 +309,19 @@ class UiViewModel {
                 }
             }
 
-
+            dUiVM('Final updatePayload for object %s: %o', objectId, updatePayload);
             if (Object.keys(updatePayload).length > 0) {
                 this.vttApi.updateObject(objectId, updatePayload);
                 this.displayMessage(`Object ${objectId} updated.`, 'success', 1500);
+                dUiVM('Object %s updated via API.', objectId);
             } else {
                 this.displayMessage(`No changes detected for object ${objectId}.`, 'info', 1500);
+                dUiVM('No changes detected for object %s. No API call made.', objectId);
             }
 
         } catch (error) {
-            console.error('[UiViewModel] Error applying inspector changes:', error);
+            log.error('[UiViewModel] Error applying inspector changes:', error);
+            dUiVM('Error applying inspector changes for object %s: %o', objectId, error);
             this.displayMessage(`Error applying changes: ${error.message}`, 'error');
         }
     }
@@ -283,11 +332,17 @@ class UiViewModel {
      * @param {string} objectId - The ID of the object to delete.
      */
     handleDeleteSelectedObject(objectId) { // This method seems unused. requestObjectDelete is used instead by inspectorView
-        if (!this.vttApi || !objectId) return;
+        dUiVM('handleDeleteSelectedObject called for objectId: %s (Note: generally unused)', objectId);
+        if (!this.vttApi || !objectId) {
+            dUiVM('handleDeleteSelectedObject error: API or Object ID missing. API: %o, ID: %s', this.vttApi, objectId);
+            return;
+        }
         const result = this.vttApi.deleteObject(objectId);
         if (result) {
+             dUiVM('Object %s deleted via handleDeleteSelectedObject.', objectId);
              this.displayMessage(`Object ${objectId} deleted.`, 'success', 1500);
         } else {
+             dUiVM('Failed to delete object %s via handleDeleteSelectedObject.', objectId);
              this.displayMessage(`Failed to delete object ${objectId}.`, 'error');
         }
     }
@@ -298,13 +353,19 @@ class UiViewModel {
      * Expected properties: `widthUser`, `heightUser`, `unitForDimensions`, `scaleRatio`, `unitForRatio`.
      */
     applyBoardSettings(newProps) {
-        if (!this.vttApi) return;
+        dUiVM('applyBoardSettings called with newProps: %o', newProps);
+        if (!this.vttApi) {
+            dUiVM('applyBoardSettings error: VTT API not available.');
+            return;
+        }
         // newProps should be validated or structured as expected by VTT_API.setBoardProperties
         // e.g., { widthUser, heightUser, unitForDimensions, scaleRatio, unitForRatio }
         const updatedProps = this.vttApi.setBoardProperties(newProps);
         if (updatedProps) {
+            dUiVM('Board settings updated via API. New props from API: %o', updatedProps);
             this.displayMessage('Board settings updated.', 'success', 1500);
         } else {
+            dUiVM('Failed to update board settings via API.');
             this.displayMessage('Failed to update board settings.', 'error');
         }
     }
@@ -316,11 +377,17 @@ class UiViewModel {
      * @returns {VTTObject | null} The newly created object, or null if creation failed.
      */
     createObject(shape, props = {}) {
-        if (!this.vttApi) return null;
+        dUiVM('createObject called with shape: %s, props: %o', shape, props);
+        if (!this.vttApi) {
+            dUiVM('createObject error: VTT API not available.');
+            return null;
+        }
         const newObj = this.vttApi.createObject(shape, props);
         if (newObj) {
+            dUiVM('Object created via API: %o', newObj);
             this.displayMessage(`${shape} object "${newObj.name}" created.`, 'success', 1500);
         } else {
+            dUiVM('Failed to create %s object via API.', shape);
             this.displayMessage(`Failed to create ${shape} object.`, 'error');
         }
         return newObj;
@@ -331,8 +398,13 @@ class UiViewModel {
      * @param {{type: 'color' | 'image', value: string}} backgroundProps - The background properties.
      */
     setTableBackground(backgroundProps) {
-        if (!this.vttApi) return;
+        dUiVM('setTableBackground called with backgroundProps: %o', backgroundProps);
+        if (!this.vttApi) {
+            dUiVM('setTableBackground error: VTT API not available.');
+            return;
+        }
         this.vttApi.setTableBackground(backgroundProps);
+        dUiVM('Table background updated via API.');
         this.displayMessage('Table background updated.', 'success', 1500);
     }
 
@@ -340,10 +412,13 @@ class UiViewModel {
      * Requests the display of the "Create Object" modal by invoking the registered callback.
      */
     requestCreateObjectModal() {
+        dUiVM('requestCreateObjectModal called.');
         if (typeof this._onCreateObjectModalRequested === 'function') {
             this._onCreateObjectModalRequested();
+            dUiVM('_onCreateObjectModalRequested callback invoked.');
         } else {
-            console.warn('[UiViewModel] Create object modal requested, but no handler registered.');
+            log.warn('[UiViewModel] Create object modal requested, but no handler registered.');
+            dUiVM('requestCreateObjectModal warning: _onCreateObjectModalRequested callback not registered.');
             this.displayMessage('Cannot open create object dialog.', 'error');
         }
     }
@@ -353,11 +428,14 @@ class UiViewModel {
      * This will trigger the _onDisplayMessage callback if a handler (e.g., messageAreaView) is registered.
      */
     displayMessage(text, type = 'info', duration = 3000) {
+        dUiVM('displayMessage called. Text: "%s", Type: %s, Duration: %dms', text, type, duration);
         if (typeof this._onDisplayMessage === 'function') {
             this._onDisplayMessage(text, type, duration);
+            dUiVM('_onDisplayMessage callback invoked.');
         } else {
             // Fallback if no message display handler is registered (e.g., during early init or if messageAreaView fails)
-            console.warn(`[UiViewModel] displayMessage called, but no handler registered. Message: ${type} - ${text}`);
+            log.warn(`[UiViewModel] displayMessage called, but no handler registered. Message: ${type} - ${text}`);
+            dUiVM('displayMessage warning: _onDisplayMessage callback not registered.');
             // alert(`${type.toUpperCase()}: ${text}`); // Avoid alert in ViewModel
         }
     }
@@ -371,12 +449,15 @@ class UiViewModel {
      * to display these states. If a state is selected, it's applied using `sessionManagement.applyMemoryState`.
      */
     requestLoadMemoryState() {
+        dUiVM('requestLoadMemoryState called.');
         const availableStates = sessionManagement.getAvailableMemoryStates();
+        dUiVM('Available memory states: %o', availableStates);
 
         if (!availableStates || availableStates.length === 0) {
             // displayMessage will be called by getAvailableMemoryStates if it's empty
             // or if it returns [] and we explicitly message here.
             // sessionManagement.getAvailableMemoryStates already calls displayMessage if empty.
+            dUiVM('No memory states available to load.');
             return;
         }
 
@@ -386,24 +467,31 @@ class UiViewModel {
                 id: index, // Use index as a simple ID for selection
                 text: state.name // Assumes state.name is what getAvailableMemoryStates provides
             }));
+            dUiVM('Requesting selection modal with title: "%s", choices: %o', modalTitle, choices);
 
             this._onShowSelectionModalRequested(modalTitle, choices, (selectedIndex) => {
+                dUiVM('Selection modal callback received with selectedIndex: %s', selectedIndex);
                 if (selectedIndex !== null && selectedIndex >= 0 && selectedIndex < availableStates.length) {
                     const stateToLoad = sessionManagement.getMemoryStateByIndex(selectedIndex);
                     if (stateToLoad) {
+                        dUiVM('State to load retrieved: %o. Applying memory state.', stateToLoad);
                         sessionManagement.applyMemoryState(stateToLoad);
                         // applyMemoryState in sessionManagement now handles success/error messages.
                     } else {
+                        dUiVM('Selected state index %s could not be retrieved.', selectedIndex);
                         this.displayMessage('Selected state could not be retrieved.', 'error');
                     }
                 } else if (selectedIndex !== null) { // Not null means a selection was made, but it was invalid (e.g. header clicked)
+                    dUiVM('Invalid selection from modal: %s', selectedIndex);
                     this.displayMessage('Invalid selection.', 'info');
                 } else { // Null means user cancelled (e.g. clicked cancel button or outside modal)
+                    dUiVM('Load from memory cancelled by user.');
                     this.displayMessage('Load from memory cancelled.', 'info');
                 }
             });
         } else {
-            console.error('[UiViewModel] _onShowSelectionModalRequested callback not registered. Cannot show memory states.');
+            log.error('[UiViewModel] _onShowSelectionModalRequested callback not registered. Cannot show memory states.');
+            dUiVM('requestLoadMemoryState error: _onShowSelectionModalRequested callback not registered.');
             this.displayMessage('Cannot display memory states: UI component not ready.', 'error');
         }
     }

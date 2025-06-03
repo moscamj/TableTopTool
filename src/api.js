@@ -1,6 +1,11 @@
 // src/api.js
+import log from 'loglevel';
+import debug from 'debug';
 import * as model from './model/model.js';
 // import * as uiView from './views/uiView.js'; // No longer needed here for showMessage
+
+const dApi = debug('app:api');
+dApi('api.js module loaded');
 
 let showMessageCallback = null;
 
@@ -10,10 +15,13 @@ let showMessageCallback = null;
  * @param {function(text: string, type: string, duration?: number): void} config.showMessage - Callback function to display messages to the user.
  */
 export function VTT_API_INIT(config) {
+    dApi('VTT_API_INIT called with config: %o', config);
     if (config && typeof config.showMessage === 'function') {
         showMessageCallback = config.showMessage;
+        dApi('showMessageCallback set');
     } else {
-        console.error('VTT_API_INIT: showMessage callback not provided or invalid.');
+        log.error('VTT_API_INIT: showMessage callback not provided or invalid.');
+        dApi('showMessageCallback NOT set due to invalid config');
     }
 }
 
@@ -33,8 +41,11 @@ export const VTT_API = {
    * @returns {VTTObject | undefined} A copy of the object, or undefined if not found.
    */
   getObject: (objectId, contextObject) => {
+    dApi('getObject called for id: %s, context: %o', objectId, contextObject);
     // model.getObject is expected to return a copy
-    return model.getObject(objectId);
+    const obj = model.getObject(objectId);
+    dApi('getObject returning: %o', obj);
+    return obj;
   },
 
   /**
@@ -44,10 +55,12 @@ export const VTT_API = {
    * @param {VTTObject} [contextObject] - The object whose script is currently executing.
    */
   updateObjectState: (objectId, newData, contextObject) => {
+    dApi('updateObjectState called for id: %s, newData: %o, context: %o', objectId, newData, contextObject);
     const obj = model.getObject(objectId); // model.getObject returns a copy
     if (obj) {
       // We are updating only the 'data' field here as per the spec.
       const updatedData = { ...obj.data, ...newData };
+      dApi('Updating object %s with merged data: %o', objectId, updatedData);
       model.updateObject(objectId, { data: updatedData });
 
       // If the update was on the contextObject itself, its reference might be stale.
@@ -56,8 +69,10 @@ export const VTT_API = {
       if (typeof showMessageCallback === 'function') {
           showMessageCallback(`Object ${objectId} updated by script.`, 'info', 1500); // Optional feedback
       }
+      dApi('updateObjectState completed for id: %s', objectId);
     } else {
-      console.warn(`[VTT_API.updateObjectState] Object ${objectId} not found.`);
+      log.warn(`[VTT_API.updateObjectState] Object ${objectId} not found.`);
+      dApi('updateObjectState failed: Object %s not found', objectId);
     }
   },
 
@@ -70,7 +85,8 @@ export const VTT_API = {
     const prefix = contextObject
       ? `[Script Log - ${contextObject.name || contextObject.id}]`
       : '[Script Log - Global]';
-    console.log(prefix, message);
+    log.info(prefix, message); // This is already a log, using loglevel.info
+    dApi('VTT_API.log called. Prefix: %s, Message: %o', prefix, message); // Added debug log
 
     // Optional: Display log message in the UI (can be verbose)
     // const uiMessage = typeof message === 'object' ? JSON.stringify(message) : String(message);
@@ -87,27 +103,33 @@ export const VTT_API = {
    * @returns {VTTObject | null} A copy of the newly created object, or null if creation failed.
    */
   createObject: (arg1, arg2) => { // arg1 can be shape (string) or full object props
+    dApi('createObject called with: %o, %o', arg1, arg2);
     let shape, initialProps;
     if (typeof arg1 === 'string' && (typeof arg2 === 'object' || arg2 === undefined)) { 
       // Called as VTT_API.createObject('rectangle', {x:10, ...}) or VTT_API.createObject('rectangle')
       shape = arg1;
       initialProps = arg2 || {}; // Ensure initialProps is an object
+      dApi('createObject: shape from string, initialProps: %o', initialProps);
     } else if (typeof arg1 === 'object' && arg2 === undefined) { 
       // Called as VTT_API.createObject({id:'id1', shape:'circle', ...})
       initialProps = arg1;
       shape = initialProps.shape; // Get shape from the object itself
+      dApi('createObject: shape from object, initialProps: %o', initialProps);
       if (!shape) {
-        console.error("VTT_API.createObject: Object argument missing 'shape' property.", arg1);
+        log.error("VTT_API.createObject: Object argument missing 'shape' property.", arg1);
+        dApi('createObject error: Object argument missing "shape" property. %o', arg1);
         return null; // Or throw error
       }
     } else {
-      console.error("VTT_API.createObject: Invalid arguments.", arg1, arg2);
+      log.error("VTT_API.createObject: Invalid arguments.", arg1, arg2);
+      dApi('createObject error: Invalid arguments. %o, %o', arg1, arg2);
       return null; // Or throw error
     }
     // model.createObject now expects (shapeArgument, initialProps)
     // initialProps contains the full object data if loaded from file, including its own shape.
     // shape (derived above) acts as shapeArgument for model.createObject.
-    const newObj = model.createObject(shape, initialProps); 
+    const newObj = model.createObject(shape, initialProps);
+    dApi('createObject: model.createObject returned: %o', newObj);
     // requestRedrawEvent(); // Removed: model.createObject now dispatches 'modelChanged' event
     return newObj;
   },
@@ -119,7 +141,9 @@ export const VTT_API = {
    * @returns {VTTObject | null} A copy of the updated object, or null if the object was not found or update failed.
    */
   updateObject: (objectId, updatedProps) => {
+    dApi('updateObject called for id: %s, updatedProps: %o', objectId, updatedProps);
     const updatedObj = model.updateObject(objectId, updatedProps);
+    dApi('updateObject: model.updateObject returned: %o', updatedObj);
     // requestRedrawEvent(); // Removed: model.updateObject should trigger 'modelChanged'
     return updatedObj;
   },
@@ -130,7 +154,9 @@ export const VTT_API = {
    * @returns {boolean} True if deletion was successful, false otherwise.
    */
   deleteObject: (objectId) => {
+    dApi('deleteObject called for id: %s', objectId);
     const result = model.deleteObject(objectId);
+    dApi('deleteObject: model.deleteObject returned: %s', result);
     // requestRedrawEvent(); // Removed: model.deleteObject should trigger 'modelChanged'
     return result;
   },
@@ -140,14 +166,19 @@ export const VTT_API = {
    * @returns {VTTObject[]} An array of object copies.
    */
   getAllObjects: () => {
-    return model.getAllObjects();
+    dApi('getAllObjects called');
+    const allObjects = model.getAllObjects();
+    dApi('getAllObjects returning %d objects.', allObjects.length);
+    return allObjects;
   },
 
   /**
    * Removes all objects from the canvas.
    */
   clearAllObjects: () => {
+    dApi('clearAllObjects called');
     model.clearAllObjects();
+    dApi('clearAllObjects: model.clearAllObjects executed');
     // requestRedrawEvent(); // Removed: model.clearAllObjects should trigger 'modelChanged'
   },
 
@@ -158,9 +189,11 @@ export const VTT_API = {
    * @param {string} backgroundProps.value - The color value (e.g., '#RRGGBB') or image URL.
    */
   setTableBackground: (backgroundProps) => {
+    dApi('setTableBackground called with: %o', backgroundProps);
     // model.setTableBackground will dispatch a modelChanged event,
     // which is handled by main.js to trigger a redraw event.
     model.setTableBackground(backgroundProps);
+    dApi('setTableBackground: model.setTableBackground executed');
     // requestRedrawEvent(); // Removed, modelChanged event handles this
   },
 
@@ -171,11 +204,14 @@ export const VTT_API = {
    * @param {number} [duration] - Optional duration in milliseconds for how long the message should be visible.
    */
   showMessage: (text, type, duration) => {
+    dApi('showMessage called: Text - "%s", Type - %s, Duration - %dms', text, type, duration);
     if (typeof showMessageCallback === 'function') {
         showMessageCallback(text, type, duration);
+        dApi('showMessage: showMessageCallback executed');
     } else {
         // Fallback if not initialized, though this shouldn't happen in a correctly initialized app
-        console.warn(`VTT_API.showMessage (fallback): ${type} - ${text}`);
+        log.warn(`VTT_API.showMessage (fallback): ${type} - ${text}`);
+        dApi('showMessage: showMessageCallback NOT available, fallback used.');
         alert(`${type.toUpperCase()}: ${text}`); // Avoid alert if possible, but it's a fallback
     }
   },
@@ -187,8 +223,10 @@ export const VTT_API = {
    * @returns {object} The consolidated current board properties after the update.
    */
   setBoardProperties: (properties) => {
+    dApi('setBoardProperties called with: %o', properties);
     // properties is an object e.g., { widthUser: 36, heightUser: 24, unitForDimensions: 'in', scaleRatio: 1, unitForRatio: 'mm' }
     const currentBoardProps = model.updateBoardProperties(properties);
+    dApi('setBoardProperties: model.updateBoardProperties returned: %o', currentBoardProps);
     // model.updateBoardProperties will dispatch a modelChanged event.
     // requestRedrawEvent(); // Removed, modelChanged event handles this
     return currentBoardProps; // Return the confirmed, possibly recalculated, properties.
@@ -199,7 +237,10 @@ export const VTT_API = {
    * @returns {object} An object containing board properties (widthUser, heightUser, unitForDimensions, widthPx, heightPx, scaleRatio, unitForRatio).
    */
   getBoardProperties: () => {
-    return model.getBoardProperties();
+    dApi('getBoardProperties called');
+    const props = model.getBoardProperties();
+    dApi('getBoardProperties returning: %o', props);
+    return props;
   },
 
   /**
@@ -207,7 +248,10 @@ export const VTT_API = {
    * @returns {object} An object with panX, panY, and zoom properties.
    */
   getPanZoomState: () => {
-    return model.getPanZoomState();
+    dApi('getPanZoomState called');
+    const state = model.getPanZoomState();
+    dApi('getPanZoomState returning: %o', state);
+    return state;
   },
 
   /**
@@ -215,7 +259,9 @@ export const VTT_API = {
    * @param {object} newState - An object with panX, panY, and/or zoom properties to update.
    */
   setPanZoomState: (newState) => {
+    dApi('setPanZoomState called with: %o', newState);
     model.setPanZoomState(newState);
+    dApi('setPanZoomState: model.setPanZoomState executed');
     // No requestRedrawEvent() here; model.setPanZoomState dispatches 'modelChanged'
   },
 
@@ -224,7 +270,10 @@ export const VTT_API = {
    * @returns {object} An object with type ('color' or 'image') and value (color string or image URL).
    */
   getTableBackground: () => {
-    return model.getTableBackground();
+    dApi('getTableBackground called');
+    const bg = model.getTableBackground();
+    dApi('getTableBackground returning: %o', bg);
+    return bg;
   },
   // setTableBackground already exists and calls model.setTableBackground
 
@@ -233,7 +282,10 @@ export const VTT_API = {
    * @returns {string | null} The ID of the selected object, or null if no object is selected.
    */
   getSelectedObjectId: () => {
-    return model.getSelectedObjectId();
+    dApi('getSelectedObjectId called');
+    const id = model.getSelectedObjectId();
+    dApi('getSelectedObjectId returning: %s', id);
+    return id;
   },
 
   /**
@@ -241,7 +293,9 @@ export const VTT_API = {
    * @param {string | null} id - The ID of the object to select, or null to deselect.
    */
   setSelectedObjectId: (id) => {
+    dApi('setSelectedObjectId called with id: %s', id);
     model.setSelectedObjectId(id);
+    dApi('setSelectedObjectId: model.setSelectedObjectId executed');
     // No requestRedrawEvent() here; model.setSelectedObjectId dispatches 'modelChanged'
   },
   // getBoardProperties and setBoardProperties already exist

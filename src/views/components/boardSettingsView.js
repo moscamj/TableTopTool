@@ -5,6 +5,10 @@
  * and allowing users to modify and apply these settings.
  * It interacts with UiViewModel to get board properties and to apply changes.
  */
+import log from 'loglevel'; // For general logging (errors, warnings)
+import debug from 'debug';   // For verbose, development-specific logging
+
+const dBoardSettings = debug('app:view:boardSettings');
 
 /** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
@@ -27,6 +31,7 @@ const domElements = {
  * Caches references to frequently used DOM elements within the board settings panel.
  */
 const cacheDOMElements = () => {
+    dBoardSettings('Caching DOM elements for board settings.');
     domElements.boardWidthInput = document.getElementById('board-width-input');
     domElements.boardHeightInput = document.getElementById('board-height-input');
     domElements.boardDimensionUnitInput = document.getElementById('board-dimension-unit-input');
@@ -42,7 +47,11 @@ const cacheDOMElements = () => {
  *                              Typically obtained from `UiViewModel.getBoardPropertiesForDisplay()`.
  */
 const updateBoardSettingsDisplay = (boardProps) => {
-    if (!boardProps) return;
+    dBoardSettings('updateBoardSettingsDisplay called with boardProps: %o', boardProps);
+    if (!boardProps) {
+        dBoardSettings('No boardProps provided to updateBoardSettingsDisplay.');
+        return;
+    }
     if (domElements.boardWidthInput) domElements.boardWidthInput.value = boardProps.widthUser ?? '';
     if (domElements.boardHeightInput) domElements.boardHeightInput.value = boardProps.heightUser ?? '';
     if (domElements.boardDimensionUnitInput) domElements.boardDimensionUnitInput.value = boardProps.unitForDimensions ?? 'in';
@@ -64,12 +73,16 @@ const updateBoardSettingsDisplay = (boardProps) => {
  * and then calls `uiViewModelInstance.applyBoardSettings` to update the model.
  */
 const handleApplyBoardProperties = () => {
+    dBoardSettings('handleApplyBoardProperties called.');
     if (!domElements.boardWidthInput || !domElements.boardHeightInput || 
         !domElements.boardDimensionUnitInput || !domElements.boardScaleUnitInput || !domElements.boardScaleInput) {
+        const errorMsg = 'Board property input elements not found in DOM.';
+        dBoardSettings('Error: %s', errorMsg);
         if (uiViewModelInstance) {
-            uiViewModelInstance.displayMessage('Board property input elements not found in DOM.', 'error');
+            uiViewModelInstance.displayMessage(errorMsg, 'error');
         } else {
-            alert('Board property input elements not found in DOM.'); // Fallback
+            log.error(errorMsg); // Fallback
+            alert(errorMsg);
         }
         return;
     }
@@ -79,6 +92,8 @@ const handleApplyBoardProperties = () => {
     const dimUnitValue = domElements.boardDimensionUnitInput.value;
     const scaleRatioValue = parseFloat(domElements.boardScaleInput.value);
     const scaleUnitValue = domElements.boardScaleUnitInput.value;
+    dBoardSettings('Read board properties from form: width=%f, height=%f, dimUnit=%s, scaleRatio=%f, scaleUnit=%s',
+                 widthValue, heightValue, dimUnitValue, scaleRatioValue, scaleUnitValue);
 
     let validationError = null;
     if (isNaN(widthValue) || widthValue <= 0 || isNaN(heightValue) || heightValue <= 0) {
@@ -94,6 +109,7 @@ const handleApplyBoardProperties = () => {
     }
 
     if (validationError) {
+        dBoardSettings('Validation error: %s', validationError);
         if (uiViewModelInstance) {
             uiViewModelInstance.displayMessage(validationError, 'error');
         } else {
@@ -102,17 +118,22 @@ const handleApplyBoardProperties = () => {
         return;
     }
 
+    const newBoardProps = {
+        widthUser: widthValue,
+        heightUser: heightValue,
+        unitForDimensions: dimUnitValue,
+        scaleRatio: scaleRatioValue,
+        unitForRatio: scaleUnitValue
+    };
+    dBoardSettings('Applying new board settings: %o', newBoardProps);
+
     if (uiViewModelInstance) {
-        uiViewModelInstance.applyBoardSettings({
-            widthUser: widthValue,
-            heightUser: heightValue,
-            unitForDimensions: dimUnitValue,
-            scaleRatio: scaleRatioValue,
-            unitForRatio: scaleUnitValue
-        });
+        uiViewModelInstance.applyBoardSettings(newBoardProps);
         // User feedback messages are handled by UiViewModel
+        dBoardSettings('Called uiViewModelInstance.applyBoardSettings.');
     } else {
-        console.error('[boardSettingsView.js] UiViewModel not initialized. Cannot apply board settings.');
+        log.error('[boardSettingsView.js] UiViewModel not initialized. Cannot apply board settings.');
+        dBoardSettings('Error: UiViewModel not initialized. Cannot apply board settings.');
         alert('Error: Cannot apply board settings. System not ready.'); // Fallback
     }
 };
@@ -124,22 +145,30 @@ const handleApplyBoardProperties = () => {
  * @param {UiViewModel} uiViewModel - The UiViewModel instance.
  */
 export const init = (uiViewModel) => {
+    dBoardSettings('Initializing boardSettingsView with uiViewModel: %o', uiViewModel);
     uiViewModelInstance = uiViewModel;
 
     if (!uiViewModelInstance) {
-        console.error('[boardSettingsView.js] UiViewModel not provided during init!');
+        log.error('[boardSettingsView.js] UiViewModel not provided during init!');
+        dBoardSettings('Error: UiViewModel not provided during init.');
         return;
     }
+    dBoardSettings('UiViewModel instance stored.');
 
     cacheDOMElements();
+    dBoardSettings('DOM elements cached.');
 
     if (domElements.applyBoardPropertiesButton) {
         domElements.applyBoardPropertiesButton.addEventListener('click', handleApplyBoardProperties);
+        dBoardSettings('Event listener added for applyBoardPropertiesButton.');
     }
 
     uiViewModelInstance.onBoardSettingsChanged(updateBoardSettingsDisplay);
+    dBoardSettings('Registered updateBoardSettingsDisplay with uiViewModelInstance.onBoardSettingsChanged.');
 
     // Initial population
+    dBoardSettings('Performing initial population of board settings display.');
     updateBoardSettingsDisplay(uiViewModelInstance.getBoardPropertiesForDisplay());
-    // console.log('[boardSettingsView.js] Initialized.'); // Removed for cleaner logs
+    log.debug('[boardSettingsView.js] Initialized.'); // This log.debug is fine as a general module init message
+    dBoardSettings('boardSettingsView initialization complete.');
 };
