@@ -238,7 +238,7 @@ const cacheDOMElements = () => {
 document.addEventListener('DOMContentLoaded', cacheDOMElements);
 
 // --- Board Settings Display and Handling ---
-const updateBoardSettingsDisplay = (boardProps) => {
+export const updateBoardSettingsDisplay = (boardProps) => {
   if (!boardProps) return;
   if (domElements.boardWidthInput) domElements.boardWidthInput.value = boardProps.widthUser ?? '';
   if (domElements.boardHeightInput) domElements.boardHeightInput.value = boardProps.heightUser ?? '';
