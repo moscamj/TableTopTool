@@ -210,7 +210,9 @@ const readObjectInspector = () => {
         console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent.length = ' + domElements.objId.textContent.length);
         console.log('[TEMP_LOG InspectorView] readObjectInspector: domElements.objId.textContent.trim() = "' + domElements.objId.textContent.trim() + '"');
         console.log('[TEMP_LOG InspectorView] readObjectInspector: !domElements.objId.textContent.trim() = ' + !domElements.objId.textContent.trim());
-        if (!domElements.objId.textContent.trim()) {
+        const idIsNullOrEmpty = (domElements.objId && domElements.objId.textContent) ? !domElements.objId.textContent.trim() : true;
+        console.log('[TEMP_LOG InspectorView] readObjectInspector: Intermediate const "idIsNullOrEmpty" = ' + idIsNullOrEmpty + '; (Derived from textContent: "' + (domElements.objId && domElements.objId.textContent ? domElements.objId.textContent.trim() : 'N/A_FOR_LOG') + '")');
+        if (!domElements.objId || idIsNullOrEmpty) {
                 console.log('[TEMP_LOG InspectorView] readObjectInspector: IF_CONDITION_MET! Value of domElements.objId.textContent.trim() was: "' + (domElements.objId && domElements.objId.textContent ? domElements.objId.textContent.trim() : 'COULD_NOT_READ_TEXT_CONTENT_FOR_LOG') + '"');
                 dInspector("readObjectInspector: No object ID found, returning null.");
                 return null;
