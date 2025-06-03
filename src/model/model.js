@@ -148,6 +148,7 @@ export const updateObject = (objectId, updatedProps) => {
   };
 
   currentObjects.set(objectId, newObjectState);
+  dispatchModelChangeEvent({ type: 'objectUpdated', payload: { ...newObjectState } });
   console.log(`Object updated: ${objectId}`, newObjectState);
   return { ...newObjectState };
 };
@@ -183,11 +184,6 @@ export const clearAllObjects = () => {
 };
 
 // --- Board State Management ---
-
-// Event Dispatcher for model changes (other than object changes which have their own system via API)
-// const dispatchModelChangeEvent = (detail) => { // Already added at the top
-//   document.dispatchEvent(new CustomEvent('modelChanged', { detail }));
-// };
 
 export const MM_PER_UNIT = {
   'in': 25.4,

@@ -61,8 +61,6 @@ class CanvasViewModel {
         this.viewModelObjects.clear();
         if (initialState.objects && Array.isArray(initialState.objects)) {
             initialState.objects.forEach(obj => this.viewModelObjects.set(obj.id, { ...obj }));
-        } else if (initialState.objects && initialState.objects instanceof Map) { // Fallback
-            initialState.objects.forEach((obj, id) => this.viewModelObjects.set(id, { ...obj }));
         }
 
         if (initialState.panZoomState) {
@@ -144,18 +142,30 @@ class CanvasViewModel {
     
     // For local updates before API call for responsiveness
     locallyUpdatePanZoom(panX, panY, zoom) {
-        if (panX !== undefined) this.viewModelPanZoom.panX = panX;
-        if (panY !== undefined) this.viewModelPanZoom.panY = panY;
-        if (zoom !== undefined) this.viewModelPanZoom.zoom = zoom;
-        // this.onDrawNeededCallback(); // View should call this
+        let changed = false;
+        if (panX !== undefined && this.viewModelPanZoom.panX !== panX) {
+            this.viewModelPanZoom.panX = panX;
+            changed = true;
+        }
+        if (panY !== undefined && this.viewModelPanZoom.panY !== panY) {
+            this.viewModelPanZoom.panY = panY;
+            changed = true;
+        }
+        if (zoom !== undefined && this.viewModelPanZoom.zoom !== zoom) {
+            this.viewModelPanZoom.zoom = zoom;
+            changed = true;
+        }
+        if (changed) {
+            this.onDrawNeededCallback();
+        }
     }
 
     locallyUpdateObjectPosition(objectId, x, y) {
         const obj = this.viewModelObjects.get(objectId);
-        if (obj) {
+        if (obj && (obj.x !== x || obj.y !== y)) {
             obj.x = x;
             obj.y = y;
-            // this.onDrawNeededCallback(); // View should call this
+            this.onDrawNeededCallback();
         }
     }
 

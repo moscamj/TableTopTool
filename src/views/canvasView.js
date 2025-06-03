@@ -1,5 +1,5 @@
 // src/views/canvasView.js
-import { VTT_API } from '../api.js'; // Path updated
+import { VTT_API } from '../api.js';
 import * as model from '../model/model.js'; // For direct model access for script execution context (temporary)
 
 // Canvas and context will be module-level variables, specific to this view.

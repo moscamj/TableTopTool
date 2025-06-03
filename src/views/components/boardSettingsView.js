@@ -20,7 +20,6 @@ const cacheDOMElements = () => {
     domElements.boardScaleUnitInput = document.getElementById('board-scale-unit-input');
     domElements.effectiveBoardSizeDisplay = document.getElementById('effective-board-size-display');
     domElements.applyBoardPropertiesButton = document.getElementById('apply-board-properties-button');
-    // console.log('[boardSettingsView.js] Board Settings DOM elements cached.');
 };
 
 const updateBoardSettingsDisplay = (boardProps) => {
@@ -43,8 +42,8 @@ const updateBoardSettingsDisplay = (boardProps) => {
 const handleApplyBoardProperties = () => {
     if (!domElements.boardWidthInput || !domElements.boardHeightInput || 
         !domElements.boardDimensionUnitInput || !domElements.boardScaleUnitInput || !domElements.boardScaleInput) {
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage('Board property input elements not found in DOM.', 'error');
+        if (uiViewModelInstance) {
+            uiViewModelInstance.displayMessage('Board property input elements not found in DOM.', 'error');
         } else {
             alert('Board property input elements not found in DOM.'); // Fallback
         }
@@ -71,8 +70,8 @@ const handleApplyBoardProperties = () => {
     }
 
     if (validationError) {
-        if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-            uiViewModelInstance.onDisplayMessage(validationError, 'error');
+        if (uiViewModelInstance) {
+            uiViewModelInstance.displayMessage(validationError, 'error');
         } else {
             alert(validationError); // Fallback
         }

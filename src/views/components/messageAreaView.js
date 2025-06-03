@@ -8,7 +8,6 @@ const domElements = {
 
 const cacheDOMElements = () => {
     domElements.messageArea = document.getElementById('message-area');
-    // console.log('[messageAreaView.js] Message Area DOM element cached.');
 };
 
 const displayMessage = (text, type = 'info', duration = 3000) => {

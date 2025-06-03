@@ -1,4 +1,5 @@
 // src/viewmodels/uiViewModel.js
+import * as sessionManagement from '../session_management.js';
 
 class UiViewModel {
     constructor() {
@@ -13,6 +14,7 @@ class UiViewModel {
         this._onBoardSettingsChanged = null;
         this._onDisplayMessage = null; 
         this._onCreateObjectModalRequested = null; // For modalView
+        this._onShowSelectionModalRequested = null; // For modalView to show generic list selection
     }
 
     init(vttApi) {
@@ -63,6 +65,10 @@ class UiViewModel {
 
     onCreateObjectModalRequested(callback) {
         this._onCreateObjectModalRequested = callback;
+    }
+
+    onShowSelectionModalRequested(callback) {
+        this._onShowSelectionModalRequested = callback;
     }
 
     // --- Getters ---
@@ -125,7 +131,7 @@ class UiViewModel {
         try {
             const currentObject = this.vttApi.getObject(objectId);
             if (!currentObject) {
-                if(this._onDisplayMessage) this._onDisplayMessage(`Object with ID ${objectId} not found. Cannot apply changes.`, 'error');
+                this.displayMessage(`Object with ID ${objectId} not found. Cannot apply changes.`, 'error');
                 return;
             }
 
@@ -186,24 +192,24 @@ class UiViewModel {
 
             if (Object.keys(updatePayload).length > 0) {
                 this.vttApi.updateObject(objectId, updatePayload);
-                if(this._onDisplayMessage) this._onDisplayMessage(`Object ${objectId} updated.`, 'success', 1500);
+                this.displayMessage(`Object ${objectId} updated.`, 'success', 1500);
             } else {
-                if(this._onDisplayMessage) this._onDisplayMessage(`No changes detected for object ${objectId}.`, 'info', 1500);
+                this.displayMessage(`No changes detected for object ${objectId}.`, 'info', 1500);
             }
 
         } catch (error) {
             console.error('[UiViewModel] Error applying inspector changes:', error);
-            if(this._onDisplayMessage) this._onDisplayMessage(`Error applying changes: ${error.message}`, 'error');
+            this.displayMessage(`Error applying changes: ${error.message}`, 'error');
         }
     }
 
-    handleDeleteSelectedObject(objectId) {
+    handleDeleteSelectedObject(objectId) { // This method seems unused. requestObjectDelete is used instead by inspectorView
         if (!this.vttApi || !objectId) return;
         const result = this.vttApi.deleteObject(objectId);
         if (result) {
-             if(this._onDisplayMessage) this._onDisplayMessage(`Object ${objectId} deleted.`, 'success', 1500);
+             this.displayMessage(`Object ${objectId} deleted.`, 'success', 1500);
         } else {
-             if(this._onDisplayMessage) this._onDisplayMessage(`Failed to delete object ${objectId}.`, 'error');
+             this.displayMessage(`Failed to delete object ${objectId}.`, 'error');
         }
     }
 
@@ -213,9 +219,9 @@ class UiViewModel {
         // e.g., { widthUser, heightUser, unitForDimensions, scaleRatio, unitForRatio }
         const updatedProps = this.vttApi.setBoardProperties(newProps);
         if (updatedProps) {
-            if(this._onDisplayMessage) this._onDisplayMessage('Board settings updated.', 'success', 1500);
+            this.displayMessage('Board settings updated.', 'success', 1500);
         } else {
-            if(this._onDisplayMessage) this._onDisplayMessage('Failed to update board settings.', 'error');
+            this.displayMessage('Failed to update board settings.', 'error');
         }
     }
 
@@ -223,9 +229,9 @@ class UiViewModel {
         if (!this.vttApi) return null;
         const newObj = this.vttApi.createObject(shape, props);
         if (newObj) {
-            if(this._onDisplayMessage) this._onDisplayMessage(`${shape} object "${newObj.name}" created.`, 'success', 1500);
+            this.displayMessage(`${shape} object "${newObj.name}" created.`, 'success', 1500);
         } else {
-            if(this._onDisplayMessage) this._onDisplayMessage(`Failed to create ${shape} object.`, 'error');
+            this.displayMessage(`Failed to create ${shape} object.`, 'error');
         }
         return newObj;
     }
@@ -233,7 +239,7 @@ class UiViewModel {
     setTableBackground(backgroundProps) {
         if (!this.vttApi) return;
         this.vttApi.setTableBackground(backgroundProps);
-        if(this._onDisplayMessage) this._onDisplayMessage('Table background updated.', 'success', 1500);
+        this.displayMessage('Table background updated.', 'success', 1500);
     }
 
     requestCreateObjectModal() {
@@ -241,7 +247,7 @@ class UiViewModel {
             this._onCreateObjectModalRequested();
         } else {
             console.warn('[UiViewModel] Create object modal requested, but no handler registered.');
-            if(this._onDisplayMessage) this._onDisplayMessage('Cannot open create object dialog.', 'error');
+            this.displayMessage('Cannot open create object dialog.', 'error');
         }
     }
 
@@ -260,6 +266,44 @@ class UiViewModel {
     }
 
     // Placeholder for image upload handling if needed directly in ViewModel
+
+    requestLoadMemoryState() {
+        const availableStates = sessionManagement.getAvailableMemoryStates();
+
+        if (!availableStates || availableStates.length === 0) {
+            // displayMessage will be called by getAvailableMemoryStates if it's empty
+            // or if it returns [] and we explicitly message here.
+            // sessionManagement.getAvailableMemoryStates already calls displayMessage if empty.
+            return;
+        }
+
+        if (typeof this._onShowSelectionModalRequested === 'function') {
+            const modalTitle = 'Load State from Memory';
+            const choices = availableStates.map((state, index) => ({
+                id: index, // Use index as a simple ID for selection
+                text: state.name // Assumes state.name is what getAvailableMemoryStates provides
+            }));
+
+            this._onShowSelectionModalRequested(modalTitle, choices, (selectedIndex) => {
+                if (selectedIndex !== null && selectedIndex >= 0 && selectedIndex < availableStates.length) {
+                    const stateToLoad = sessionManagement.getMemoryStateByIndex(selectedIndex);
+                    if (stateToLoad) {
+                        sessionManagement.applyMemoryState(stateToLoad);
+                        // applyMemoryState in sessionManagement now handles success/error messages.
+                    } else {
+                        this.displayMessage('Selected state could not be retrieved.', 'error');
+                    }
+                } else if (selectedIndex !== null) { // Not null means a selection was made, but it was invalid (e.g. header clicked)
+                    this.displayMessage('Invalid selection.', 'info');
+                } else { // Null means user cancelled (e.g. clicked cancel button or outside modal)
+                    this.displayMessage('Load from memory cancelled.', 'info');
+                }
+            });
+        } else {
+            console.error('[UiViewModel] _onShowSelectionModalRequested callback not registered. Cannot show memory states.');
+            this.displayMessage('Cannot display memory states: UI component not ready.', 'error');
+        }
+    }
 }
 
 export default UiViewModel;

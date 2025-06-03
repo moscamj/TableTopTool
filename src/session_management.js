@@ -1,8 +1,9 @@
 // src/session_management.js
 import { VTT_API } from './api.js';
-// Import specific UI functions that are hard to decouple immediately for handleLoadMemoryStateRequest.
-// This is a temporary measure and should be refactored for better separation of concerns.
-import { getModalContentElement, hideModal, showModal as uiShowModal } from './views/components/modalView.js';
+
+// Note: The UI for selecting a memory state to load has been removed from this module.
+// It should be handled by the View layer, which can call getAvailableMemoryStates()
+// and then applyMemoryState(stateNameToLoad).
 
 // --- State Variables (Moved from main.js) ---
 let currentSessionId = 'local-session'; // Can be updated on load by handleLoadTableState
@@ -20,7 +21,7 @@ const triggerDownload = (filename, data) => {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
-  VTT_API.showMessage('Table state saved!', 'success'); // Replaced ui.displayMessage
+  VTT_API.showMessage('Table state saved!', 'success');
 };
 
 // --- File-Based Save/Load (Moved from main.js) ---
@@ -92,65 +93,51 @@ export const handleSaveMemoryState = () => {
   VTT_API.showMessage('Board state saved to memory.', 'success');
 };
 
-// Renamed from applyLoadedMemoryState, made internal, and adapted.
-const internalApplyLoadedMemoryState = (stateObject) => {
+export const applyMemoryState = (stateObject) => {
   if (!stateObject) {
     VTT_API.showMessage('Invalid state object provided.', 'error');
-    return;
+    return false;
   }
 
   VTT_API.clearAllObjects();
   stateObject.objects.forEach(obj => {
-    VTT_API.createObject(obj); // Relies on modelChanged in main.js for image loading.
+    VTT_API.createObject(obj); // Relies on modelChanged for image loading.
   });
 
   if (stateObject.background) VTT_API.setTableBackground(stateObject.background);
   if (stateObject.viewState) VTT_API.setPanZoomState(stateObject.viewState);
   if (stateObject.boardProperties) {
     VTT_API.setBoardProperties(stateObject.boardProperties);
-    // ui.updateBoardSettingsDisplay removed, should be event-driven if UI needs this
   }
   VTT_API.showMessage(`Board state loaded: ${stateObject.name}`, 'success');
+  return true;
 };
 
-export const handleLoadMemoryStateRequest = () => {
-  if (inMemoryStates.length === 0) { // Uses inMemoryStates from this module
+export const getAvailableMemoryStates = () => {
+  if (inMemoryStates.length === 0) {
     VTT_API.showMessage('No states saved in memory.', 'info');
-    return;
+    return [];
   }
-
-  let modalContentHtml = '<p>Select a state to load:</p><div class="flex flex-col space-y-2 mt-2">';
-  inMemoryStates.forEach((state, index) => { // Uses inMemoryStates from this module
-    modalContentHtml += `<button class="w-full text-left p-2 bg-gray-600 hover:bg-gray-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500" data-state-index="${index}">
-                           ${state.name || `State ${index + 1} - ${new Date(state.timestamp).toLocaleString()}`}
-                         </button>`;
-  });
-  modalContentHtml += '</div>';
-
-  const modalButtonsArray = [{ text: 'Cancel', type: 'secondary' }];
-
-  // Using imported uiShowModal, getModalContentElement, hideModal from ui.js
-  // This maintains functionality but is an area of coupling to address later.
-  uiShowModal('Load State from Memory', modalContentHtml, modalButtonsArray);
-
-  const modalContentElement = getModalContentElement(); 
-  if (modalContentElement) {
-    const stateButtons = modalContentElement.querySelectorAll('[data-state-index]');
-    stateButtons.forEach(button => {
-      button.addEventListener('click', () => {
-        const index = parseInt(button.getAttribute('data-state-index'));
-        if (inMemoryStates[index]) { // Uses inMemoryStates from this module
-          internalApplyLoadedMemoryState(inMemoryStates[index]);
-          hideModal(); 
-        } else {
-          VTT_API.showMessage('Selected state not found.', 'error');
-        }
-      });
-    });
-  } else {
-    console.error('[session_management.js] Modal content element not found for load state.');
-    VTT_API.showMessage('Error setting up load state options.', 'error');
-  }
+  // Return a simplified list for UI display, preventing direct manipulation of internal states
+  return inMemoryStates.map((state, index) => ({
+    name: state.name || `State ${index + 1} - ${new Date(state.timestamp).toLocaleString()}`,
+    timestamp: state.timestamp, // Keep timestamp for potential sorting or more info
+    // Do NOT return the full state.objects here. The caller will use an index or name
+    // to call a function like applyMemoryStateByNameOrTimestamp if needed.
+    // For simplicity now, the view layer would get this list, then call applyMemoryState
+    // with the *actual* state object obtained by index if user selects one.
+    // A slightly better way would be to pass back an identifier, and have applyMemoryState accept that identifier.
+    // For now, the view layer will need to get inMemoryStates[index] to pass to applyMemoryState.
+  }));
 };
 
-console.log('session_management.js fully populated with session functions and state variables.');
+// Example of how the view layer might get a specific state to apply:
+export const getMemoryStateByIndex = (index) => {
+    if (index >= 0 && index < inMemoryStates.length) {
+        return inMemoryStates[index];
+    }
+    return null;
+};
+
+
+console.log('session_management.js refactored for better MVVM alignment.');

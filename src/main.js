@@ -3,7 +3,7 @@ import * as canvasView from './views/canvasView.js';
 import CanvasViewModel from './viewmodels/canvasViewModel.js';
 import UiViewModel from './viewmodels/uiViewModel.js';
 import * as uiView from './views/uiView.js';
-import * as api from './api.js'; // VTT Scripting API
+import { VTT_API, VTT_API_INIT } from './api.js'; // VTT Scripting API
 import * as sessionManagement from './session_management.js';
 
 // --- Main Redraw Function ---
@@ -18,7 +18,8 @@ let uiViewModel;
 const initializeApplication = async () => {
   // Create ViewModel instances
   uiViewModel = new UiViewModel();
-  uiViewModel.init(api.VTT_API);
+  uiViewModel.init(VTT_API);
+  VTT_API_INIT({ showMessage: uiViewModel.displayMessage.bind(uiViewModel) });
   
   canvasViewModel = new CanvasViewModel(requestRedraw, uiViewModel.displayMessage.bind(uiViewModel)); 
 
@@ -26,14 +27,14 @@ const initializeApplication = async () => {
   const uiCallbacks = {
     onSaveToFile: sessionManagement.handleSaveTableState, 
     onSaveMemoryState: sessionManagement.handleSaveMemoryState, 
-    onLoadMemoryStateRequest: sessionManagement.handleLoadMemoryStateRequest, 
+    // onLoadMemoryStateRequest is no longer needed here, uiView calls uiViewModel.requestLoadMemoryState()
     onLoadFromFileInputChange: (event) => {
       const file = event.target.files[0];
       if (file) {
         const reader = new FileReader();
         reader.onload = (e) => sessionManagement.handleLoadTableState(e.target.result); 
         reader.onerror = (e) =>
-          api.VTT_API.showMessage('File Read Error: Could not read file.', 'error'); 
+          VTT_API.showMessage('File Read Error: Could not read file.', 'error');
         reader.readAsText(file);
       }
     },
@@ -41,7 +42,7 @@ const initializeApplication = async () => {
 
   // Initialize uiView and pass UiViewModel to it.
   // uiView now orchestrates its components, which will register their specific callbacks with UiViewModel.
-  uiView.init(uiViewModel, api.VTT_API); 
+  uiView.init(uiViewModel, VTT_API);
   uiView.initUIEventListeners(uiCallbacks);
 
   // Pass the CanvasViewModel instance to canvasView.initCanvas
@@ -51,7 +52,7 @@ const initializeApplication = async () => {
   );
   
   // Create default objects for testing
-  api.VTT_API.createObject('rectangle', {
+  VTT_API.createObject('rectangle', {
     x: 50,
     y: 50,
     width: 100,
@@ -60,7 +61,7 @@ const initializeApplication = async () => {
     name: 'Test Rectangle 1',
   });
 
-  api.VTT_API.createObject('circle', {
+  VTT_API.createObject('circle', {
     x: 200,
     y: 100,
     width: 60, // Diameter
@@ -94,7 +95,7 @@ const initializeApplication = async () => {
           break;
         case 'objectDeleted':
           canvasViewModel.removeObjectFromViewModel(payload.id);
-          if (payload.id === api.VTT_API.getSelectedObjectId()) { 
+          if (payload.id === VTT_API.getSelectedObjectId()) {
              canvasViewModel.setSelectedObjectInViewModel(null);
           }
           break;
@@ -116,11 +117,11 @@ const initializeApplication = async () => {
   // Load initial state from model into ViewModels
   if (canvasViewModel) {
     const initialStateForCanvas = {
-        objects: api.VTT_API.getAllObjects(),
-        panZoomState: api.VTT_API.getPanZoomState(),
-        tableBackground: api.VTT_API.getTableBackground(),
-        selectedObjectId: api.VTT_API.getSelectedObjectId(),
-        boardProperties: api.VTT_API.getBoardProperties()
+        objects: VTT_API.getAllObjects(),
+        panZoomState: VTT_API.getPanZoomState(),
+        tableBackground: VTT_API.getTableBackground(),
+        selectedObjectId: VTT_API.getSelectedObjectId(),
+        boardProperties: VTT_API.getBoardProperties()
     };
     canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
   }

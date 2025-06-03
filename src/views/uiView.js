@@ -84,7 +84,13 @@ const cacheDOMElements = () => {
   // console.log('[uiView.js] Main DOM elements cached.');
 };
 
-document.addEventListener('DOMContentLoaded', cacheDOMElements);
+// document.addEventListener('DOMContentLoaded', cacheDOMElements); // Called by main.js or implicitly via component loads.
+// Let's ensure cacheDOMElements is called if not already.
+if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', cacheDOMElements);
+} else {
+    cacheDOMElements();
+}
 
 export const init = (uiViewModel, vttApi) => {
   uiViewModelInstance = uiViewModel;
@@ -138,10 +144,10 @@ export const initUIEventListeners = (callbacks) => {
     onSaveToFile,
     onLoadFromFileInputChange,
     onSaveMemoryState,
-    onLoadMemoryStateRequest,
+    // onLoadMemoryStateRequest, // This will now be handled by uiViewModelInstance.requestLoadMemoryState()
   } = callbacks;
 
-  if (!domElementsCached) cacheDOMElements();
+  if (!domElementsCached) cacheDOMElements(); // Ensure elements are cached
 
   // Toolbar buttons (createObjectButton, setBackgroundButton, chooseBackgroundImageButton)
   // are now handled within toolbarView.js
@@ -191,8 +197,8 @@ export const initUIEventListeners = (callbacks) => {
               // Toolbar inputs might not reflect this reset unless UiViewModel also notifies toolbarView.
               // Or, uiView can call a method on toolbarView if one is exposed.
               // For now, just call displayMessage.
-              if (uiViewModelInstance && uiViewModelInstance.onDisplayMessage) {
-                 uiViewModelInstance.onDisplayMessage('Board cleared.', 'info');
+              if (uiViewModelInstance) { // Check uiViewModelInstance itself
+                 uiViewModelInstance.displayMessage('Board cleared.', 'info');
               }
             },
           },
@@ -201,11 +207,20 @@ export const initUIEventListeners = (callbacks) => {
     });
   }
 
-  if (callbacks.onSaveMemoryState && domElements.saveMemoryStateButton) {
-    domElements.saveMemoryStateButton.addEventListener('click', callbacks.onSaveMemoryState);
+  if (onSaveMemoryState && domElements.saveMemoryStateButton) { // Changed from callbacks.onSaveMemoryState
+    domElements.saveMemoryStateButton.addEventListener('click', onSaveMemoryState);
   }
-  if (callbacks.onLoadMemoryStateRequest && domElements.loadMemoryStateButton) {
-    domElements.loadMemoryStateButton.addEventListener('click', callbacks.onLoadMemoryStateRequest);
+
+  // Updated: Load Memory State button now calls uiViewModelInstance.requestLoadMemoryState()
+  if (domElements.loadMemoryStateButton) {
+    domElements.loadMemoryStateButton.addEventListener('click', () => {
+      if (uiViewModelInstance) {
+        uiViewModelInstance.requestLoadMemoryState();
+      } else {
+        console.error('[uiView.js] UiViewModel not available for loading memory state.');
+        // Optionally, show an alert or a more user-facing error
+      }
+    });
   }
 };
 

@@ -1,17 +1,19 @@
 // src/api.js
 import * as model from './model/model.js';
-import * as uiView from './views/uiView.js'; // Optional: for displaying logs as UI messages
-// Removed canvas imports for setTableBackground, updateBoardProperties, getBoardProperties
+// import * as uiView from './views/uiView.js'; // No longer needed here for showMessage
 
-/**
- * Dispatches a custom event to signal that a redraw is needed.
- * main.js should listen for this event on the document.
- */
-const requestRedrawEvent = () => {
-  document.dispatchEvent(
-    new CustomEvent('stateChangedForRedraw', { bubbles: true, composed: true })
-  );
-};
+let showMessageCallback = null;
+
+export function VTT_API_INIT(config) {
+    if (config && typeof config.showMessage === 'function') {
+        showMessageCallback = config.showMessage;
+    } else {
+        console.error('VTT_API_INIT: showMessage callback not provided or invalid.');
+    }
+}
+
+// requestRedrawEvent is removed as model.js should dispatch 'modelChanged'
+// which main.js listens to for redrawing.
 
 export const VTT_API = {
   /**
@@ -42,8 +44,10 @@ export const VTT_API = {
 
       // If the update was on the contextObject itself, its reference might be stale.
       // However, scripts are short-lived. The main concern is the central store being updated.
-      requestRedrawEvent(); // Signal that the canvas needs to be redrawn
-      uiView.displayMessage(`Object ${objectId} updated by script.`, 'info', 1500); // Optional feedback
+      // requestRedrawEvent(); // Removed: model.updateObject should trigger 'modelChanged'
+      if (typeof showMessageCallback === 'function') {
+          showMessageCallback(`Object ${objectId} updated by script.`, 'info', 1500); // Optional feedback
+      }
     } else {
       console.warn(`[VTT_API.updateObjectState] Object ${objectId} not found.`);
     }
@@ -95,13 +99,13 @@ export const VTT_API = {
 
   updateObject: (objectId, updatedProps) => {
     const updatedObj = model.updateObject(objectId, updatedProps);
-    requestRedrawEvent();
+    // requestRedrawEvent(); // Removed: model.updateObject should trigger 'modelChanged'
     return updatedObj;
   },
 
   deleteObject: (objectId) => {
     const result = model.deleteObject(objectId);
-    requestRedrawEvent();
+    // requestRedrawEvent(); // Removed: model.deleteObject should trigger 'modelChanged'
     return result;
   },
 
@@ -111,7 +115,7 @@ export const VTT_API = {
 
   clearAllObjects: () => {
     model.clearAllObjects();
-    requestRedrawEvent();
+    // requestRedrawEvent(); // Removed: model.clearAllObjects should trigger 'modelChanged'
   },
 
   setTableBackground: (backgroundProps) => {
@@ -122,7 +126,13 @@ export const VTT_API = {
   },
 
   showMessage: (text, type, duration) => {
-    uiView.displayMessage(text, type, duration);
+    if (typeof showMessageCallback === 'function') {
+        showMessageCallback(text, type, duration);
+    } else {
+        // Fallback if not initialized, though this shouldn't happen in a correctly initialized app
+        console.warn(`VTT_API.showMessage (fallback): ${type} - ${text}`);
+        alert(`${type.toUpperCase()}: ${text}`); // Avoid alert if possible, but it's a fallback
+    }
   },
 
   setBoardProperties: (properties) => {

@@ -14,7 +14,6 @@ const cacheDOMElements = () => {
     domElements.modalTitle = document.getElementById('modal-title');
     domElements.modalContent = document.getElementById('modal-content');
     domElements.modalButtons = document.getElementById('modal-buttons');
-    // console.log('[modalView.js] Modal DOM elements cached.');
 };
 
 const showModal = (title, contentHtml, buttonsArray = [{ text: 'OK', type: 'primary' }]) => {
@@ -128,8 +127,69 @@ export const init = (uiViewModel) => {
     } else {
         console.warn('[modalView.js] onCreateObjectModalRequested callback registration not found on UiViewModel.');
     }
+
+    // Register handler for generic selection modal
+    if (uiViewModelInstance.onShowSelectionModalRequested) {
+        uiViewModelInstance.onShowSelectionModalRequested(showSelectionModal);
+    } else {
+        console.warn('[modalView.js] onShowSelectionModalRequested callback registration not found on UiViewModel.');
+    }
+    // console.log('[modalView.js] Initialized.');
+};
+
+const showSelectionModal = (title, choices, onSelectionCallback) => {
+    if (!domElements.modalContainer) {
+        console.error('[modalView.js] Modal container not cached/found.');
+        if (onSelectionCallback) onSelectionCallback(null); // Indicate failure/cancellation
+        return;
+    }
+
+    let contentHtml = '<div class="flex flex-col space-y-2">';
+    choices.forEach(choice => {
+        // Ensure text and id are treated as strings and properly escaped for HTML attributes/content if necessary.
+        // For simplicity, assuming they are safe for now.
+        const text = String(choice.text);
+        const id = String(choice.id);
+        contentHtml += `<button class="w-full text-left p-2 bg-gray-600 hover:bg-gray-500 rounded focus:outline-none focus:ring-2 focus:ring-blue-500 modal-choice-button" data-id="${id}">${text}</button>`;
+    });
+    contentHtml += '</div>';
     
-    console.log('[modalView.js] Initialized.');
+    const buttonsArray = [
+        {
+            text: 'Cancel',
+            type: 'secondary',
+            onClickCallback: () => {
+                if (onSelectionCallback) onSelectionCallback(null);
+            }
+        }
+    ];
+
+    showModal(title, contentHtml, buttonsArray);
+
+    // Add event listeners to the newly created choice buttons
+    // These listeners are added *after* showModal populates modalContent
+    if (domElements.modalContent) {
+        const choiceButtons = domElements.modalContent.querySelectorAll('.modal-choice-button');
+        choiceButtons.forEach(button => {
+            // Important: Clone and replace to remove any old listeners from potentially reused button elements
+            // if modalContent isn't perfectly cleared or buttons have generic classes that might persist.
+            // However, standard addEventListener should be fine if buttons are freshly created by innerHTML.
+            const newButton = button.cloneNode(true); // Simple way to remove listeners
+            button.parentNode.replaceChild(newButton, button);
+
+            newButton.addEventListener('click', () => {
+                const selectedId = newButton.getAttribute('data-id');
+                // The `id` from `choices` could be an index (number) or a string ID.
+                // The `onSelectionCallback` in UiViewModel expects the original index for getMemoryStateByIndex.
+                // So, if `choice.id` was set to the index, this should work.
+                // If `choice.id` was a string, the callback needs to handle that.
+                // For `requestLoadMemoryState`, `choice.id` is the index.
+                const numericId = parseInt(selectedId, 10); // Assuming id is the index
+                if (onSelectionCallback) onSelectionCallback(isNaN(numericId) ? selectedId : numericId);
+                hideModal();
+            });
+        });
+    }
 };
 
 // Export showModal and hideModal if they need to be called by other UI parts (e.g. uiView for errors)
