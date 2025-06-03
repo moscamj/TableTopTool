@@ -76,7 +76,7 @@ export const createObject = (shapeArgument, initialProps = {}) => { // Renamed '
     x: 50,
     y: 50,
     zIndex: 0,
-    width: shape === 'rectangle' ? 100 : 50, // Default width (radius for circle)
+    width: shapeToUse === 'rectangle' ? 100 : 50, // Corrected: Use shapeToUse
     height: shapeToUse === 'rectangle' ? 100 : 50, // Default height, use shapeToUse
     rotation: 0,
     // shape is set below using shapeToUse
