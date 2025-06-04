@@ -1,19 +1,14 @@
-import "./loggingConfig.js"; // Initializes loglevel configuration
-import log from "loglevel"; // Now import log for use in this file if needed
-import debug from "debug";
 // src/main.js
-// import * as canvasView from "./views/canvasView.js"; // Remove
-// import CanvasViewModel from "./viewmodels/canvasViewModel.js"; // Remove
-// import UiViewModel from "./viewmodels/uiViewModel.js"; // Remove
+import "./loggingConfig.js"; // Initializes loglevel configuration
+import log from "loglevel";
+import debug from "debug";
+import { VTT_API } from "./api.js";
 import * as uiView from "./views/uiView.js";
-import { VTT_API } from "./api.js"; // VTT_API_INIT is no longer called here.
-// import * as sessionManagement from "./session_management.js"; // Remove
 
 const d = debug("app:main");
 d("main.js module loaded");
 
 // --- Application Initialization ---
-// let uiViewModel; // Remove
 
 /**
  * Initializes the main application components by delegating to uiView.

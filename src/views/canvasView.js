@@ -154,7 +154,6 @@ export const setCanvasSize = () => {
  * Data is sourced entirely from the associated CanvasViewModel.
  */
 export const drawVTT = () => {
-        // dCanvasView('drawVTT called'); // This is too noisy for every frame
         if (!ctx || !canvas || !viewModel) {
                 // dCanvasView('drawVTT aborted: context, canvas, or viewModel not available. Ctx: %o, Canvas: %o, VM: %o', ctx, canvas, viewModel);
                 return;
@@ -343,7 +342,7 @@ export const drawVTT = () => {
 };
 
 // --- Canvas Event Handlers ---
-// These now use the viewModel for coordinate conversion and object picking.
+// These use the viewModel for coordinate conversion and object picking.
 // State changes are communicated via VTT_API.
 // Local updates to viewModel can happen for responsiveness if desired.
 
@@ -460,7 +459,6 @@ function handleMouseMove(e) {
 
                 lastPanX = e.clientX;
                 lastPanY = e.clientY;
-                // viewModel.onDrawNeededCallback(); // locallyUpdatePanZoom now calls this
         }
 }
 
@@ -659,15 +657,14 @@ function handleWheel(e) {
         // (mouseXCanvas - currentPanZoom.panX) / oldZoom = worldX
         // newPanX = mouseXCanvas - worldX * newZoom
         const newPanX =
-    mouseXCanvas - (mouseXCanvas - currentPanZoom.panX) * (newZoom / oldZoom);
+                mouseXCanvas - (mouseXCanvas - currentPanZoom.panX) * (newZoom / oldZoom);
         const newPanY =
-    mouseYCanvas - (mouseYCanvas - currentPanZoom.panY) * (newZoom / oldZoom);
+                mouseYCanvas - (mouseYCanvas - currentPanZoom.panY) * (newZoom / oldZoom);
         dCanvasView("New pan calculation: newPanX=%f, newPanY=%f", newPanX, newPanY);
 
         // Local update for responsiveness
         dCanvasView("Locally updating pan/zoom and requesting redraw.");
         viewModel.locallyUpdatePanZoom(newPanX, newPanY, newZoom);
-        // viewModel.onDrawNeededCallback(); // Redraw with local ViewModel changes // locallyUpdatePanZoom now calls this
 
         // Then, synchronize with the main model
         dCanvasView(

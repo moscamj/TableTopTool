@@ -58,7 +58,6 @@ const domElements = {
 
         // File input (hidden, triggered by button) - General file input for loading sessions
         fileInput: null,
-        // backgroundImageFileInput is now in toolbarView
 };
 
 const cacheDOMElements = () => {
@@ -99,8 +98,6 @@ const cacheDOMElements = () => {
         domElements.fileInput.accept = ".json,.ttt.json";
         domElements.fileInput.style.display = "none";
         document.body.appendChild(domElements.fileInput);
-
-        // backgroundImageFileInput is created and managed by toolbarView.js now
 
         // Update button texts and visibility for offline mode (remains the same for these elements)
         if (domElements.sessionSaveButton)
@@ -351,24 +348,6 @@ const initializeCanvasSystem = (uiViewModel, vttApi) => {
 };
 
 
-// --- Functions moved to components ---
-// updateBoardSettingsDisplay -> boardSettingsView.js
-// handleApplyBoardProperties -> boardSettingsView.js
-// populateObjectInspector -> inspectorView.js
-// readObjectInspector -> inspectorView.js
-// handleApplyObjectChangesFromInspector -> inspectorView.js
-// handleDeleteObjectFromInspector -> inspectorView.js
-// handleObjectImageFileChange -> inspectorView.js
-// setObjectImageUrlText -> inspectorView.js
-// getToolbarValues -> toolbarView.js
-// setBackgroundUrlInputText -> toolbarView.js
-// handleSetBackgroundFromToolbar -> toolbarView.js
-// handleBackgroundImageFileChange -> toolbarView.js
-// displayCreateObjectModal -> modalView.js
-// showModal -> modalView.js
-// hideModal -> modalView.js
-// getModalContentElement -> modalView.js
-
 // --- Main UI Event Listener Setup (for elements uiView.js still manages) ---
 /**
  * Sets up global UI event listeners for elements managed directly by uiView.js (primarily header buttons).
@@ -385,7 +364,6 @@ export const initUIEventListeners = (callbacks) => {
                 onSaveToFile,
                 onLoadFromFileInputChange,
                 onSaveMemoryState,
-                // onLoadMemoryStateRequest, // This will now be handled by uiViewModelInstance.requestLoadMemoryState()
         } = callbacks;
         dUiView("initUIEventListeners called with callbacks: %o", callbacks);
 
@@ -428,8 +406,6 @@ export const initUIEventListeners = (callbacks) => {
                         onLoadFromFileInputChange(event);
                 });
         }
-
-        // chooseBackgroundImageButton and its backgroundImageFileInput are managed by toolbarView.js now.
 
         if (domElements.clearBoardButton) {
                 domElements.clearBoardButton.addEventListener("click", () => {
@@ -490,14 +466,12 @@ export const initUIEventListeners = (callbacks) => {
         }
 
         if (onSaveMemoryState && domElements.saveMemoryStateButton) {
-                // Changed from callbacks.onSaveMemoryState
                 domElements.saveMemoryStateButton.addEventListener("click", () => {
                         dUiView("Save Memory State button clicked.");
                         onSaveMemoryState();
                 });
         }
 
-        // Updated: Load Memory State button now calls uiViewModelInstance.requestLoadMemoryState()
         if (domElements.loadMemoryStateButton) {
                 domElements.loadMemoryStateButton.addEventListener("click", () => {
                         dUiView("Load Memory State button clicked.");

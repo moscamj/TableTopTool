@@ -201,7 +201,6 @@ export const createObject = (shapeArgument, initialProps = {}) => {
                 type: "objectAdded",
                 payload: { ...newObject },
         }); // Dispatch event
-        // console.log(`Object created/loaded: ${idToUse}`, newObject); // Removed for cleaner logs
         dModel("createObject returning copy: %o", newObject);
         return { ...newObject }; // Return a copy
 };
@@ -265,7 +264,6 @@ export const updateObject = (objectId, updatedProps) => {
                         type: "objectUpdated",
                         payload: { ...newObjectState },
                 });
-                // console.log(`Object updated: ${objectId}`, newObjectState); // Removed for cleaner logs
         } else {
                 dModel(
                         "Object update for %s resulted in no changes. Not dispatching event.",
@@ -292,7 +290,6 @@ export const deleteObject = (objectId) => {
         dModel("deleteObject called for id: %s", objectId);
         if (currentObjects.has(objectId)) {
                 const deleted = currentObjects.delete(objectId);
-                // console.log(`Object deleted: ${objectId}`); // Removed for cleaner logs
                 if (deleted) {
                         dModel("Object %s deleted from currentObjects map.", objectId);
                         dispatchModelChangeEvent({
