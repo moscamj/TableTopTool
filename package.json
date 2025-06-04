@@ -22,25 +22,25 @@
         },
         "homepage": "https://github.com/moscamj/TableTopTool#readme",
         "devDependencies": {
-                "@babel/core": "^7.27.1",
+                "@babel/core": "^7.27.4",
                 "@babel/preset-env": "^7.27.2",
                 "@eslint/eslintrc": "^3.3.1",
                 "@eslint/js": "^9.28.0",
                 "autoprefixer": "^10.4.21",
-                "cypress": "^13.6.0",
-                "eslint": "^8.57.0",
+                "cypress": "^13.17.0",
+                "eslint": "^8.57.1",
                 "globals": "^16.2.0",
-                "postcss": "^8.5.3",
+                "postcss": "^8.5.4",
                 "prettier": "^3.5.3",
                 "prettier-eslint-cli": "^8.0.1",
                 "tailwindcss": "^3.4.17",
-                "vite": "^5.4.19"
+                "vite": "^6.3.5"
         },
         "dependencies": {
-                "debug": "^4.3.4",
-                "dotenv": "^16.4.5",
+                "debug": "^4.4.1",
+                "dotenv": "^16.5.0",
                 "firebase": "^11.8.1",
-                "loglevel": "^1.9.1"
+                "loglevel": "^1.9.2"
         },
         "engines": {
                 "node": ">=22.0.0"

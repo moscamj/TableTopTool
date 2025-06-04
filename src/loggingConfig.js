@@ -10,11 +10,11 @@ const validLevels = ["trace", "debug", "info", "warn", "error", "silent"];
 let effectiveLogLevel = "warn"; // Default log level
 
 if (logLevelFromEnv && validLevels.includes(logLevelFromEnv.toLowerCase())) {
-        effectiveLogLevel = logLevelFromEnv.toLowerCase();
+  effectiveLogLevel = logLevelFromEnv.toLowerCase();
 } else if (logLevelFromEnv) {
-        console.warn(
-                `[LoggingConfig] Invalid VITE_APP_LOG_LEVEL: '${logLevelFromEnv}'. Defaulting to '${effectiveLogLevel}'.`,
-        );
+  console.warn(
+    `[LoggingConfig] Invalid VITE_APP_LOG_LEVEL: '${logLevelFromEnv}'. Defaulting to '${effectiveLogLevel}'.`,
+  );
 }
 // If logLevelFromEnv is undefined, it will default to "warn"
 
@@ -26,7 +26,7 @@ log.setLevel(effectiveLogLevel);
 // especially before loglevel itself might be fully applied or if there are issues with its configuration.
 // It will only be visible if the browser's console level includes 'log'.
 console.log(
-        `[LoggingConfig] Loglevel initialized. Effective level: ${log.getLevel()}`,
+  `[LoggingConfig] Loglevel initialized. Effective level: ${log.getLevel()}`,
 );
 
 export default log;
