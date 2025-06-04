@@ -37,7 +37,7 @@
                 "vite": "^5.4.19"
         },
         "dependencies": {
-                "debug": "^4.3.5",
+                "debug": "^4.3.4",
                 "dotenv": "^16.4.5",
                 "firebase": "^11.8.1",
                 "loglevel": "^1.9.1"
