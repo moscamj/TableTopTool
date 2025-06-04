@@ -17,6 +17,8 @@ let canvas;
 let ctx;
 /** @type {CanvasViewModel} The ViewModel associated with this canvas view. */
 let viewModel; // This will hold the CanvasViewModel instance
+/** @type {object | null} Module-level storage for the VTT API interface. */
+let moduleVttApi = null;
 
 // Variables for canvas interaction states internal to the view
 /** @type {boolean} True if an object is currently being dragged. */
@@ -54,6 +56,7 @@ const debounce = (func, delay) => {
  * @param {object} vttApi - The VTT API interface.
  */
 export const initCanvas = (canvasElement, cvm, vttApi) => {
+        moduleVttApi = vttApi; // Store vttApi in module-level variable
         // cvm is the CanvasViewModel instance
         dCanvasView(
                 "initCanvas called with canvasElement: %o, cvm: %o, vttApi: %o",
@@ -397,7 +400,7 @@ function handleMouseDown(e) {
                                 clickedObjectId,
                         );
                         // viewModel.setSelectedObjectInViewModel(clickedObjectId); // VM updated by modelChanged event
-                        vttApi.setSelectedObjectId(clickedObjectId);
+                        moduleVttApi.setSelectedObjectId(clickedObjectId);
                 }
         } else {
                 isPanning = true;
@@ -414,7 +417,7 @@ function handleMouseDown(e) {
                                 currentSelectedId,
                         );
                         // viewModel.setSelectedObjectInViewModel(null); // VM updated by modelChanged event
-                        vttApi.setSelectedObjectId(null);
+                        moduleVttApi.setSelectedObjectId(null);
                 }
         }
         // Redraw might be triggered by modelChanged event from VTT_API calls
@@ -500,7 +503,7 @@ function handleMouseUp(e) {
                                 draggedObject.y,
                         );
                         // Persist final dragged position to the model via API
-                        vttApi.updateObject(selectedObjectId, {
+                        moduleVttApi.updateObject(selectedObjectId, {
                                 x: draggedObject.x,
                                 y: draggedObject.y,
                         });
@@ -513,7 +516,7 @@ function handleMouseUp(e) {
                         viewModel.getPanZoom(),
                 );
                 // Persist final pan state to the model via API
-                vttApi.setPanZoomState(viewModel.getPanZoom());
+                moduleVttApi.setPanZoomState(viewModel.getPanZoom());
         }
 
         isDragging = false;
@@ -533,7 +536,7 @@ function handleMouseUp(e) {
                 );
 
                 if (clickedObjectId) {
-                        const objectDetailsFromModel = vttApi.getObject(clickedObjectId);
+                        const objectDetailsFromModel = moduleVttApi.getObject(clickedObjectId);
                         if (
                                 objectDetailsFromModel &&
         objectDetailsFromModel.scripts &&
@@ -559,7 +562,7 @@ function handleMouseUp(e) {
                                                 objectRefForScript,
                                         );
                                         new Function("VTT", "object", objectDetailsFromModel.scripts.onClick)(
-                                                vttApi,
+                                                moduleVttApi,
                                                 objectRefForScript, // Pass the actual object reference from model for script context
                                         );
                                         dCanvasView("onClick script executed for %s.", clickedObjectId);
@@ -570,7 +573,7 @@ function handleMouseUp(e) {
                                                 clickedObjectId,
                                                 scriptError,
                                         );
-                                        vttApi.showMessage(
+                                        moduleVttApi.showMessage(
                                                 `Script Error in onClick for object ${objectDetailsFromModel.id}: ${scriptError.message}`,
                                                 "error",
                                         );
@@ -604,7 +607,7 @@ function handleMouseLeave(e) {
                                 object.y,
                         );
                         // Persist final dragged position if mouse leaves canvas while dragging
-                        vttApi.updateObject(selectedObjectId, {
+                        moduleVttApi.updateObject(selectedObjectId, {
                                 x: object.x,
                                 y: object.y,
                         });
@@ -616,7 +619,7 @@ function handleMouseLeave(e) {
                         viewModel.getPanZoom(),
                 );
                 // Persist final pan state if mouse leaves canvas while panning
-                vttApi.setPanZoomState(viewModel.getPanZoom());
+                moduleVttApi.setPanZoomState(viewModel.getPanZoom());
         }
 
         isDragging = false;
@@ -678,7 +681,7 @@ function handleWheel(e) {
                 "Persisting new pan/zoom state to API: %o",
                 viewModel.getPanZoom(),
         );
-        vttApi.setPanZoomState(viewModel.getPanZoom()); // Send the locally updated panZoom
+        moduleVttApi.setPanZoomState(viewModel.getPanZoom()); // Send the locally updated panZoom
 }
 
 // Functions that were moved to CanvasViewModel:
