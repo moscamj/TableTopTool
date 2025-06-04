@@ -74,6 +74,35 @@ class CanvasViewModel {
 
                 /** @type {Map<string, {img: HTMLImageElement|null, status: 'loading'|'loaded'|'error'}>} Cache for loaded images. */
                 this.loadedImages = new Map(); // url -> { img: Image, status: 'loading' | 'loaded' | 'error' }
+
+                /** @type {number} The physical width of the canvas element in pixels. */
+                this.canvasPhysicalWidth = 0;
+                /** @type {number} The physical height of the canvas element in pixels. */
+                this.canvasPhysicalHeight = 0;
+                /** @type {number} The device pixel ratio of the screen. */
+                this.canvasDevicePixelRatio = 1;
+        }
+
+        // --- Setters ---
+        /**
+         * Stores the physical dimensions and device pixel ratio of the canvas HTML element.
+         * This information is provided by the View.
+         * @param {number} physicalWidth - The physical width of the canvas element (pixels).
+         * @param {number} physicalHeight - The physical height of the canvas element (pixels).
+         * @param {number} devicePixelRatio - The device pixel ratio of the screen.
+         */
+        setCanvasElementDimensions(physicalWidth, physicalHeight, devicePixelRatio) {
+            dCanvasVM(
+                "setCanvasElementDimensions called with physicalWidth: %d, physicalHeight: %d, dpr: %f",
+                physicalWidth,
+                physicalHeight,
+                devicePixelRatio,
+            );
+            this.canvasPhysicalWidth = physicalWidth;
+            this.canvasPhysicalHeight = physicalHeight;
+            this.canvasDevicePixelRatio = devicePixelRatio;
+            // Optionally, trigger a redraw or other logic if these dimensions affect something in the ViewModel.
+            // For now, just storing them.
         }
 
         // --- Getters ---
@@ -618,27 +647,17 @@ class CanvasViewModel {
 
         // --- Coordinate Conversion & Object Picking ---
         /**
-   * Converts mouse event coordinates from screen space to canvas world space,
-   * considering the current pan and zoom state.
-   * @param {MouseEvent} event - The mouse event (e.g., mousedown, mousemove).
-   * @param {HTMLCanvasElement} canvas - The HTML canvas element, used to get offsetX/offsetY.
-   * @returns {{x: number, y: number}} The mouse coordinates in world space.
-   */
-        getMousePositionOnCanvas(event, canvas) {
-                // canvas element needed for offset calculation
-                if (!canvas) {
-                        dCanvasVM(
-                                "getMousePositionOnCanvas: canvas element not provided, returning {0,0}",
-                        );
-                        return { x: 0, y: 0 };
-                }
-
+         * Converts screen coordinates (e.g., from a mouse event on the canvas) to canvas world coordinates,
+         * considering the current pan and zoom state.
+         * @param {number} screenX - The x-coordinate in screen space (relative to the canvas element).
+         * @param {number} screenY - The y-coordinate in screen space (relative to the canvas element).
+         * @returns {{x: number, y: number}} The coordinates in world space.
+         */
+        convertScreenToWorldCoordinates(screenX, screenY) {
                 const { panX, panY, zoom } = this.viewModelPanZoom;
-                const screenX = event.offsetX;
-                const screenY = event.offsetY;
                 const worldX = (screenX - panX) / zoom;
                 const worldY = (screenY - panY) / zoom;
-                // dCanvasVM('getMousePositionOnCanvas: Screen (%f, %f) -> World (%f, %f) with Pan (%f, %f) Zoom (%f)', screenX, screenY, worldX, worldY, panX, panY, zoom);
+                // dCanvasVM('convertScreenToWorldCoordinates: Screen (%f, %f) -> World (%f, %f) with Pan (%f, %f) Zoom (%f)', screenX, screenY, worldX, worldY, panX, panY, zoom);
                 return { x: worldX, y: worldY };
         }
 

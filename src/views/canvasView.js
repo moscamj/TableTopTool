@@ -8,7 +8,7 @@ import log from "loglevel";
 import debug from "debug";
 import CanvasViewModel from '../viewmodels/canvasViewModel.js'; // Added import
 // VTT_API import removed as it's now passed in
-import * as model from "../model/model.js"; // For direct model access for script execution context (temporary)
+// import * as model from "../model/model.js"; // Removed direct model import
 
 const dCanvasView = debug("app:view:canvas");
 
@@ -263,6 +263,9 @@ export const setCanvasSize = () => {
                         canvas.width,
                         canvas.height,
                 );
+                if (viewModel && viewModel.setCanvasElementDimensions) {
+                    viewModel.setCanvasElementDimensions(canvas.width, canvas.height, dpr);
+                }
         }
         if (viewModel && viewModel.onDrawNeededCallback) {
                 dCanvasView("Requesting redraw via onDrawNeededCallback after resize.");
@@ -490,10 +493,7 @@ function handleMouseDown(e) {
                 return;
         }
         // Get mouse coordinates in world space from ViewModel
-        const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(
-                e,
-                canvas,
-        );
+        const { x: mouseX, y: mouseY } = viewModel.convertScreenToWorldCoordinates(e.offsetX, e.offsetY);
         dCanvasView("Mouse down at world coordinates: x=%f, y=%f", mouseX, mouseY);
         const clickedObjectId = viewModel.getObjectAtPosition(mouseX, mouseY);
         dCanvasView("Object at position: %s", clickedObjectId);
@@ -558,10 +558,7 @@ function handleMouseMove(e) {
                 // dCanvasView('handleMouseMove aborted: viewModel not available.');
                 return;
         }
-        const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(
-                e,
-                canvas,
-        ); // World coordinates
+        const { x: mouseX, y: mouseY } = viewModel.convertScreenToWorldCoordinates(e.offsetX, e.offsetY); // World coordinates
         const selectedObjectId = viewModel.getSelectedObjectId();
 
         if (isDragging && selectedObjectId) {
@@ -646,10 +643,7 @@ function handleMouseUp(e) {
 
         // Handle click for script execution if not dragging or panning
         if (!wasDragging && !wasPanning) {
-                const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(
-                        e,
-                        canvas,
-                );
+                const { x: mouseX, y: mouseY } = viewModel.convertScreenToWorldCoordinates(e.offsetX, e.offsetY);
                 const clickedObjectId = viewModel.getObjectAtPosition(mouseX, mouseY);
                 dCanvasView(
                         "Click detected (not drag/pan). Object at click: %s",
@@ -673,18 +667,17 @@ function handleMouseUp(e) {
                                         objectDetailsFromModel.scripts.onClick,
                                 );
                                 try {
-                                        // Script execution context: passing a direct model reference for modification is a known area for future refactor.
-                                        // Ideally, scripts use VTT_API and contextObject (copy) to request changes.
-                                        const objectRefForScript = model.currentObjects.get(
-                                                objectDetailsFromModel.id,
-                                        );
+                                        // const objectRefForScript = model.currentObjects.get(...); // This line should be removed or commented out.
                                         dCanvasView(
-                                                "Executing script with VTT_API and objectRef: %o",
-                                                objectRefForScript,
+                                                "Executing script with VTT_API and API-provided object snapshot: %o",
+                                                objectDetailsFromModel, // Log the object being passed
                                         );
+                                        // Note: The 'object' passed to the script is a snapshot from the VTT API.
+                                        // To persist changes, scripts should use VTT.updateObject(object.id, changedProps).
+                                        // Direct modifications to the 'object' variable within the script will not be saved.
                                         new Function("VTT", "object", objectDetailsFromModel.scripts.onClick)(
                                                 moduleVttApi,
-                                                objectRefForScript, // Pass the actual object reference from model for script context
+                                                objectDetailsFromModel, // Pass the API-provided object copy
                                         );
                                         dCanvasView("onClick script executed for %s.", clickedObjectId);
                                 } catch (scriptError) {
