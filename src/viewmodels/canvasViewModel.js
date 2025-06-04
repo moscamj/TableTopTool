@@ -16,9 +16,13 @@ class CanvasViewModel {
    * Creates an instance of CanvasViewModel.
    * @param {function(): void} onDrawNeededCallback - A callback function to be invoked when the canvas needs to be redrawn.
    * @param {function(text: string, type: string, duration?: number): void} displayMessageFn - A function to display messages to the user (delegated from UiViewModel).
+   * @param {object} vttApi - The VTT API interface.
    */
-        constructor(onDrawNeededCallback, displayMessageFn) {
+        constructor(onDrawNeededCallback, displayMessageFn, vttApi) {
                 dCanvasVM("CanvasViewModel constructor called");
+                /** @type {object} The VTT API interface. */
+                this.vttApi = vttApi;
+
                 /** @type {function(): void} Callback to request a redraw of the canvas. */
                 this.onDrawNeededCallback =
       onDrawNeededCallback ||
@@ -70,6 +74,35 @@ class CanvasViewModel {
 
                 /** @type {Map<string, {img: HTMLImageElement|null, status: 'loading'|'loaded'|'error'}>} Cache for loaded images. */
                 this.loadedImages = new Map(); // url -> { img: Image, status: 'loading' | 'loaded' | 'error' }
+
+                /** @type {number} The physical width of the canvas element in pixels. */
+                this.canvasPhysicalWidth = 0;
+                /** @type {number} The physical height of the canvas element in pixels. */
+                this.canvasPhysicalHeight = 0;
+                /** @type {number} The device pixel ratio of the screen. */
+                this.canvasDevicePixelRatio = 1;
+        }
+
+        // --- Setters ---
+        /**
+         * Stores the physical dimensions and device pixel ratio of the canvas HTML element.
+         * This information is provided by the View.
+         * @param {number} physicalWidth - The physical width of the canvas element (pixels).
+         * @param {number} physicalHeight - The physical height of the canvas element (pixels).
+         * @param {number} devicePixelRatio - The device pixel ratio of the screen.
+         */
+        setCanvasElementDimensions(physicalWidth, physicalHeight, devicePixelRatio) {
+            dCanvasVM(
+                "setCanvasElementDimensions called with physicalWidth: %d, physicalHeight: %d, dpr: %f",
+                physicalWidth,
+                physicalHeight,
+                devicePixelRatio,
+            );
+            this.canvasPhysicalWidth = physicalWidth;
+            this.canvasPhysicalHeight = physicalHeight;
+            this.canvasDevicePixelRatio = devicePixelRatio;
+            // Optionally, trigger a redraw or other logic if these dimensions affect something in the ViewModel.
+            // For now, just storing them.
         }
 
         // --- Getters ---
@@ -349,7 +382,7 @@ class CanvasViewModel {
         /**
    * Updates the pan and zoom state locally for immediate responsiveness during user interaction (e.g., dragging to pan).
    * It directly modifies the ViewModel's pan/zoom state and triggers a redraw.
-   * The View is expected to later call VTT_API.setPanZoomState to persist this change to the model.
+   * The View is expected to later call this.vttApi.setPanZoomState to persist this change to the model.
    * @param {number} [panX] - The new panX value.
    * @param {number} [panY] - The new panY value.
    * @param {number} [zoom] - The new zoom value.
@@ -388,7 +421,7 @@ class CanvasViewModel {
         /**
    * Updates an object's position locally for immediate responsiveness during user interaction (e.g., dragging an object).
    * It directly modifies the object's x/y coordinates in the ViewModel and triggers a redraw.
-   * The View is expected to later call VTT_API.updateObject to persist this change to the model.
+   * The View is expected to later call this.vttApi.updateObject to persist this change to the model.
    * @param {string} objectId - The ID of the object being moved.
    * @param {number} x - The new x-coordinate.
    * @param {number} y - The new y-coordinate.
@@ -614,27 +647,17 @@ class CanvasViewModel {
 
         // --- Coordinate Conversion & Object Picking ---
         /**
-   * Converts mouse event coordinates from screen space to canvas world space,
-   * considering the current pan and zoom state.
-   * @param {MouseEvent} event - The mouse event (e.g., mousedown, mousemove).
-   * @param {HTMLCanvasElement} canvas - The HTML canvas element, used to get offsetX/offsetY.
-   * @returns {{x: number, y: number}} The mouse coordinates in world space.
-   */
-        getMousePositionOnCanvas(event, canvas) {
-                // canvas element needed for offset calculation
-                if (!canvas) {
-                        dCanvasVM(
-                                "getMousePositionOnCanvas: canvas element not provided, returning {0,0}",
-                        );
-                        return { x: 0, y: 0 };
-                }
-
+         * Converts screen coordinates (e.g., from a mouse event on the canvas) to canvas world coordinates,
+         * considering the current pan and zoom state.
+         * @param {number} screenX - The x-coordinate in screen space (relative to the canvas element).
+         * @param {number} screenY - The y-coordinate in screen space (relative to the canvas element).
+         * @returns {{x: number, y: number}} The coordinates in world space.
+         */
+        convertScreenToWorldCoordinates(screenX, screenY) {
                 const { panX, panY, zoom } = this.viewModelPanZoom;
-                const screenX = event.offsetX;
-                const screenY = event.offsetY;
                 const worldX = (screenX - panX) / zoom;
                 const worldY = (screenY - panY) / zoom;
-                // dCanvasVM('getMousePositionOnCanvas: Screen (%f, %f) -> World (%f, %f) with Pan (%f, %f) Zoom (%f)', screenX, screenY, worldX, worldY, panX, panY, zoom);
+                // dCanvasVM('convertScreenToWorldCoordinates: Screen (%f, %f) -> World (%f, %f) with Pan (%f, %f) Zoom (%f)', screenX, screenY, worldX, worldY, panX, panY, zoom);
                 return { x: worldX, y: worldY };
         }
 

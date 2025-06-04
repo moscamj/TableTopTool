@@ -6,8 +6,9 @@
  */
 import log from "loglevel";
 import debug from "debug";
-import { VTT_API } from "../api.js";
-import * as model from "../model/model.js"; // For direct model access for script execution context (temporary)
+import CanvasViewModel from '../viewmodels/canvasViewModel.js'; // Added import
+// VTT_API import removed as it's now passed in
+// import * as model from "../model/model.js"; // Removed direct model import
 
 const dCanvasView = debug("app:view:canvas");
 
@@ -17,6 +18,8 @@ let canvas;
 let ctx;
 /** @type {CanvasViewModel} The ViewModel associated with this canvas view. */
 let viewModel; // This will hold the CanvasViewModel instance
+/** @type {object | null} Module-level storage for the VTT API interface. */
+let moduleVttApi = null;
 
 // Variables for canvas interaction states internal to the view
 /** @type {boolean} True if an object is currently being dragged. */
@@ -47,31 +50,159 @@ const debounce = (func, delay) => {
 };
 
 /**
- * Initializes the canvas view with the canvas DOM element and its ViewModel.
- * Sets up the rendering context, initial canvas size, and registers all necessary event listeners.
+ * Initializes the canvas view with the canvas DOM element, display message function, and VTT API.
+ * Sets up the rendering context, initial canvas size, instantiates CanvasViewModel, and registers event listeners.
  * @param {HTMLCanvasElement} canvasElement - The HTML canvas element to draw on.
- * @param {CanvasViewModel} cvm - The CanvasViewModel instance for this view.
+ * @param {function(text: string, type: string, duration?: number): void} displayMessageFn - Function to display messages.
+ * @param {object} vttApi - The VTT API interface.
  */
-export const initCanvas = (canvasElement, cvm) => {
-        // cvm is the CanvasViewModel instance
+export const initCanvas = (canvasElement, displayMessageFn, vttApi) => {
+        moduleVttApi = vttApi; // Store vttApi in module-level variable
         dCanvasView(
-                "initCanvas called with canvasElement: %o, cvm: %o",
+                "initCanvas called with canvasElement: %o, displayMessageFn: %o, vttApi: %o",
                 canvasElement,
-                cvm,
+                displayMessageFn,
+                vttApi,
         );
         if (!canvasElement) {
                 log.error("[canvasView.js] Canvas element not provided!");
                 dCanvasView("initCanvas error: Canvas element not provided.");
                 return;
         }
-        if (!cvm) {
-                log.error("[canvasView.js] CanvasViewModel not provided!");
-                dCanvasView("initCanvas error: CanvasViewModel not provided.");
+        if (typeof displayMessageFn !== 'function') {
+                log.error("[canvasView.js] displayMessageFn not provided or not a function!");
+                // Fallback or throw error, for now, log and continue carefully
+                // Or assign a dummy function: displayMessageFn = () => {};
+                dCanvasView("initCanvas error: displayMessageFn not provided or not a function.");
+                // Depending on strictness, might want to return here
+        }
+        if (!vttApi) {
+                log.error("[canvasView.js] VTT API not provided!");
+                dCanvasView("initCanvas error: VTT API not provided.");
                 return;
         }
         canvas = canvasElement;
         ctx = canvas.getContext("2d");
-        viewModel = cvm; // Store the ViewModel instance
+
+        // Instantiate CanvasViewModel
+        viewModel = new CanvasViewModel(drawVTT, displayMessageFn, moduleVttApi);
+        dCanvasView("CanvasViewModel instantiated in initCanvas with moduleVttApi: %o", moduleVttApi);
+
+        // Model Changed Listener (moved from uiView.js)
+        document.addEventListener('modelChanged', (event) => {
+                dCanvasView(
+                        "modelChanged event received in canvasView.js: Type - %s, Payload - %o",
+                        event.detail.type,
+                        event.detail.payload,
+                );
+                if (event.detail && viewModel) { // Use local viewModel
+                        const { type, payload } = event.detail;
+                        dCanvasView("Processing modelChanged event for viewModel in canvasView: Type - %s", type);
+                        switch (type) {
+                        case "allObjectsCleared":
+                                viewModel.clearAllViewModelObjects();
+                                viewModel.setSelectedObjectInViewModel(null);
+                                dCanvasView("ViewModel: allObjectsCleared and selection reset in canvasView");
+                                break;
+                        case "selectionChanged":
+                                viewModel.setSelectedObjectInViewModel(payload);
+                                dCanvasView("ViewModel: selectionChanged to %s in canvasView", payload);
+                                break;
+                        case "objectAdded":
+                                viewModel.addObjectToViewModel(payload);
+                                dCanvasView("ViewModel: objectAdded in canvasView: %o", payload);
+                                break;
+                        case "objectUpdated":
+                                viewModel.updateObjectInViewModel(payload.id, payload);
+                                dCanvasView("ViewModel: objectUpdated in canvasView: %s, %o", payload.id, payload);
+                                break;
+                        case "objectDeleted":
+                                viewModel.removeObjectFromViewModel(payload.id);
+                                if (payload.id === moduleVttApi.getSelectedObjectId()) { // Use moduleVttApi
+                                        viewModel.setSelectedObjectInViewModel(null);
+                                        dCanvasView(
+                                                "ViewModel: selected object %s was deleted, selection reset in canvasView",
+                                                payload.id,
+                                        );
+                                }
+                                dCanvasView("ViewModel: objectDeleted in canvasView: %s", payload.id);
+                                break;
+                        case "panZoomChanged":
+                                viewModel.setPanZoomInViewModel(payload);
+                                dCanvasView("ViewModel: panZoomChanged in canvasView: %o", payload);
+                                break;
+                        case "backgroundChanged":
+                                viewModel.setBackgroundInViewModel(payload);
+                                dCanvasView("ViewModel: backgroundChanged in canvasView: %o", payload);
+                                break;
+                        case "boardPropertiesChanged":
+                                viewModel.setBoardPropertiesInViewModel(payload);
+                                dCanvasView("ViewModel: boardPropertiesChanged in canvasView: %o", payload);
+                                break;
+                        default:
+                                dCanvasView(
+                                        "Unhandled modelChanged event type in canvasView.js for viewModel: %s",
+                                        type,
+                                );
+                        }
+                } else if (!viewModel) {
+                        dCanvasView("modelChanged event received in canvasView, but viewModel is not available.");
+                }
+                drawVTT(); // Directly call drawVTT
+        });
+        dCanvasView("modelChanged event listener for canvas added to document in canvasView");
+
+        // Deferred initialization for objects and initial state (moved from uiView.js)
+        setTimeout(() => {
+                if (!canvas) { // Check the module-level canvas variable
+                        log.error("[canvasView.js] Canvas element not found for deferred initialization.");
+                        dCanvasView("Canvas element not found in setTimeout.");
+                        // displayMessageFn is available from initCanvas parameters
+                        displayMessageFn("Critical Error: Canvas element not found. Try reloading.", "error");
+                        return;
+                }
+                dCanvasView("Deferred: Creating default objects and loading initial state in canvasView.");
+
+                moduleVttApi.createObject("rectangle", {
+                        x: 50,
+                        y: 50,
+                        width: 100,
+                        height: 75,
+                        appearance: { backgroundColor: "#FFC0CB", text: "Rect 1" },
+                        name: "Test Rectangle 1",
+                });
+
+                moduleVttApi.createObject("circle", {
+                        x: 200,
+                        y: 100,
+                        width: 60,
+                        height: 60,
+                        appearance: { backgroundColor: "#ADD8E6", text: "Circ 1" },
+                        name: "Test Circle 1",
+                        rotation: 30,
+                });
+
+                if (viewModel) {
+                        dCanvasView("Loading initial state into ViewModel (deferred in canvasView)");
+                        const initialStateForCanvas = {
+                                objects: moduleVttApi.getAllObjects(),
+                                panZoomState: moduleVttApi.getPanZoomState(),
+                                tableBackground: moduleVttApi.getTableBackground(),
+                                selectedObjectId: moduleVttApi.getSelectedObjectId(),
+                                boardProperties: moduleVttApi.getBoardProperties(),
+                        };
+                        dCanvasView(
+                                "Initial state for ViewModel (deferred in canvasView): %o",
+                                initialStateForCanvas,
+                        );
+                        viewModel.loadStateIntoViewModel(initialStateForCanvas);
+                        dCanvasView("Initial state loaded into ViewModel (deferred in canvasView)");
+                }
+
+                drawVTT(); // Directly call drawVTT
+                dCanvasView("Initial redraw requested (deferred in canvasView)");
+        }, 0);
+        dCanvasView("Deferred object creation and initial state loading setup in canvasView.");
 
         requestAnimationFrame(() => {
                 // Further defer to allow more time for CSS application, especially with Tailwind JIT
@@ -132,6 +263,9 @@ export const setCanvasSize = () => {
                         canvas.width,
                         canvas.height,
                 );
+                if (viewModel && viewModel.setCanvasElementDimensions) {
+                    viewModel.setCanvasElementDimensions(canvas.width, canvas.height, dpr);
+                }
         }
         if (viewModel && viewModel.onDrawNeededCallback) {
                 dCanvasView("Requesting redraw via onDrawNeededCallback after resize.");
@@ -359,10 +493,7 @@ function handleMouseDown(e) {
                 return;
         }
         // Get mouse coordinates in world space from ViewModel
-        const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(
-                e,
-                canvas,
-        );
+        const { x: mouseX, y: mouseY } = viewModel.convertScreenToWorldCoordinates(e.offsetX, e.offsetY);
         dCanvasView("Mouse down at world coordinates: x=%f, y=%f", mouseX, mouseY);
         const clickedObjectId = viewModel.getObjectAtPosition(mouseX, mouseY);
         dCanvasView("Object at position: %s", clickedObjectId);
@@ -390,7 +521,7 @@ function handleMouseDown(e) {
                                 clickedObjectId,
                         );
                         // viewModel.setSelectedObjectInViewModel(clickedObjectId); // VM updated by modelChanged event
-                        VTT_API.setSelectedObjectId(clickedObjectId);
+                        moduleVttApi.setSelectedObjectId(clickedObjectId);
                 }
         } else {
                 isPanning = true;
@@ -407,7 +538,7 @@ function handleMouseDown(e) {
                                 currentSelectedId,
                         );
                         // viewModel.setSelectedObjectInViewModel(null); // VM updated by modelChanged event
-                        VTT_API.setSelectedObjectId(null);
+                        moduleVttApi.setSelectedObjectId(null);
                 }
         }
         // Redraw might be triggered by modelChanged event from VTT_API calls
@@ -427,10 +558,7 @@ function handleMouseMove(e) {
                 // dCanvasView('handleMouseMove aborted: viewModel not available.');
                 return;
         }
-        const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(
-                e,
-                canvas,
-        ); // World coordinates
+        const { x: mouseX, y: mouseY } = viewModel.convertScreenToWorldCoordinates(e.offsetX, e.offsetY); // World coordinates
         const selectedObjectId = viewModel.getSelectedObjectId();
 
         if (isDragging && selectedObjectId) {
@@ -493,7 +621,7 @@ function handleMouseUp(e) {
                                 draggedObject.y,
                         );
                         // Persist final dragged position to the model via API
-                        VTT_API.updateObject(selectedObjectId, {
+                        moduleVttApi.updateObject(selectedObjectId, {
                                 x: draggedObject.x,
                                 y: draggedObject.y,
                         });
@@ -506,7 +634,7 @@ function handleMouseUp(e) {
                         viewModel.getPanZoom(),
                 );
                 // Persist final pan state to the model via API
-                VTT_API.setPanZoomState(viewModel.getPanZoom());
+                moduleVttApi.setPanZoomState(viewModel.getPanZoom());
         }
 
         isDragging = false;
@@ -515,10 +643,7 @@ function handleMouseUp(e) {
 
         // Handle click for script execution if not dragging or panning
         if (!wasDragging && !wasPanning) {
-                const { x: mouseX, y: mouseY } = viewModel.getMousePositionOnCanvas(
-                        e,
-                        canvas,
-                );
+                const { x: mouseX, y: mouseY } = viewModel.convertScreenToWorldCoordinates(e.offsetX, e.offsetY);
                 const clickedObjectId = viewModel.getObjectAtPosition(mouseX, mouseY);
                 dCanvasView(
                         "Click detected (not drag/pan). Object at click: %s",
@@ -526,7 +651,7 @@ function handleMouseUp(e) {
                 );
 
                 if (clickedObjectId) {
-                        const objectDetailsFromModel = VTT_API.getObject(clickedObjectId);
+                        const objectDetailsFromModel = moduleVttApi.getObject(clickedObjectId);
                         if (
                                 objectDetailsFromModel &&
         objectDetailsFromModel.scripts &&
@@ -542,18 +667,17 @@ function handleMouseUp(e) {
                                         objectDetailsFromModel.scripts.onClick,
                                 );
                                 try {
-                                        // Script execution context: passing a direct model reference for modification is a known area for future refactor.
-                                        // Ideally, scripts use VTT_API and contextObject (copy) to request changes.
-                                        const objectRefForScript = model.currentObjects.get(
-                                                objectDetailsFromModel.id,
-                                        );
+                                        // const objectRefForScript = model.currentObjects.get(...); // This line should be removed or commented out.
                                         dCanvasView(
-                                                "Executing script with VTT_API and objectRef: %o",
-                                                objectRefForScript,
+                                                "Executing script with VTT_API and API-provided object snapshot: %o",
+                                                objectDetailsFromModel, // Log the object being passed
                                         );
+                                        // Note: The 'object' passed to the script is a snapshot from the VTT API.
+                                        // To persist changes, scripts should use VTT.updateObject(object.id, changedProps).
+                                        // Direct modifications to the 'object' variable within the script will not be saved.
                                         new Function("VTT", "object", objectDetailsFromModel.scripts.onClick)(
-                                                VTT_API,
-                                                objectRefForScript, // Pass the actual object reference from model for script context
+                                                moduleVttApi,
+                                                objectDetailsFromModel, // Pass the API-provided object copy
                                         );
                                         dCanvasView("onClick script executed for %s.", clickedObjectId);
                                 } catch (scriptError) {
@@ -563,7 +687,7 @@ function handleMouseUp(e) {
                                                 clickedObjectId,
                                                 scriptError,
                                         );
-                                        VTT_API.showMessage(
+                                        moduleVttApi.showMessage(
                                                 `Script Error in onClick for object ${objectDetailsFromModel.id}: ${scriptError.message}`,
                                                 "error",
                                         );
@@ -597,7 +721,7 @@ function handleMouseLeave(e) {
                                 object.y,
                         );
                         // Persist final dragged position if mouse leaves canvas while dragging
-                        VTT_API.updateObject(selectedObjectId, {
+                        moduleVttApi.updateObject(selectedObjectId, {
                                 x: object.x,
                                 y: object.y,
                         });
@@ -609,7 +733,7 @@ function handleMouseLeave(e) {
                         viewModel.getPanZoom(),
                 );
                 // Persist final pan state if mouse leaves canvas while panning
-                VTT_API.setPanZoomState(viewModel.getPanZoom());
+                moduleVttApi.setPanZoomState(viewModel.getPanZoom());
         }
 
         isDragging = false;
@@ -671,7 +795,7 @@ function handleWheel(e) {
                 "Persisting new pan/zoom state to API: %o",
                 viewModel.getPanZoom(),
         );
-        VTT_API.setPanZoomState(viewModel.getPanZoom()); // Send the locally updated panZoom
+        moduleVttApi.setPanZoomState(viewModel.getPanZoom()); // Send the locally updated panZoom
 }
 
 // Functions that were moved to CanvasViewModel:
