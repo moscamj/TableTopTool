@@ -2,27 +2,18 @@ import "./loggingConfig.js"; // Initializes loglevel configuration
 import log from "loglevel"; // Now import log for use in this file if needed
 import debug from "debug";
 // src/main.js
-import * as canvasView from "./views/canvasView.js";
-import CanvasViewModel from "./viewmodels/canvasViewModel.js";
+// import * as canvasView from "./views/canvasView.js"; // Remove
+// import CanvasViewModel from "./viewmodels/canvasViewModel.js"; // Remove
 import UiViewModel from "./viewmodels/uiViewModel.js";
 import * as uiView from "./views/uiView.js";
 import { VTT_API, VTT_API_INIT } from "./api.js"; // VTT Scripting API
 import * as sessionManagement from "./session_management.js";
 
-// --- Main Redraw Function ---
-/**
- * Requests a redraw of the canvas by calling the main drawing function in canvasView.
- */
-const requestRedraw = () => {
-        d("requestRedraw called");
-        canvasView.drawVTT();
-};
-
 const d = debug("app:main");
 d("main.js module loaded");
 
 // --- Application Initialization ---
-let canvasViewModel;
+// let canvasViewModel; // Remove
 let uiViewModel;
 
 /**
@@ -42,11 +33,11 @@ const initializeApplication = async () => {
         }); // Provide API with UI message function
         d("VTT_API_INIT called");
 
-        canvasViewModel = new CanvasViewModel(
-                requestRedraw,
-                uiViewModel.displayMessage.bind(uiViewModel),
-        );
-        d("CanvasViewModel initialized");
+        // canvasViewModel = new CanvasViewModel( // Remove
+        // requestRedraw, // Remove
+        // uiViewModel.displayMessage.bind(uiViewModel), // Remove
+        // ); // Remove
+        // d("CanvasViewModel initialized"); // Remove
 
         // Callbacks for UI elements in uiView, primarily for session management actions
         const uiCallbacks = {
@@ -90,121 +81,13 @@ const initializeApplication = async () => {
                         event.detail.payload,
                 );
                 // UiViewModel also listens to 'modelChanged' for its own needs (inspector, board settings).
-                // This listener in main.js focuses on updating CanvasViewModel and triggering redraws.
-                if (event.detail && canvasViewModel) {
-                        const { type, payload } = event.detail;
-                        d("Processing modelChanged event for CanvasViewModel: Type - %s", type);
-                        switch (type) {
-                        // Cases primarily for CanvasViewModel
-                        case "allObjectsCleared":
-                                canvasViewModel.clearAllViewModelObjects();
-                                canvasViewModel.setSelectedObjectInViewModel(null);
-                                d("CanvasViewModel: allObjectsCleared and selection reset");
-                                break;
-                        case "selectionChanged":
-                                canvasViewModel.setSelectedObjectInViewModel(payload);
-                                d("CanvasViewModel: selectionChanged to %s", payload);
-                                break;
-                        case "objectAdded":
-                                canvasViewModel.addObjectToViewModel(payload);
-                                d("CanvasViewModel: objectAdded: %o", payload);
-                                break;
-                        case "objectUpdated":
-                                canvasViewModel.updateObjectInViewModel(payload.id, payload);
-                                d("CanvasViewModel: objectUpdated: %s, %o", payload.id, payload);
-                                break;
-                        case "objectDeleted":
-                                canvasViewModel.removeObjectFromViewModel(payload.id);
-                                if (payload.id === VTT_API.getSelectedObjectId()) {
-                                        canvasViewModel.setSelectedObjectInViewModel(null);
-                                        d(
-                                                "CanvasViewModel: selected object %s was deleted, selection reset",
-                                                payload.id,
-                                        );
-                                }
-                                d("CanvasViewModel: objectDeleted: %s", payload.id);
-                                break;
-                        case "panZoomChanged":
-                                canvasViewModel.setPanZoomInViewModel(payload);
-                                d("CanvasViewModel: panZoomChanged: %o", payload);
-                                break;
-                        case "backgroundChanged":
-                                canvasViewModel.setBackgroundInViewModel(payload);
-                                d("CanvasViewModel: backgroundChanged: %o", payload);
-                                break;
-                        case "boardPropertiesChanged":
-                                canvasViewModel.setBoardPropertiesInViewModel(payload);
-                                d("CanvasViewModel: boardPropertiesChanged: %o", payload);
-                                break;
-                                // Other UI-specific updates (inspector, board settings display) are handled by UiViewModel's own listener.
-                        default:
-                                d(
-                                        "Unhandled modelChanged event type in main.js for CanvasViewModel: %s",
-                                        type,
-                                );
-                        }
-                } else if (!canvasViewModel) {
-                        d("modelChanged event received, but canvasViewModel is not available.");
-                }
-                requestRedraw();
+                // UiViewModel has its own 'modelChanged' listener.
+                // CanvasViewModel-related updates and redraws will be handled in uiView.js.
+                // This listener in main.js is now minimal.
         });
-        d("modelChanged event listener added to document");
+        d("Simplified modelChanged event listener added to document in main.js");
 
-        // Defer canvas initialization slightly more to ensure DOM and CSS are fully settled
-        setTimeout(() => {
-                d("Deferred: Initializing canvasView now.");
-                canvasView.initCanvas(
-                        document.getElementById("vtt-canvas"),
-                        canvasViewModel,
-                );
-
-                // The creation of default objects and initial redraw depend on canvasView being initialized.
-                // So, these also need to be inside the setTimeout or be robust enough to handle
-                // canvasView not being ready if they were outside. For simplicity, move them in.
-
-                d("Creating default objects for testing/demonstration (deferred)");
-                VTT_API.createObject("rectangle", {
-                        x: 50,
-                        y: 50,
-                        width: 100,
-                        height: 75,
-                        appearance: { backgroundColor: "#FFC0CB", text: "Rect 1" },
-                        name: "Test Rectangle 1",
-                });
-
-                VTT_API.createObject("circle", {
-                        // Will be rendered as an ellipse
-                        x: 200,
-                        y: 100,
-                        width: 60,
-                        height: 60,
-                        appearance: { backgroundColor: "#ADD8E6", text: "Circ 1" },
-                        name: "Test Circle 1",
-                        rotation: 30,
-                });
-
-                // Load initial state from the VTT_API into the CanvasViewModel
-                // This also depends on canvasViewModel being fully ready.
-                if (canvasViewModel) {
-                        d("Loading initial state into CanvasViewModel (deferred)");
-                        const initialStateForCanvas = {
-                                objects: VTT_API.getAllObjects(),
-                                panZoomState: VTT_API.getPanZoomState(),
-                                tableBackground: VTT_API.getTableBackground(),
-                                selectedObjectId: VTT_API.getSelectedObjectId(),
-                                boardProperties: VTT_API.getBoardProperties(),
-                        };
-                        d(
-                                "Initial state for CanvasViewModel (deferred): %o",
-                                initialStateForCanvas,
-                        );
-                        canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
-                        d("Initial state loaded into CanvasViewModel (deferred)");
-                }
-
-                requestRedraw(); // Perform initial draw of the canvas (deferred)
-                d("Initial redraw requested (deferred)");
-        }, 0);
+        // setTimeout(() => { ... }, 0); // Remove this entire block
 
         uiViewModel.displayMessage("Application initialized (Offline Mode).", "info");
         d("Application initialization complete");

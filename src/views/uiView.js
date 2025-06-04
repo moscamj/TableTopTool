@@ -12,8 +12,9 @@ import * as boardSettingsView from "./components/boardSettingsView.js";
 import * as toolbarView from "./components/toolbarView.js";
 import * as modalView from "./components/modalView.js";
 import * as messageAreaView from "./components/messageAreaView.js";
+import CanvasViewModel from '../viewmodels/canvasViewModel.js';
+import * as canvasView from './canvasView.js';
 
-/** @type {UiViewModel | null} Instance of the UiViewModel. */
 const dUiView = debug("app:view:ui");
 
 /** @type {UiViewModel | null} Instance of the UiViewModel. */
@@ -157,11 +158,159 @@ export const init = (uiViewModel, vttApi) => {
 
         // showModal and hideModal are exported by modalView.js; uiView uses modalView.showModal for its own modal needs (e.g., clear board confirmation).
 
+        initializeCanvasSystem(uiViewModelInstance, vttApiInstance); // NEW CALL
+
         log.debug(
-                "[uiView.js] Initialized with UiViewModel, VTT_API, and all sub-components.",
-        ); // log.debug fine here
+                "[uiView.js] Initialized with UiViewModel, VTT_API, canvas system, and all sub-components.",
+        );
         dUiView("uiView initialization complete.");
 };
+
+
+// --- Canvas System Initialization (Moved from main.js) ---
+/**
+ * Initializes the canvas system including CanvasViewModel, canvasView,
+ * model change listeners for canvas, and deferred object/state loading.
+ * @param {UiViewModel} uiViewModel - The UiViewModel instance, for message display.
+ * @param {object} vttApi - The VTT_API instance, for API calls.
+ */
+const initializeCanvasSystem = (uiViewModel, vttApi) => {
+        dUiView("initializeCanvasSystem called with uiViewModel: %o, vttApi: %o", uiViewModel, vttApi);
+
+        const requestRedraw = () => {
+                dUiView("requestRedraw called from uiView");
+                canvasView.drawVTT();
+        };
+
+        const canvasViewModel = new CanvasViewModel(
+                requestRedraw,
+                uiViewModel.displayMessage.bind(uiViewModel),
+        );
+        dUiView("CanvasViewModel initialized in uiView");
+
+        document.addEventListener('modelChanged', (event) => {
+                dUiView(
+                        "modelChanged event received in uiView.js for canvas: Type - %s, Payload - %o",
+                        event.detail.type,
+                        event.detail.payload,
+                );
+                if (event.detail && canvasViewModel) {
+                        const { type, payload } = event.detail;
+                        dUiView("Processing modelChanged event for CanvasViewModel in uiView: Type - %s", type);
+                        switch (type) {
+                        case "allObjectsCleared":
+                                canvasViewModel.clearAllViewModelObjects();
+                                canvasViewModel.setSelectedObjectInViewModel(null);
+                                dUiView("CanvasViewModel: allObjectsCleared and selection reset in uiView");
+                                break;
+                        case "selectionChanged":
+                                canvasViewModel.setSelectedObjectInViewModel(payload);
+                                dUiView("CanvasViewModel: selectionChanged to %s in uiView", payload);
+                                break;
+                        case "objectAdded":
+                                canvasViewModel.addObjectToViewModel(payload);
+                                dUiView("CanvasViewModel: objectAdded in uiView: %o", payload);
+                                break;
+                        case "objectUpdated":
+                                canvasViewModel.updateObjectInViewModel(payload.id, payload);
+                                dUiView("CanvasViewModel: objectUpdated in uiView: %s, %o", payload.id, payload);
+                                break;
+                        case "objectDeleted":
+                                canvasViewModel.removeObjectFromViewModel(payload.id);
+                                if (payload.id === vttApi.getSelectedObjectId()) {
+                                        canvasViewModel.setSelectedObjectInViewModel(null);
+                                        dUiView(
+                                                "CanvasViewModel: selected object %s was deleted, selection reset in uiView",
+                                                payload.id,
+                                        );
+                                }
+                                dUiView("CanvasViewModel: objectDeleted in uiView: %s", payload.id);
+                                break;
+                        case "panZoomChanged":
+                                canvasViewModel.setPanZoomInViewModel(payload);
+                                dUiView("CanvasViewModel: panZoomChanged in uiView: %o", payload);
+                                break;
+                        case "backgroundChanged":
+                                canvasViewModel.setBackgroundInViewModel(payload);
+                                dUiView("CanvasViewModel: backgroundChanged in uiView: %o", payload);
+                                break;
+                        case "boardPropertiesChanged":
+                                canvasViewModel.setBoardPropertiesInViewModel(payload);
+                                dUiView("CanvasViewModel: boardPropertiesChanged in uiView: %o", payload);
+                                break;
+                        default:
+                                dUiView(
+                                        "Unhandled modelChanged event type in uiView.js for CanvasViewModel: %s",
+                                        type,
+                                );
+                        }
+                } else if (!canvasViewModel) {
+                        dUiView("modelChanged event received in uiView, but canvasViewModel is not available.");
+                }
+                requestRedraw(); // Call the local requestRedraw
+        });
+        dUiView("modelChanged event listener for canvas added to document in uiView");
+
+        setTimeout(() => {
+                if (!domElements.vttCanvas) {
+                        log.error("[uiView.js] VTT Canvas element not found for deferred initialization.");
+                        dUiView("VTT Canvas element not found in setTimeout. DOM elements: %o", domElements);
+                        cacheDOMElements();
+                        if(!domElements.vttCanvas) {
+                                log.error("[uiView.js] VTT Canvas still not found after re-cache attempt.");
+                                uiViewModel.displayMessage("Critical Error: Canvas element not found. Try reloading.", "error");
+                                return;
+                        }
+                }
+                dUiView("Deferred: Initializing canvasView now in uiView.");
+                canvasView.initCanvas(
+                        domElements.vttCanvas,
+                        canvasViewModel,
+                );
+
+                dUiView("Creating default objects for testing/demonstration (deferred in uiView)");
+                vttApi.createObject("rectangle", {
+                        x: 50,
+                        y: 50,
+                        width: 100,
+                        height: 75,
+                        appearance: { backgroundColor: "#FFC0CB", text: "Rect 1" },
+                        name: "Test Rectangle 1",
+                });
+
+                vttApi.createObject("circle", {
+                        x: 200,
+                        y: 100,
+                        width: 60,
+                        height: 60,
+                        appearance: { backgroundColor: "#ADD8E6", text: "Circ 1" },
+                        name: "Test Circle 1",
+                        rotation: 30,
+                });
+
+                if (canvasViewModel) {
+                        dUiView("Loading initial state into CanvasViewModel (deferred in uiView)");
+                        const initialStateForCanvas = {
+                                objects: vttApi.getAllObjects(),
+                                panZoomState: vttApi.getPanZoomState(),
+                                tableBackground: vttApi.getTableBackground(),
+                                selectedObjectId: vttApi.getSelectedObjectId(),
+                                boardProperties: vttApi.getBoardProperties(),
+                        };
+                        dUiView(
+                                "Initial state for CanvasViewModel (deferred in uiView): %o",
+                                initialStateForCanvas,
+                        );
+                        canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
+                        dUiView("Initial state loaded into CanvasViewModel (deferred in uiView)");
+                }
+
+                requestRedraw();
+                dUiView("Initial redraw requested (deferred in uiView)");
+        }, 0);
+        dUiView("initializeCanvasSystem completed.");
+};
+
 
 // --- Functions moved to components ---
 // updateBoardSettingsDisplay -> boardSettingsView.js
