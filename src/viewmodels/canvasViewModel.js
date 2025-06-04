@@ -503,7 +503,6 @@ class CanvasViewModel {
                 dCanvasVM("clearAllViewModelObjects called");
                 this.viewModelObjects.clear();
                 dCanvasVM("viewModelObjects map cleared.");
-                // console.log('[CanvasViewModel] All viewModel objects cleared.'); // Removed for cleaner logs
         }
 
         // --- Image Loading ---
@@ -517,7 +516,6 @@ class CanvasViewModel {
    * @param {string} cacheKey - The key to use for caching this image (often the same as the URL).
    */
         loadImage(url, cacheKey) {
-                // Removed callback, will use this.onDrawNeededCallback
                 dCanvasVM("loadImage called. URL: %s, CacheKey: %s", url, cacheKey);
                 if (!url) {
                         if (this.loadedImages.has(cacheKey)) {
@@ -580,7 +578,6 @@ class CanvasViewModel {
                                 img: image,
                                 status: "loaded",
                         });
-                        // console.log(`Successfully loaded image. Key: ${cacheKey}`); // Removed for cleaner logs
                         if (this.onDrawNeededCallback) {
                                 dCanvasVM("Calling onDrawNeededCallback after image load success.");
                                 this.onDrawNeededCallback();

@@ -2,7 +2,6 @@
 import log from "loglevel";
 import debug from "debug";
 import * as model from "./model/model.js";
-// import * as uiView from './views/uiView.js'; // No longer needed here for showMessage
 
 const dApi = debug("app:api");
 dApi("api.js module loaded");
@@ -24,9 +23,6 @@ export function VTT_API_INIT(config) {
                 dApi("showMessageCallback NOT set due to invalid config");
         }
 }
-
-// requestRedrawEvent is removed as model.js should dispatch 'modelChanged'
-// which main.js listens to for redrawing.
 
 /**
  * VTT_API provides a comprehensive interface for interacting with the virtual tabletop's core functionalities,
@@ -149,7 +145,6 @@ export const VTT_API = {
                 // shape (derived above) acts as shapeArgument for model.createObject.
                 const newObj = model.createObject(shape, initialProps);
                 dApi("createObject: model.createObject returned: %o", newObj);
-                // requestRedrawEvent(); // Removed: model.createObject now dispatches 'modelChanged' event
                 return newObj;
         },
 
@@ -167,7 +162,6 @@ export const VTT_API = {
                 );
                 const updatedObj = model.updateObject(objectId, updatedProps);
                 dApi("updateObject: model.updateObject returned: %o", updatedObj);
-                // requestRedrawEvent(); // Removed: model.updateObject should trigger 'modelChanged'
                 return updatedObj;
         },
 
@@ -180,7 +174,6 @@ export const VTT_API = {
                 dApi("deleteObject called for id: %s", objectId);
                 const result = model.deleteObject(objectId);
                 dApi("deleteObject: model.deleteObject returned: %s", result);
-                // requestRedrawEvent(); // Removed: model.deleteObject should trigger 'modelChanged'
                 return result;
         },
 
@@ -202,7 +195,6 @@ export const VTT_API = {
                 dApi("clearAllObjects called");
                 model.clearAllObjects();
                 dApi("clearAllObjects: model.clearAllObjects executed");
-                // requestRedrawEvent(); // Removed: model.clearAllObjects should trigger 'modelChanged'
         },
 
         /**
@@ -217,7 +209,6 @@ export const VTT_API = {
                 // which is handled by main.js to trigger a redraw event.
                 model.setTableBackground(backgroundProps);
                 dApi("setTableBackground: model.setTableBackground executed");
-                // requestRedrawEvent(); // Removed, modelChanged event handles this
         },
 
         /**
@@ -259,7 +250,6 @@ export const VTT_API = {
                         currentBoardProps,
                 );
                 // model.updateBoardProperties will dispatch a modelChanged event.
-                // requestRedrawEvent(); // Removed, modelChanged event handles this
                 return currentBoardProps; // Return the confirmed, possibly recalculated, properties.
         },
 
@@ -293,7 +283,6 @@ export const VTT_API = {
                 dApi("setPanZoomState called with: %o", newState);
                 model.setPanZoomState(newState);
                 dApi("setPanZoomState: model.setPanZoomState executed");
-                // No requestRedrawEvent() here; model.setPanZoomState dispatches 'modelChanged'
         },
 
         /**

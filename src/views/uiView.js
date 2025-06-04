@@ -13,10 +13,15 @@ import * as toolbarView from "./components/toolbarView.js";
 import * as modalView from "./components/modalView.js";
 import * as messageAreaView from "./components/messageAreaView.js";
 
-/** @type {UiViewModel | null} Instance of the UiViewModel. */
+import UiViewModel from '../viewmodels/uiViewModel.js';
+import { VTT_API_INIT } from '../api.js';
+import * as sessionManagement from '../session_management.js';
+
+import CanvasViewModel from '../viewmodels/canvasViewModel.js';
+import * as canvasView from './canvasView.js';
+
 const dUiView = debug("app:view:ui");
 
-/** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
 /** @type {object | null} Instance of the VTT_API. */
 let vttApiInstance = null; // Used for some direct API calls like clearAllObjects
@@ -53,7 +58,6 @@ const domElements = {
 
         // File input (hidden, triggered by button) - General file input for loading sessions
         fileInput: null,
-        // backgroundImageFileInput is now in toolbarView
 };
 
 const cacheDOMElements = () => {
@@ -95,8 +99,6 @@ const cacheDOMElements = () => {
         domElements.fileInput.style.display = "none";
         document.body.appendChild(domElements.fileInput);
 
-        // backgroundImageFileInput is created and managed by toolbarView.js now
-
         // Update button texts and visibility for offline mode (remains the same for these elements)
         if (domElements.sessionSaveButton)
                 domElements.sessionSaveButton.textContent = "Save to File";
@@ -123,63 +125,228 @@ if (document.readyState === "loading") {
 
 /**
  * Initializes the main UI view.
- * Stores references to UiViewModel and VTT_API, and initializes all UI sub-components.
- * @param {UiViewModel} uiViewModel - The UiViewModel instance.
- * @param {object} vttApi - The VTT_API instance.
+ * This function is now responsible for creating UiViewModel, initializing VTT_API,
+ * setting up session management callbacks, and initializing all UI sub-components and the canvas system.
+ * @param {object} vttApi - The VTT_API instance (passed from main.js).
  */
-export const init = (uiViewModel, vttApi) => {
-        dUiView("init called with uiViewModel: %o, vttApi: %o", uiViewModel, vttApi);
-        uiViewModelInstance = uiViewModel;
-        vttApiInstance = vttApi; // vttApiInstance is used by some direct actions like clearBoardButton
+export const init = (vttApi) => {
+        dUiView("uiView init started, received vttApi: %o", vttApi);
+        vttApiInstance = vttApi; // Store for module-level access if needed, e.g. by clearBoardButton
 
-        if (!uiViewModelInstance) {
-                log.error("[uiView.js] UiViewModel not provided during init!");
-                dUiView("init error: UiViewModel not provided.");
-                return;
+        // Initialize UiViewModel
+        uiViewModelInstance = new UiViewModel();
+        dUiView("UiViewModel instance created in uiView");
+        if (uiViewModelInstance.init) {
+            uiViewModelInstance.init(vttApi); // Pass vttApi to UiViewModel's init
+            dUiView("UiViewModel initialized with vttApi");
         }
-        // vttApiInstance might be null if not passed, handle gracefully if some methods rely on it.
-        dUiView("UiViewModel and VTT_API instances stored.");
 
-        // Initialize all UI sub-components, passing them the UiViewModel and VTT_API as needed
-        dUiView("Initializing sub-components...");
-        inspectorView.init(uiViewModelInstance, vttApiInstance);
+        // Call VTT_API_INIT
+        VTT_API_INIT({
+            showMessage: uiViewModelInstance.displayMessage.bind(uiViewModelInstance)
+        });
+        dUiView("VTT_API_INIT called from uiView with UiViewModel's displayMessage");
+
+        // Define uiCallbacks (previously in main.js)
+        const uiCallbacks = {
+            onSaveToFile: sessionManagement.handleSaveTableState,
+            onSaveMemoryState: sessionManagement.handleSaveMemoryState,
+            onLoadFromFileInputChange: (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    dUiView("File selected for loading in uiView: %s", file.name);
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        dUiView("File content loaded in uiView, calling sessionManagement.handleLoadTableState");
+                        sessionManagement.handleLoadTableState(e.target.result);
+                    };
+                    reader.onerror = (e) => {
+                        log.error("[uiView.js] File Read Error:", e);
+                        vttApi.showMessage("File Read Error: Could not read file.", "error");
+                    };
+                    reader.readAsText(file);
+                }
+            },
+        };
+        dUiView("uiCallbacks defined in uiView: %o", uiCallbacks);
+
+        // Initialize UI Event Listeners
+        initUIEventListeners(uiCallbacks); // Call the existing method of uiView
+        dUiView("initUIEventListeners called from uiView init");
+
+        // Initialize all UI sub-components
+        dUiView("Initializing UI sub-components...");
+        inspectorView.init(uiViewModelInstance, vttApi); // Pass the vttApi received by init
         dUiView("inspectorView initialized.");
-        boardSettingsView.init(uiViewModelInstance);
+        boardSettingsView.init(uiViewModelInstance); // Assumes it gets vttApi via uiViewModelInstance if needed
         dUiView("boardSettingsView initialized.");
-        toolbarView.init(uiViewModelInstance);
+        toolbarView.init(uiViewModelInstance); // Assumes it gets vttApi via uiViewModelInstance if needed
         dUiView("toolbarView initialized.");
         modalView.init(uiViewModelInstance);
         dUiView("modalView initialized.");
-        messageAreaView.init(uiViewModelInstance); // Initialize MessageAreaView for displaying messages
+        messageAreaView.init(uiViewModelInstance);
         dUiView("messageAreaView initialized.");
+        dUiView("UI sub-components initialized in uiView");
 
-        // Callbacks for inspector, board settings, and messages are registered by their respective components with UiViewModel.
+        // Initialize Canvas System
+        initializeCanvasSystem(uiViewModelInstance, vttApi); // Pass the vttApi received by init
+        dUiView("initializeCanvasSystem called from uiView init");
 
-        // showModal and hideModal are exported by modalView.js; uiView uses modalView.showModal for its own modal needs (e.g., clear board confirmation).
+        // Display "Application initialized" message
+        uiViewModelInstance.displayMessage("Application initialized.", "info");
+        dUiView("'Application initialized.' message displayed from uiView.");
 
         log.debug(
-                "[uiView.js] Initialized with UiViewModel, VTT_API, and all sub-components.",
-        ); // log.debug fine here
+                "[uiView.js] Initialized with VTT_API, created UiViewModel, set up callbacks, sub-components, and canvas.",
+        );
         dUiView("uiView initialization complete.");
 };
 
-// --- Functions moved to components ---
-// updateBoardSettingsDisplay -> boardSettingsView.js
-// handleApplyBoardProperties -> boardSettingsView.js
-// populateObjectInspector -> inspectorView.js
-// readObjectInspector -> inspectorView.js
-// handleApplyObjectChangesFromInspector -> inspectorView.js
-// handleDeleteObjectFromInspector -> inspectorView.js
-// handleObjectImageFileChange -> inspectorView.js
-// setObjectImageUrlText -> inspectorView.js
-// getToolbarValues -> toolbarView.js
-// setBackgroundUrlInputText -> toolbarView.js
-// handleSetBackgroundFromToolbar -> toolbarView.js
-// handleBackgroundImageFileChange -> toolbarView.js
-// displayCreateObjectModal -> modalView.js
-// showModal -> modalView.js
-// hideModal -> modalView.js
-// getModalContentElement -> modalView.js
+
+// --- Canvas System Initialization (Moved from main.js) ---
+/**
+ * Initializes the canvas system including CanvasViewModel, canvasView,
+ * model change listeners for canvas, and deferred object/state loading.
+ * @param {UiViewModel} uiViewModel - The UiViewModel instance, for message display.
+ * @param {object} vttApi - The VTT_API instance, for API calls.
+ */
+const initializeCanvasSystem = (uiViewModel, vttApi) => {
+        dUiView("initializeCanvasSystem called with uiViewModel: %o, vttApi: %o", uiViewModel, vttApi);
+
+        const requestRedraw = () => {
+                dUiView("requestRedraw called from uiView");
+                canvasView.drawVTT();
+        };
+
+        const canvasViewModel = new CanvasViewModel(
+                requestRedraw,
+                uiViewModel.displayMessage.bind(uiViewModel),
+        );
+        dUiView("CanvasViewModel initialized in uiView");
+
+        document.addEventListener('modelChanged', (event) => {
+                dUiView(
+                        "modelChanged event received in uiView.js for canvas: Type - %s, Payload - %o",
+                        event.detail.type,
+                        event.detail.payload,
+                );
+                if (event.detail && canvasViewModel) {
+                        const { type, payload } = event.detail;
+                        dUiView("Processing modelChanged event for CanvasViewModel in uiView: Type - %s", type);
+                        switch (type) {
+                        case "allObjectsCleared":
+                                canvasViewModel.clearAllViewModelObjects();
+                                canvasViewModel.setSelectedObjectInViewModel(null);
+                                dUiView("CanvasViewModel: allObjectsCleared and selection reset in uiView");
+                                break;
+                        case "selectionChanged":
+                                canvasViewModel.setSelectedObjectInViewModel(payload);
+                                dUiView("CanvasViewModel: selectionChanged to %s in uiView", payload);
+                                break;
+                        case "objectAdded":
+                                canvasViewModel.addObjectToViewModel(payload);
+                                dUiView("CanvasViewModel: objectAdded in uiView: %o", payload);
+                                break;
+                        case "objectUpdated":
+                                canvasViewModel.updateObjectInViewModel(payload.id, payload);
+                                dUiView("CanvasViewModel: objectUpdated in uiView: %s, %o", payload.id, payload);
+                                break;
+                        case "objectDeleted":
+                                canvasViewModel.removeObjectFromViewModel(payload.id);
+                                if (payload.id === vttApi.getSelectedObjectId()) {
+                                        canvasViewModel.setSelectedObjectInViewModel(null);
+                                        dUiView(
+                                                "CanvasViewModel: selected object %s was deleted, selection reset in uiView",
+                                                payload.id,
+                                        );
+                                }
+                                dUiView("CanvasViewModel: objectDeleted in uiView: %s", payload.id);
+                                break;
+                        case "panZoomChanged":
+                                canvasViewModel.setPanZoomInViewModel(payload);
+                                dUiView("CanvasViewModel: panZoomChanged in uiView: %o", payload);
+                                break;
+                        case "backgroundChanged":
+                                canvasViewModel.setBackgroundInViewModel(payload);
+                                dUiView("CanvasViewModel: backgroundChanged in uiView: %o", payload);
+                                break;
+                        case "boardPropertiesChanged":
+                                canvasViewModel.setBoardPropertiesInViewModel(payload);
+                                dUiView("CanvasViewModel: boardPropertiesChanged in uiView: %o", payload);
+                                break;
+                        default:
+                                dUiView(
+                                        "Unhandled modelChanged event type in uiView.js for CanvasViewModel: %s",
+                                        type,
+                                );
+                        }
+                } else if (!canvasViewModel) {
+                        dUiView("modelChanged event received in uiView, but canvasViewModel is not available.");
+                }
+                requestRedraw(); // Call the local requestRedraw
+        });
+        dUiView("modelChanged event listener for canvas added to document in uiView");
+
+        setTimeout(() => {
+                if (!domElements.vttCanvas) {
+                        log.error("[uiView.js] VTT Canvas element not found for deferred initialization.");
+                        dUiView("VTT Canvas element not found in setTimeout. DOM elements: %o", domElements);
+                        cacheDOMElements();
+                        if(!domElements.vttCanvas) {
+                                log.error("[uiView.js] VTT Canvas still not found after re-cache attempt.");
+                                uiViewModel.displayMessage("Critical Error: Canvas element not found. Try reloading.", "error");
+                                return;
+                        }
+                }
+                dUiView("Deferred: Initializing canvasView now in uiView.");
+                canvasView.initCanvas(
+                        domElements.vttCanvas,
+                        canvasViewModel,
+                );
+
+                dUiView("Creating default objects for testing/demonstration (deferred in uiView)");
+                vttApi.createObject("rectangle", {
+                        x: 50,
+                        y: 50,
+                        width: 100,
+                        height: 75,
+                        appearance: { backgroundColor: "#FFC0CB", text: "Rect 1" },
+                        name: "Test Rectangle 1",
+                });
+
+                vttApi.createObject("circle", {
+                        x: 200,
+                        y: 100,
+                        width: 60,
+                        height: 60,
+                        appearance: { backgroundColor: "#ADD8E6", text: "Circ 1" },
+                        name: "Test Circle 1",
+                        rotation: 30,
+                });
+
+                if (canvasViewModel) {
+                        dUiView("Loading initial state into CanvasViewModel (deferred in uiView)");
+                        const initialStateForCanvas = {
+                                objects: vttApi.getAllObjects(),
+                                panZoomState: vttApi.getPanZoomState(),
+                                tableBackground: vttApi.getTableBackground(),
+                                selectedObjectId: vttApi.getSelectedObjectId(),
+                                boardProperties: vttApi.getBoardProperties(),
+                        };
+                        dUiView(
+                                "Initial state for CanvasViewModel (deferred in uiView): %o",
+                                initialStateForCanvas,
+                        );
+                        canvasViewModel.loadStateIntoViewModel(initialStateForCanvas);
+                        dUiView("Initial state loaded into CanvasViewModel (deferred in uiView)");
+                }
+
+                requestRedraw();
+                dUiView("Initial redraw requested (deferred in uiView)");
+        }, 0);
+        dUiView("initializeCanvasSystem completed.");
+};
+
 
 // --- Main UI Event Listener Setup (for elements uiView.js still manages) ---
 /**
@@ -197,7 +364,6 @@ export const initUIEventListeners = (callbacks) => {
                 onSaveToFile,
                 onLoadFromFileInputChange,
                 onSaveMemoryState,
-                // onLoadMemoryStateRequest, // This will now be handled by uiViewModelInstance.requestLoadMemoryState()
         } = callbacks;
         dUiView("initUIEventListeners called with callbacks: %o", callbacks);
 
@@ -240,8 +406,6 @@ export const initUIEventListeners = (callbacks) => {
                         onLoadFromFileInputChange(event);
                 });
         }
-
-        // chooseBackgroundImageButton and its backgroundImageFileInput are managed by toolbarView.js now.
 
         if (domElements.clearBoardButton) {
                 domElements.clearBoardButton.addEventListener("click", () => {
@@ -302,14 +466,12 @@ export const initUIEventListeners = (callbacks) => {
         }
 
         if (onSaveMemoryState && domElements.saveMemoryStateButton) {
-                // Changed from callbacks.onSaveMemoryState
                 domElements.saveMemoryStateButton.addEventListener("click", () => {
                         dUiView("Save Memory State button clicked.");
                         onSaveMemoryState();
                 });
         }
 
-        // Updated: Load Memory State button now calls uiViewModelInstance.requestLoadMemoryState()
         if (domElements.loadMemoryStateButton) {
                 domElements.loadMemoryStateButton.addEventListener("click", () => {
                         dUiView("Load Memory State button clicked.");
