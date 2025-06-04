@@ -92,17 +92,17 @@ class CanvasViewModel {
          * @param {number} devicePixelRatio - The device pixel ratio of the screen.
          */
         setCanvasElementDimensions(physicalWidth, physicalHeight, devicePixelRatio) {
-            dCanvasVM(
-                "setCanvasElementDimensions called with physicalWidth: %d, physicalHeight: %d, dpr: %f",
-                physicalWidth,
-                physicalHeight,
-                devicePixelRatio,
-            );
-            this.canvasPhysicalWidth = physicalWidth;
-            this.canvasPhysicalHeight = physicalHeight;
-            this.canvasDevicePixelRatio = devicePixelRatio;
-            // Optionally, trigger a redraw or other logic if these dimensions affect something in the ViewModel.
-            // For now, just storing them.
+                dCanvasVM(
+                        "setCanvasElementDimensions called with physicalWidth: %d, physicalHeight: %d, dpr: %f",
+                        physicalWidth,
+                        physicalHeight,
+                        devicePixelRatio,
+                );
+                this.canvasPhysicalWidth = physicalWidth;
+                this.canvasPhysicalHeight = physicalHeight;
+                this.canvasDevicePixelRatio = devicePixelRatio;
+                // Optionally, trigger a redraw or other logic if these dimensions affect something in the ViewModel.
+                // For now, just storing them.
         }
 
         // --- Getters ---

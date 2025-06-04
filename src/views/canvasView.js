@@ -264,7 +264,7 @@ export const setCanvasSize = () => {
                         canvas.height,
                 );
                 if (viewModel && viewModel.setCanvasElementDimensions) {
-                    viewModel.setCanvasElementDimensions(canvas.width, canvas.height, dpr);
+                        viewModel.setCanvasElementDimensions(canvas.width, canvas.height, dpr);
                 }
         }
         if (viewModel && viewModel.onDrawNeededCallback) {

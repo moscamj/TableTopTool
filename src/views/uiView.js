@@ -136,36 +136,36 @@ export const init = (vttApi) => {
         uiViewModelInstance = new UiViewModel();
         dUiView("UiViewModel instance created in uiView");
         if (uiViewModelInstance.init) {
-            uiViewModelInstance.init(vttApi); // Pass vttApi to UiViewModel's init
-            dUiView("UiViewModel initialized with vttApi");
+                uiViewModelInstance.init(vttApi); // Pass vttApi to UiViewModel's init
+                dUiView("UiViewModel initialized with vttApi");
         }
 
         // Call VTT_API_INIT
         VTT_API_INIT({
-            showMessage: uiViewModelInstance.displayMessage.bind(uiViewModelInstance)
+                showMessage: uiViewModelInstance.displayMessage.bind(uiViewModelInstance)
         });
         dUiView("VTT_API_INIT called from uiView with UiViewModel's displayMessage");
 
         // Define uiCallbacks (previously in main.js)
         const uiCallbacks = {
-            onSaveToFile: sessionManagement.handleSaveTableState,
-            onSaveMemoryState: sessionManagement.handleSaveMemoryState,
-            onLoadFromFileInputChange: (event) => {
-                const file = event.target.files[0];
-                if (file) {
-                    dUiView("File selected for loading in uiView: %s", file.name);
-                    const reader = new FileReader();
-                    reader.onload = (e) => {
-                        dUiView("File content loaded in uiView, calling sessionManagement.handleLoadTableState");
-                        sessionManagement.handleLoadTableState(e.target.result);
-                    };
-                    reader.onerror = (e) => {
-                        log.error("[uiView.js] File Read Error:", e);
-                        vttApi.showMessage("File Read Error: Could not read file.", "error");
-                    };
-                    reader.readAsText(file);
-                }
-            },
+                onSaveToFile: sessionManagement.handleSaveTableState,
+                onSaveMemoryState: sessionManagement.handleSaveMemoryState,
+                onLoadFromFileInputChange: (event) => {
+                        const file = event.target.files[0];
+                        if (file) {
+                                dUiView("File selected for loading in uiView: %s", file.name);
+                                const reader = new FileReader();
+                                reader.onload = (e) => {
+                                        dUiView("File content loaded in uiView, calling sessionManagement.handleLoadTableState");
+                                        sessionManagement.handleLoadTableState(e.target.result);
+                                };
+                                reader.onerror = (e) => {
+                                        log.error("[uiView.js] File Read Error:", e);
+                                        vttApi.showMessage("File Read Error: Could not read file.", "error");
+                                };
+                                reader.readAsText(file);
+                        }
+                },
         };
         dUiView("uiCallbacks defined in uiView: %o", uiCallbacks);
 
@@ -189,15 +189,15 @@ export const init = (vttApi) => {
 
         // Initialize Canvas System directly via canvasView.initCanvas
         if (domElements.vttCanvas) {
-            canvasView.initCanvas(
-                domElements.vttCanvas,
-                uiViewModelInstance.displayMessage.bind(uiViewModelInstance),
-                vttApi
-            );
-            dUiView("canvasView.initCanvas called from uiView init");
+                canvasView.initCanvas(
+                        domElements.vttCanvas,
+                        uiViewModelInstance.displayMessage.bind(uiViewModelInstance),
+                        vttApi
+                );
+                dUiView("canvasView.initCanvas called from uiView init");
         } else {
-            log.error("[uiView.js] VTT Canvas element not found, cannot initialize canvasView.");
-            uiViewModelInstance.displayMessage("Critical Error: Canvas element not found. VTT will not function.", "error");
+                log.error("[uiView.js] VTT Canvas element not found, cannot initialize canvasView.");
+                uiViewModelInstance.displayMessage("Critical Error: Canvas element not found. VTT will not function.", "error");
         }
 
         // Display "Application initialized" message
