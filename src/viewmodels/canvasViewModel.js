@@ -16,9 +16,13 @@ class CanvasViewModel {
    * Creates an instance of CanvasViewModel.
    * @param {function(): void} onDrawNeededCallback - A callback function to be invoked when the canvas needs to be redrawn.
    * @param {function(text: string, type: string, duration?: number): void} displayMessageFn - A function to display messages to the user (delegated from UiViewModel).
+   * @param {object} vttApi - The VTT API interface.
    */
-        constructor(onDrawNeededCallback, displayMessageFn) {
+        constructor(onDrawNeededCallback, displayMessageFn, vttApi) {
                 dCanvasVM("CanvasViewModel constructor called");
+                /** @type {object} The VTT API interface. */
+                this.vttApi = vttApi;
+
                 /** @type {function(): void} Callback to request a redraw of the canvas. */
                 this.onDrawNeededCallback =
       onDrawNeededCallback ||
@@ -349,7 +353,7 @@ class CanvasViewModel {
         /**
    * Updates the pan and zoom state locally for immediate responsiveness during user interaction (e.g., dragging to pan).
    * It directly modifies the ViewModel's pan/zoom state and triggers a redraw.
-   * The View is expected to later call VTT_API.setPanZoomState to persist this change to the model.
+   * The View is expected to later call this.vttApi.setPanZoomState to persist this change to the model.
    * @param {number} [panX] - The new panX value.
    * @param {number} [panY] - The new panY value.
    * @param {number} [zoom] - The new zoom value.
@@ -388,7 +392,7 @@ class CanvasViewModel {
         /**
    * Updates an object's position locally for immediate responsiveness during user interaction (e.g., dragging an object).
    * It directly modifies the object's x/y coordinates in the ViewModel and triggers a redraw.
-   * The View is expected to later call VTT_API.updateObject to persist this change to the model.
+   * The View is expected to later call this.vttApi.updateObject to persist this change to the model.
    * @param {string} objectId - The ID of the object being moved.
    * @param {number} x - The new x-coordinate.
    * @param {number} y - The new y-coordinate.

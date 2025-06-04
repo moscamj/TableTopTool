@@ -23,8 +23,7 @@ import * as canvasView from './canvasView.js';
 const dUiView = debug("app:view:ui");
 
 let uiViewModelInstance = null;
-/** @type {object | null} Instance of the VTT_API. */
-let vttApiInstance = null; // Used for some direct API calls like clearAllObjects
+// vttApiInstance module variable removed, will be passed as parameter where needed.
 
 /** @type {boolean} Flag to ensure DOM elements are only cached once. */
 let domElementsCached = false;
@@ -131,7 +130,7 @@ if (document.readyState === "loading") {
  */
 export const init = (vttApi) => {
         dUiView("uiView init started, received vttApi: %o", vttApi);
-        vttApiInstance = vttApi; // Store for module-level access if needed, e.g. by clearBoardButton
+        // vttApiInstance = vttApi; // No longer storing as module variable
 
         // Initialize UiViewModel
         uiViewModelInstance = new UiViewModel();
@@ -171,8 +170,8 @@ export const init = (vttApi) => {
         dUiView("uiCallbacks defined in uiView: %o", uiCallbacks);
 
         // Initialize UI Event Listeners
-        initUIEventListeners(uiCallbacks); // Call the existing method of uiView
-        dUiView("initUIEventListeners called from uiView init");
+        initUIEventListeners(uiCallbacks, vttApi); // Pass vttApi here
+        dUiView("initUIEventListeners called from uiView init with vttApi");
 
         // Initialize all UI sub-components
         dUiView("Initializing UI sub-components...");
@@ -221,8 +220,9 @@ const initializeCanvasSystem = (uiViewModel, vttApi) => {
         const canvasViewModel = new CanvasViewModel(
                 requestRedraw,
                 uiViewModel.displayMessage.bind(uiViewModel),
+                vttApi, // Pass vttApi as the third argument
         );
-        dUiView("CanvasViewModel initialized in uiView");
+        dUiView("CanvasViewModel initialized in uiView with vttApi");
 
         document.addEventListener('modelChanged', (event) => {
                 dUiView(
@@ -302,6 +302,7 @@ const initializeCanvasSystem = (uiViewModel, vttApi) => {
                 canvasView.initCanvas(
                         domElements.vttCanvas,
                         canvasViewModel,
+                        vttApi, // Pass vttApi as the third argument
                 );
 
                 dUiView("Creating default objects for testing/demonstration (deferred in uiView)");
@@ -357,15 +358,15 @@ const initializeCanvasSystem = (uiViewModel, vttApi) => {
  * @param {function(): void} callbacks.onSaveToFile - Callback to handle saving the current table state to a file.
  * @param {function(event: Event): void} callbacks.onLoadFromFileInputChange - Callback to handle file selection for loading table state.
  * @param {function(): void} callbacks.onSaveMemoryState - Callback to handle saving the current state to in-memory storage.
- *                                                        (Note: onLoadMemoryStateRequest is now handled via UiViewModel)
+ * @param {object} vttApi - The VTT API instance.
  */
-export const initUIEventListeners = (callbacks) => {
+export const initUIEventListeners = (callbacks, vttApi) => {
         const {
                 onSaveToFile,
                 onLoadFromFileInputChange,
                 onSaveMemoryState,
         } = callbacks;
-        dUiView("initUIEventListeners called with callbacks: %o", callbacks);
+        dUiView("initUIEventListeners called with callbacks: %o and vttApi: %o", callbacks, vttApi);
 
         if (!domElementsCached) {
                 dUiView("DOM elements not cached, calling cacheDOMElements.");
@@ -425,9 +426,9 @@ export const initUIEventListeners = (callbacks) => {
                                                 type: "danger",
                                                 onClickCallback: () => {
                                                         dUiView("Clear Board confirmed by user.");
-                                                        if (vttApiInstance) {
-                                                                dUiView("Calling vttApiInstance.clearAllObjects()");
-                                                                vttApiInstance.clearAllObjects();
+                                                        if (vttApi) { // Use passed-in vttApi
+                                                                dUiView("Calling vttApi.clearAllObjects()");
+                                                                vttApi.clearAllObjects();
                                                         }
                                                         if (uiViewModelInstance) {
                                                                 dUiView(
@@ -437,12 +438,12 @@ export const initUIEventListeners = (callbacks) => {
                                                                         type: "color",
                                                                         value: "#cccccc",
                                                                 });
-                                                        } else if (vttApiInstance) {
+                                                        } else if (vttApi) { // Use passed-in vttApi
                                                                 // Fallback if uiViewModelInstance somehow not set
                                                                 dUiView(
-                                                                        "UiViewModel not available, calling vttApiInstance.setTableBackground() to default.",
+                                                                        "UiViewModel not available, calling vttApi.setTableBackground() to default.",
                                                                 );
-                                                                vttApiInstance.setTableBackground({
+                                                                vttApi.setTableBackground({ // Use passed-in vttApi
                                                                         type: "color",
                                                                         value: "#cccccc",
                                                                 });

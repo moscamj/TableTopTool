@@ -6,7 +6,7 @@
  */
 import log from "loglevel";
 import debug from "debug";
-import { VTT_API } from "../api.js";
+// VTT_API import removed as it's now passed in
 import * as model from "../model/model.js"; // For direct model access for script execution context (temporary)
 
 const dCanvasView = debug("app:view:canvas");
@@ -51,13 +51,15 @@ const debounce = (func, delay) => {
  * Sets up the rendering context, initial canvas size, and registers all necessary event listeners.
  * @param {HTMLCanvasElement} canvasElement - The HTML canvas element to draw on.
  * @param {CanvasViewModel} cvm - The CanvasViewModel instance for this view.
+ * @param {object} vttApi - The VTT API interface.
  */
-export const initCanvas = (canvasElement, cvm) => {
+export const initCanvas = (canvasElement, cvm, vttApi) => {
         // cvm is the CanvasViewModel instance
         dCanvasView(
-                "initCanvas called with canvasElement: %o, cvm: %o",
+                "initCanvas called with canvasElement: %o, cvm: %o, vttApi: %o",
                 canvasElement,
                 cvm,
+                vttApi,
         );
         if (!canvasElement) {
                 log.error("[canvasView.js] Canvas element not provided!");
@@ -67,6 +69,11 @@ export const initCanvas = (canvasElement, cvm) => {
         if (!cvm) {
                 log.error("[canvasView.js] CanvasViewModel not provided!");
                 dCanvasView("initCanvas error: CanvasViewModel not provided.");
+                return;
+        }
+        if (!vttApi) {
+                log.error("[canvasView.js] VTT API not provided!");
+                dCanvasView("initCanvas error: VTT API not provided.");
                 return;
         }
         canvas = canvasElement;
@@ -390,7 +397,7 @@ function handleMouseDown(e) {
                                 clickedObjectId,
                         );
                         // viewModel.setSelectedObjectInViewModel(clickedObjectId); // VM updated by modelChanged event
-                        VTT_API.setSelectedObjectId(clickedObjectId);
+                        vttApi.setSelectedObjectId(clickedObjectId);
                 }
         } else {
                 isPanning = true;
@@ -407,7 +414,7 @@ function handleMouseDown(e) {
                                 currentSelectedId,
                         );
                         // viewModel.setSelectedObjectInViewModel(null); // VM updated by modelChanged event
-                        VTT_API.setSelectedObjectId(null);
+                        vttApi.setSelectedObjectId(null);
                 }
         }
         // Redraw might be triggered by modelChanged event from VTT_API calls
@@ -493,7 +500,7 @@ function handleMouseUp(e) {
                                 draggedObject.y,
                         );
                         // Persist final dragged position to the model via API
-                        VTT_API.updateObject(selectedObjectId, {
+                        vttApi.updateObject(selectedObjectId, {
                                 x: draggedObject.x,
                                 y: draggedObject.y,
                         });
@@ -506,7 +513,7 @@ function handleMouseUp(e) {
                         viewModel.getPanZoom(),
                 );
                 // Persist final pan state to the model via API
-                VTT_API.setPanZoomState(viewModel.getPanZoom());
+                vttApi.setPanZoomState(viewModel.getPanZoom());
         }
 
         isDragging = false;
@@ -526,7 +533,7 @@ function handleMouseUp(e) {
                 );
 
                 if (clickedObjectId) {
-                        const objectDetailsFromModel = VTT_API.getObject(clickedObjectId);
+                        const objectDetailsFromModel = vttApi.getObject(clickedObjectId);
                         if (
                                 objectDetailsFromModel &&
         objectDetailsFromModel.scripts &&
@@ -552,7 +559,7 @@ function handleMouseUp(e) {
                                                 objectRefForScript,
                                         );
                                         new Function("VTT", "object", objectDetailsFromModel.scripts.onClick)(
-                                                VTT_API,
+                                                vttApi,
                                                 objectRefForScript, // Pass the actual object reference from model for script context
                                         );
                                         dCanvasView("onClick script executed for %s.", clickedObjectId);
@@ -563,7 +570,7 @@ function handleMouseUp(e) {
                                                 clickedObjectId,
                                                 scriptError,
                                         );
-                                        VTT_API.showMessage(
+                                        vttApi.showMessage(
                                                 `Script Error in onClick for object ${objectDetailsFromModel.id}: ${scriptError.message}`,
                                                 "error",
                                         );
@@ -597,7 +604,7 @@ function handleMouseLeave(e) {
                                 object.y,
                         );
                         // Persist final dragged position if mouse leaves canvas while dragging
-                        VTT_API.updateObject(selectedObjectId, {
+                        vttApi.updateObject(selectedObjectId, {
                                 x: object.x,
                                 y: object.y,
                         });
@@ -609,7 +616,7 @@ function handleMouseLeave(e) {
                         viewModel.getPanZoom(),
                 );
                 // Persist final pan state if mouse leaves canvas while panning
-                VTT_API.setPanZoomState(viewModel.getPanZoom());
+                vttApi.setPanZoomState(viewModel.getPanZoom());
         }
 
         isDragging = false;
@@ -671,7 +678,7 @@ function handleWheel(e) {
                 "Persisting new pan/zoom state to API: %o",
                 viewModel.getPanZoom(),
         );
-        VTT_API.setPanZoomState(viewModel.getPanZoom()); // Send the locally updated panZoom
+        vttApi.setPanZoomState(viewModel.getPanZoom()); // Send the locally updated panZoom
 }
 
 // Functions that were moved to CanvasViewModel:
