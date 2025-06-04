@@ -13,22 +13,22 @@ dModel("model.js module loaded - Refactored");
  * @param {object} detail - The event detail object, typically including a 'type' (e.g., 'objectAdded', 'panZoomChanged') and 'payload'.
  */
 const dispatchModelChangeEvent = (detail) => {
-        if (typeof document !== "undefined" && document.dispatchEvent) {
-                dModel(
-                        "Dispatching modelChanged event: Type - %s, Payload: %o",
-                        detail.type,
-                        detail.payload,
-                );
-                document.dispatchEvent(new CustomEvent("modelChanged", { detail }));
-        } else {
-                log.warn(
-                        "Cannot dispatch modelChanged event: `document` is not available.",
-                );
-                dModel(
-                        "Cannot dispatch modelChanged event: `document` is not available. Detail: %o",
-                        detail,
-                );
-        }
+  if (typeof document !== "undefined" && document.dispatchEvent) {
+    dModel(
+      "Dispatching modelChanged event: Type - %s, Payload: %o",
+      detail.type,
+      detail.payload,
+    );
+    document.dispatchEvent(new CustomEvent("modelChanged", { detail }));
+  } else {
+    log.warn(
+      "Cannot dispatch modelChanged event: `document` is not available.",
+    );
+    dModel(
+      "Cannot dispatch modelChanged event: `document` is not available. Detail: %o",
+      detail,
+    );
+  }
 };
 
 /**
@@ -49,29 +49,33 @@ const board = new Board();
  * @returns {VTTObject} A copy of the newly created object's state.
  */
 export const createObject = (shapeArgument, initialProps = {}) => {
-        dModel(
-                "createObject called with shapeArgument: %s, initialProps: %o",
-                shapeArgument,
-                initialProps,
-        );
+  dModel(
+    "createObject called with shapeArgument: %s, initialProps: %o",
+    shapeArgument,
+    initialProps,
+  );
 
-        // The VTTObject constructor now handles ID generation and default property assignment.
-        // Pass currentObjects.size to assist with default naming if necessary.
-        const newVTTObject = new VTTObject(shapeArgument, initialProps, currentObjects.size);
+  // The VTTObject constructor now handles ID generation and default property assignment.
+  // Pass currentObjects.size to assist with default naming if necessary.
+  const newVTTObject = new VTTObject(
+    shapeArgument,
+    initialProps,
+    currentObjects.size,
+  );
 
-        currentObjects.set(newVTTObject.id, newVTTObject);
-        dModel(
-                "New VTTObject instance added to currentObjects map. ID: %s, Object: %o",
-                newVTTObject.id,
-                newVTTObject,
-        );
+  currentObjects.set(newVTTObject.id, newVTTObject);
+  dModel(
+    "New VTTObject instance added to currentObjects map. ID: %s, Object: %o",
+    newVTTObject.id,
+    newVTTObject,
+  );
 
-        dispatchModelChangeEvent({
-                type: "objectAdded",
-                payload: { ...newVTTObject }, // Dispatch a copy of the object's state
-        });
-        dModel("createObject returning copy of new VTTObject: %o", newVTTObject);
-        return { ...newVTTObject }; // Return a copy of the object's state
+  dispatchModelChangeEvent({
+    type: "objectAdded",
+    payload: { ...newVTTObject }, // Dispatch a copy of the object's state
+  });
+  dModel("createObject returning copy of new VTTObject: %o", newVTTObject);
+  return { ...newVTTObject }; // Return a copy of the object's state
 };
 
 /**
@@ -83,49 +87,45 @@ export const createObject = (shapeArgument, initialProps = {}) => {
  * @returns {VTTObject | null} A copy of the updated object state, or null if the object was not found.
  */
 export const updateObject = (objectId, updatedProps) => {
-        dModel(
-                "updateObject called for id: %s, updatedProps: %o",
-                objectId,
-                updatedProps,
-        );
-        if (!currentObjects.has(objectId)) {
-                log.warn(`Object with ID ${objectId} not found for update.`);
-                dModel("updateObject failed: Object %s not found", objectId);
-                return null;
-        }
+  dModel(
+    "updateObject called for id: %s, updatedProps: %o",
+    objectId,
+    updatedProps,
+  );
+  if (!currentObjects.has(objectId)) {
+    log.warn(`Object with ID ${objectId} not found for update.`);
+    dModel("updateObject failed: Object %s not found", objectId);
+    return null;
+  }
 
-        const existingObject = currentObjects.get(objectId);
-        dModel("Existing VTTObject instance for %s: %o", objectId, existingObject);
+  const existingObject = currentObjects.get(objectId);
+  dModel("Existing VTTObject instance for %s: %o", objectId, existingObject);
 
-        // The VTTObject's update method handles the changes and internal comparison
-        const changed = existingObject.update(updatedProps);
+  // The VTTObject's update method handles the changes and internal comparison
+  const changed = existingObject.update(updatedProps);
 
-        if (changed) {
-                dModel(
-                        "VTTObject %s updated. New state: %o",
-                        objectId,
-                        existingObject,
-                );
-                log.info(
-                        `Object [${objectId}] updated. Name: '${existingObject.name || "N/A"}'`,
-                        existingObject,
-                );
-                dispatchModelChangeEvent({
-                        type: "objectUpdated",
-                        payload: { ...existingObject }, // Dispatch a copy of the object's state
-                });
-        } else {
-                dModel(
-                        "Object update for %s resulted in no changes. Not dispatching event.",
-                        objectId,
-                );
-        }
-        dModel(
-                "updateObject returning (potentially unchanged) state for %s: %o",
-                objectId,
-                existingObject,
-        );
-        return { ...existingObject }; // Return a copy of the object's current state
+  if (changed) {
+    dModel("VTTObject %s updated. New state: %o", objectId, existingObject);
+    log.info(
+      `Object [${objectId}] updated. Name: '${existingObject.name || "N/A"}'`,
+      existingObject,
+    );
+    dispatchModelChangeEvent({
+      type: "objectUpdated",
+      payload: { ...existingObject }, // Dispatch a copy of the object's state
+    });
+  } else {
+    dModel(
+      "Object update for %s resulted in no changes. Not dispatching event.",
+      objectId,
+    );
+  }
+  dModel(
+    "updateObject returning (potentially unchanged) state for %s: %o",
+    objectId,
+    existingObject,
+  );
+  return { ...existingObject }; // Return a copy of the object's current state
 };
 
 /**
@@ -135,26 +135,26 @@ export const updateObject = (objectId, updatedProps) => {
  * @returns {boolean} True if the object was found and deleted, false otherwise.
  */
 export const deleteObject = (objectId) => {
-        dModel("deleteObject called for id: %s", objectId);
-        if (currentObjects.has(objectId)) {
-                const deleted = currentObjects.delete(objectId);
-                if (deleted) {
-                        dModel("Object %s deleted from currentObjects map.", objectId);
-                        dispatchModelChangeEvent({
-                                type: "objectDeleted",
-                                payload: { id: objectId },
-                        });
-                } else {
-                        dModel(
-                                "Object %s was in map, but delete operation returned false.",
-                                objectId,
-                        );
-                }
-                return deleted;
-        }
-        log.warn(`Object with ID ${objectId} not found for deletion.`);
-        dModel("deleteObject failed: Object %s not found for deletion.", objectId);
-        return false;
+  dModel("deleteObject called for id: %s", objectId);
+  if (currentObjects.has(objectId)) {
+    const deleted = currentObjects.delete(objectId);
+    if (deleted) {
+      dModel("Object %s deleted from currentObjects map.", objectId);
+      dispatchModelChangeEvent({
+        type: "objectDeleted",
+        payload: { id: objectId },
+      });
+    } else {
+      dModel(
+        "Object %s was in map, but delete operation returned false.",
+        objectId,
+      );
+    }
+    return deleted;
+  }
+  log.warn(`Object with ID ${objectId} not found for deletion.`);
+  dModel("deleteObject failed: Object %s not found for deletion.", objectId);
+  return false;
 };
 
 /**
@@ -163,14 +163,14 @@ export const deleteObject = (objectId) => {
  * @returns {VTTObject | undefined} A copy of the object's state if found, otherwise undefined.
  */
 export const getObject = (objectId) => {
-        dModel("getObject called for id: %s", objectId);
-        if (!currentObjects.has(objectId)) {
-                dModel("getObject: Object %s not found.", objectId);
-                return undefined;
-        }
-        const obj = currentObjects.get(objectId);
-        dModel("getObject returning copy for %s: %o", objectId, obj);
-        return { ...obj }; // Return a copy of the object's state
+  dModel("getObject called for id: %s", objectId);
+  if (!currentObjects.has(objectId)) {
+    dModel("getObject: Object %s not found.", objectId);
+    return undefined;
+  }
+  const obj = currentObjects.get(objectId);
+  dModel("getObject returning copy for %s: %o", objectId, obj);
+  return { ...obj }; // Return a copy of the object's state
 };
 
 /**
@@ -178,12 +178,12 @@ export const getObject = (objectId) => {
  * @returns {VTTObject[]} An array of VTTObject state copies.
  */
 export const getAllObjects = () => {
-        dModel("getAllObjects called");
-        const allObjectStates = Array.from(currentObjects.values()).map((obj) => ({
-                ...obj, // Create a shallow copy of each object's state
-        }));
-        dModel("getAllObjects returning %d object states.", allObjectStates.length);
-        return allObjectStates;
+  dModel("getAllObjects called");
+  const allObjectStates = Array.from(currentObjects.values()).map((obj) => ({
+    ...obj, // Create a shallow copy of each object's state
+  }));
+  dModel("getAllObjects returning %d object states.", allObjectStates.length);
+  return allObjectStates;
 };
 
 /**
@@ -191,10 +191,10 @@ export const getAllObjects = () => {
  * Dispatches a 'modelChanged' event of type 'allObjectsCleared'.
  */
 export const clearAllObjects = () => {
-        dModel("clearAllObjects called");
-        currentObjects.clear();
-        dModel("currentObjects map cleared.");
-        dispatchModelChangeEvent({ type: "allObjectsCleared", payload: null });
+  dModel("clearAllObjects called");
+  currentObjects.clear();
+  dModel("currentObjects map cleared.");
+  dispatchModelChangeEvent({ type: "allObjectsCleared", payload: null });
 };
 
 // --- Board State Management ---
@@ -210,7 +210,7 @@ let selectedObjectId = null; // Remains in model.js for now
  * @returns {{panX: number, panY: number, zoom: number}} The current pan and zoom state.
  */
 export const getPanZoomState = () => {
-        return board.getPanZoomState();
+  return board.getPanZoomState();
 };
 
 /**
@@ -218,7 +218,7 @@ export const getPanZoomState = () => {
  * @returns {{type: 'color' | 'image', value: string}} The current background configuration.
  */
 export const getTableBackground = () => {
-        return board.getTableBackground();
+  return board.getTableBackground();
 };
 
 /**
@@ -226,8 +226,8 @@ export const getTableBackground = () => {
  * @returns {string | null} The ID of the selected object, or null if no object is selected.
  */
 export const getSelectedObjectId = () => {
-        dModel("getSelectedObjectId called, returning: %s", selectedObjectId);
-        return selectedObjectId;
+  dModel("getSelectedObjectId called, returning: %s", selectedObjectId);
+  return selectedObjectId;
 };
 
 /**
@@ -235,7 +235,7 @@ export const getSelectedObjectId = () => {
  * @returns {{widthUser: number, heightUser: number, unitForDimensions: string, widthPx: number, heightPx: number, scaleRatio: number, unitForRatio: string}}
  */
 export const getBoardProperties = () => {
-        return board.getBoardProperties();
+  return board.getBoardProperties();
 };
 
 // Setters - Delegate to Board instance, dispatch events if changed
@@ -245,19 +245,19 @@ export const getBoardProperties = () => {
  * @param {{panX?: number, panY?: number, zoom?: number}} newState - An object containing new panX, panY, or zoom values.
  */
 export const setPanZoomState = (newState) => {
-        const changed = board.setPanZoomState(newState);
-        if (changed) {
-                dModel(
-                        "PanZoom state changed via Board, dispatching event. New state: %o",
-                        board.getPanZoomState(), // Get the latest state from board
-                );
-                dispatchModelChangeEvent({
-                        type: "panZoomChanged",
-                        payload: board.getPanZoomState(),
-                });
-        } else {
-                dModel("PanZoom state did not change via Board.");
-        }
+  const changed = board.setPanZoomState(newState);
+  if (changed) {
+    dModel(
+      "PanZoom state changed via Board, dispatching event. New state: %o",
+      board.getPanZoomState(), // Get the latest state from board
+    );
+    dispatchModelChangeEvent({
+      type: "panZoomChanged",
+      payload: board.getPanZoomState(),
+    });
+  } else {
+    dModel("PanZoom state did not change via Board.");
+  }
 };
 
 /**
@@ -266,19 +266,19 @@ export const setPanZoomState = (newState) => {
  * @param {{type: 'color' | 'image', value: string}} newBackground - The new background configuration object.
  */
 export const setTableBackground = (newBackground) => {
-        const changed = board.setTableBackground(newBackground);
-        if (changed) {
-                dModel(
-                        "Table background changed via Board, dispatching event. New background: %o",
-                        board.getTableBackground(), // Get the latest state from board
-                );
-                dispatchModelChangeEvent({
-                        type: "backgroundChanged",
-                        payload: board.getTableBackground(),
-                });
-        } else {
-                dModel("Table background did not change via Board.");
-        }
+  const changed = board.setTableBackground(newBackground);
+  if (changed) {
+    dModel(
+      "Table background changed via Board, dispatching event. New background: %o",
+      board.getTableBackground(), // Get the latest state from board
+    );
+    dispatchModelChangeEvent({
+      type: "backgroundChanged",
+      payload: board.getTableBackground(),
+    });
+  } else {
+    dModel("Table background did not change via Board.");
+  }
 };
 
 /**
@@ -287,17 +287,17 @@ export const setTableBackground = (newBackground) => {
  * @param {string | null} id - The ID of the object to select, or null to deselect.
  */
 export const setSelectedObjectId = (id) => {
-        dModel("setSelectedObjectId called with id: %s", id);
-        if (selectedObjectId !== id) {
-                dModel("Selected object ID changed from %s to %s", selectedObjectId, id);
-                selectedObjectId = id;
-                dispatchModelChangeEvent({
-                        type: "selectionChanged",
-                        payload: selectedObjectId,
-                });
-        } else {
-                dModel("Selected object ID did not change (%s).", id);
-        }
+  dModel("setSelectedObjectId called with id: %s", id);
+  if (selectedObjectId !== id) {
+    dModel("Selected object ID changed from %s to %s", selectedObjectId, id);
+    selectedObjectId = id;
+    dispatchModelChangeEvent({
+      type: "selectionChanged",
+      payload: selectedObjectId,
+    });
+  } else {
+    dModel("Selected object ID did not change (%s).", id);
+  }
 };
 
 /**
@@ -307,19 +307,19 @@ export const setSelectedObjectId = (id) => {
  * @returns {object} The consolidated current board properties after the update.
  */
 export const updateBoardProperties = (newProps) => {
-        const { changed, newProperties } = board.updateBoardProperties(newProps);
-        if (changed) {
-                dModel("Board properties changed via Board, dispatching event.");
-                dispatchModelChangeEvent({
-                        type: "boardPropertiesChanged",
-                        payload: newProperties,
-                });
-        } else {
-                dModel(
-                        "No user-facing board properties or calculated pixel dimensions changed via Board.",
-                );
-        }
-        return newProperties;
+  const { changed, newProperties } = board.updateBoardProperties(newProps);
+  if (changed) {
+    dModel("Board properties changed via Board, dispatching event.");
+    dispatchModelChangeEvent({
+      type: "boardPropertiesChanged",
+      payload: newProperties,
+    });
+  } else {
+    dModel(
+      "No user-facing board properties or calculated pixel dimensions changed via Board.",
+    );
+  }
+  return newProperties;
 };
 
 // The objectsAreEqual function is no longer needed here as VTTObject.objectsAreEqual will be used.
