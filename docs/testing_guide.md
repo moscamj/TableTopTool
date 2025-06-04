@@ -65,10 +65,11 @@ This guide provides a checklist for manually testing the application's functiona
 - **Save to File:**
      - [ ] After arranging objects and customizing the canvas, can you save the state to a file?
      - [ ] Is a JSON file downloaded?
+     - [ ] (Optional) Inspect the JSON file: does it include `objects`, `background`, `viewState`, and `boardProperties`?
 - **Load from File:**
      - [ ] Clear the canvas or make significant changes from a saved state.
      - [ ] Can you load a previously saved session file?
-     - [ ] Is the canvas state (objects, background, pan/zoom settings) correctly restored?
+     - [ ] Is the canvas state (objects, background, pan/zoom settings, board properties) correctly restored?
      - [ ] Are images on objects (if any) reloaded correctly?
 
 ### Scripting
@@ -101,54 +102,54 @@ If you encounter any bugs or unexpected behavior:
 
 Happy Testing!
 
-## Running Automated Unit Tests (Jest)
+## Running Automated End-to-End Tests (Cypress)
 
-In addition to manual testing, this project uses Jest for automated unit tests. These tests help ensure individual components and functions are working correctly.
+This project uses Cypress for automated end-to-end (E2E) testing. E2E tests simulate real user scenarios by interacting with the application in a browser environment, verifying overall application flow and functionality from the user's perspective.
 
 ### Prerequisites
 
-1. **Node.js and npm:** Ensure you have Node.js installed, which includes npm (Node Package Manager). You can download it from [nodejs.org](https://nodejs.org/).
-2. **Project Dependencies:** Open your terminal, navigate to the project's root directory, and run the following command to install all necessary dependencies (including Jest):
-      ```bash
-      npm install
-      ```
+1.  **Node.js and npm:** Ensure Node.js (v22.0.0 or newer) and npm are installed. This is covered in the [Developer Setup Guide](./developer_setup.md).
+2.  **Project Dependencies:** If you haven't already, navigate to the project's root directory in your terminal and install all necessary dependencies (including Cypress):
+    ```bash
+    npm install
+    ```
+
+### Configuration
+
+Cypress is configured via the `config/cypress.config.js` file. This file contains settings for the Cypress environment, such as base URLs, viewport sizes, and potentially custom commands.
 
 ### Running Tests
 
-- **Run all tests:**
-  To execute all Jest unit tests, run the following command in your terminal from the project's root directory:
+There are two main ways to run Cypress tests:
 
-     ```bash
-     npm test
-     ```
+1.  **Interactive Mode (Cypress Test Runner):**
+    This mode is recommended when writing or debugging tests. It opens a dedicated Cypress window where you can see your application, the test commands as they execute, and detailed information about each step.
 
-     The test results will be displayed in your terminal.
+    To open the Cypress Test Runner, run the following command from the project's root directory:
+    ```bash
+    npx cypress open
+    ```
+    This will launch the Cypress application. You'll typically see a list of your E2E test files. Clicking on a file will run the tests within it in a browser instance controlled by Cypress.
 
-- **Run tests in watch mode (recommended during development):**
-  To have Jest watch for file changes and re-run tests automatically, use:
+2.  **Headless Mode (Command Line):**
+    This mode runs tests without launching a visible browser window. It's suitable for running tests in CI/CD pipelines or for quick checks from the command line.
 
-     ```bash
-     npm test -- --watch
-     ```
+    To run all Cypress tests headlessly, use:
+    ```bash
+    npx cypress run
+    ```
+    Test results, including pass/fail status and any errors, will be output to the terminal. Videos and screenshots are often automatically saved for failing tests (check Cypress configuration).
 
-     _(Note: The first `--` is to pass the `--watch` flag directly to the `jest` command executed by `npm test`.)_
+### Test File Location
 
-- **Run tests for a specific file:**
-  To run tests only for a particular file, specify the path to the test file:
+Cypress end-to-end test files are typically located in the `cypress/e2e/` directory at the project root. Test files usually follow a naming convention like `*.cy.js` or `*.cy.ts`.
 
-     ```bash
-     npm test -- <path_to_your_test_file.js>
-     ```
+*As of the current documentation update, Cypress is set up, but end-to-end test files (e.g., in a `cypress/e2e/` directory) still need to be created.*
 
-     For example:
+### Purpose of E2E Tests
 
-     ```bash
-     npm test -- src/__tests__/objects.test.js
-     ```
-
-- **Run tests with coverage report:**
-  If Jest is configured to generate a coverage report (check `jest.config.js`), you can usually generate it by adding the `--coverage` flag:
-     ```bash
-     npm test -- --coverage
-     ```
-     This will create a `coverage/` directory with an HTML report you can open in your browser.
+E2E tests are designed to:
+- Verify that different parts of the application work together correctly.
+- Simulate user workflows and critical paths through the application.
+- Catch regressions that might not be caught by unit or integration tests.
+- Provide confidence in the overall stability of the application before deployment.
