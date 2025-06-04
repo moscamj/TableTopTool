@@ -12,12 +12,16 @@ import * as boardSettingsView from "./components/boardSettingsView.js";
 import * as toolbarView from "./components/toolbarView.js";
 import * as modalView from "./components/modalView.js";
 import * as messageAreaView from "./components/messageAreaView.js";
+
+import UiViewModel from '../viewmodels/uiViewModel.js';
+import { VTT_API_INIT } from '../api.js';
+import * as sessionManagement from '../session_management.js';
+
 import CanvasViewModel from '../viewmodels/canvasViewModel.js';
 import * as canvasView from './canvasView.js';
 
 const dUiView = debug("app:view:ui");
 
-/** @type {UiViewModel | null} Instance of the UiViewModel. */
 let uiViewModelInstance = null;
 /** @type {object | null} Instance of the VTT_API. */
 let vttApiInstance = null; // Used for some direct API calls like clearAllObjects
@@ -124,44 +128,79 @@ if (document.readyState === "loading") {
 
 /**
  * Initializes the main UI view.
- * Stores references to UiViewModel and VTT_API, and initializes all UI sub-components.
- * @param {UiViewModel} uiViewModel - The UiViewModel instance.
- * @param {object} vttApi - The VTT_API instance.
+ * This function is now responsible for creating UiViewModel, initializing VTT_API,
+ * setting up session management callbacks, and initializing all UI sub-components and the canvas system.
+ * @param {object} vttApi - The VTT_API instance (passed from main.js).
  */
-export const init = (uiViewModel, vttApi) => {
-        dUiView("init called with uiViewModel: %o, vttApi: %o", uiViewModel, vttApi);
-        uiViewModelInstance = uiViewModel;
-        vttApiInstance = vttApi; // vttApiInstance is used by some direct actions like clearBoardButton
+export const init = (vttApi) => {
+        dUiView("uiView init started, received vttApi: %o", vttApi);
+        vttApiInstance = vttApi; // Store for module-level access if needed, e.g. by clearBoardButton
 
-        if (!uiViewModelInstance) {
-                log.error("[uiView.js] UiViewModel not provided during init!");
-                dUiView("init error: UiViewModel not provided.");
-                return;
+        // Initialize UiViewModel
+        uiViewModelInstance = new UiViewModel();
+        dUiView("UiViewModel instance created in uiView");
+        if (uiViewModelInstance.init) {
+            uiViewModelInstance.init(vttApi); // Pass vttApi to UiViewModel's init
+            dUiView("UiViewModel initialized with vttApi");
         }
-        // vttApiInstance might be null if not passed, handle gracefully if some methods rely on it.
-        dUiView("UiViewModel and VTT_API instances stored.");
 
-        // Initialize all UI sub-components, passing them the UiViewModel and VTT_API as needed
-        dUiView("Initializing sub-components...");
-        inspectorView.init(uiViewModelInstance, vttApiInstance);
+        // Call VTT_API_INIT
+        VTT_API_INIT({
+            showMessage: uiViewModelInstance.displayMessage.bind(uiViewModelInstance)
+        });
+        dUiView("VTT_API_INIT called from uiView with UiViewModel's displayMessage");
+
+        // Define uiCallbacks (previously in main.js)
+        const uiCallbacks = {
+            onSaveToFile: sessionManagement.handleSaveTableState,
+            onSaveMemoryState: sessionManagement.handleSaveMemoryState,
+            onLoadFromFileInputChange: (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    dUiView("File selected for loading in uiView: %s", file.name);
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        dUiView("File content loaded in uiView, calling sessionManagement.handleLoadTableState");
+                        sessionManagement.handleLoadTableState(e.target.result);
+                    };
+                    reader.onerror = (e) => {
+                        log.error("[uiView.js] File Read Error:", e);
+                        vttApi.showMessage("File Read Error: Could not read file.", "error");
+                    };
+                    reader.readAsText(file);
+                }
+            },
+        };
+        dUiView("uiCallbacks defined in uiView: %o", uiCallbacks);
+
+        // Initialize UI Event Listeners
+        initUIEventListeners(uiCallbacks); // Call the existing method of uiView
+        dUiView("initUIEventListeners called from uiView init");
+
+        // Initialize all UI sub-components
+        dUiView("Initializing UI sub-components...");
+        inspectorView.init(uiViewModelInstance, vttApi); // Pass the vttApi received by init
         dUiView("inspectorView initialized.");
-        boardSettingsView.init(uiViewModelInstance);
+        boardSettingsView.init(uiViewModelInstance); // Assumes it gets vttApi via uiViewModelInstance if needed
         dUiView("boardSettingsView initialized.");
-        toolbarView.init(uiViewModelInstance);
+        toolbarView.init(uiViewModelInstance); // Assumes it gets vttApi via uiViewModelInstance if needed
         dUiView("toolbarView initialized.");
         modalView.init(uiViewModelInstance);
         dUiView("modalView initialized.");
-        messageAreaView.init(uiViewModelInstance); // Initialize MessageAreaView for displaying messages
+        messageAreaView.init(uiViewModelInstance);
         dUiView("messageAreaView initialized.");
+        dUiView("UI sub-components initialized in uiView");
 
-        // Callbacks for inspector, board settings, and messages are registered by their respective components with UiViewModel.
+        // Initialize Canvas System
+        initializeCanvasSystem(uiViewModelInstance, vttApi); // Pass the vttApi received by init
+        dUiView("initializeCanvasSystem called from uiView init");
 
-        // showModal and hideModal are exported by modalView.js; uiView uses modalView.showModal for its own modal needs (e.g., clear board confirmation).
-
-        initializeCanvasSystem(uiViewModelInstance, vttApiInstance); // NEW CALL
+        // Display "Application initialized" message
+        uiViewModelInstance.displayMessage("Application initialized.", "info");
+        dUiView("'Application initialized.' message displayed from uiView.");
 
         log.debug(
-                "[uiView.js] Initialized with UiViewModel, VTT_API, canvas system, and all sub-components.",
+                "[uiView.js] Initialized with VTT_API, created UiViewModel, set up callbacks, sub-components, and canvas.",
         );
         dUiView("uiView initialization complete.");
 };
