@@ -1,4 +1,3 @@
-console.log('[main.js] process.env.DEBUG =', process.env.DEBUG);
 // src/main.js
 import "./loggingConfig.js"; // Initializes loglevel configuration
 import debug from "debug";
