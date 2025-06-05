@@ -4,7 +4,7 @@
         "description": "Lightweight extendable virtual tabletop webapp that supports any token based game",
         "main": "index.js",
         "scripts": {
-                "dev": "vite",
+                "dev": "cross-env DEBUG=app:* vite",
                 "build": "vite build",
                 "lint": "eslint --fix \"src/**/*.js\" \"config/**/*.js\"",
                 "format": "prettier-eslint --write \"src/**/*.{js,jsx,ts,tsx,json,css,scss,md,html}\" \"config/**/*.{js,json,md}\""
@@ -27,6 +27,7 @@
                 "@eslint/eslintrc": "^3.3.1",
                 "@eslint/js": "^9.28.0",
                 "autoprefixer": "^10.4.21",
+                "cross-env": "^7.0.3",
                 "cypress": "^13.17.0",
                 "eslint": "^8.57.1",
                 "globals": "^16.2.0",
