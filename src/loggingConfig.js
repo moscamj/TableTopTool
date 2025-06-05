@@ -1,32 +1,35 @@
 // src/loggingConfig.js
-// This module configures the 'loglevel' library for the entire application.
-// Loglevel provides hierarchical logging and is controlled by the VITE_APP_LOG_LEVEL environment variable.
-// It is distinct from the 'debug' library, which is used for more verbose, development-time debugging
-// and is controlled by the DEBUG environment variable.
 import log from "loglevel";
 
 const logLevelFromEnv = import.meta.env.VITE_APP_LOG_LEVEL;
 const validLevels = ["trace", "debug", "info", "warn", "error", "silent"];
-let effectiveLogLevel = "warn"; // Default log level
+let intendedLogLevelString = "warn"; // Default log level string
 
 if (logLevelFromEnv && validLevels.includes(logLevelFromEnv.toLowerCase())) {
-  effectiveLogLevel = logLevelFromEnv.toLowerCase();
+  intendedLogLevelString = logLevelFromEnv.toLowerCase();
 } else if (logLevelFromEnv) {
+  // This console.warn is for when the env var is set but to an invalid value
   console.warn(
-    `[LoggingConfig] Invalid VITE_APP_LOG_LEVEL: '${logLevelFromEnv}'. Defaulting to '${effectiveLogLevel}'.`,
+    `[LoggingConfig] Invalid VITE_APP_LOG_LEVEL: '${logLevelFromEnv}'. Defaulting to '${intendedLogLevelString}'. Valid levels are: ${validLevels.join(", ")}.`
+  );
+} else {
+  // This console.log is for when the env var is not set at all, using default
+  // It's less of a warning and more of an informational message.
+  console.log(
+    `[LoggingConfig] VITE_APP_LOG_LEVEL is not set. Defaulting to '${intendedLogLevelString}'.`
   );
 }
-// If logLevelFromEnv is undefined, it will default to "warn"
 
-log.setLevel(effectiveLogLevel);
+log.setLevel(intendedLogLevelString);
 
-// Optional: Log the effective log level using loglevel itself.
-// This specific console.log is intentional for initial setup verification.
-// It helps confirm that the logging configuration is loaded and what level is active,
-// especially before loglevel itself might be fully applied or if there are issues with its configuration.
-// It will only be visible if the browser's console level includes 'log'.
+// Log the actual level that was set, by getting it and converting back to string if necessary
+// log.getLevel() returns a number. We want to show the name.
+const levelNumberToName = ["trace", "debug", "info", "warn", "error", "silent"];
+const currentLevelNumber = log.getLevel();
+const currentLevelName = levelNumberToName[currentLevelNumber] || "unknown";
+
 console.log(
-  `[LoggingConfig] Loglevel initialized. Effective level: ${log.getLevel()}`,
+  `[LoggingConfig] Loglevel initialized. Effective level: ${currentLevelName.toUpperCase()} (numeric: ${currentLevelNumber})`
 );
 
 export default log;
