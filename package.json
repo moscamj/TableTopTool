@@ -26,6 +26,7 @@
                 "@babel/preset-env": "^7.27.2",
                 "@eslint/eslintrc": "^3.3.1",
                 "@eslint/js": "^9.28.0",
+                "@vitejs/plugin-legacy": "^6.1.1",
                 "autoprefixer": "^10.4.21",
                 "cross-env": "^7.0.3",
                 "cypress": "^13.17.0",

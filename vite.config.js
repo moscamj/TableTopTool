@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import legacy from '@vitejs/plugin-legacy';
 
 export default defineConfig({
         // No specific configurations needed for MVP,
@@ -11,5 +12,10 @@ export default defineConfig({
         },
         css: {
                 postcss: './config/postcss.config.js'
-        }
+        },
+        plugins: [
+                legacy({
+                        targets: ['defaults', 'not IE 11']
+                })
+        ]
 });
