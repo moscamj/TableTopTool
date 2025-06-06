@@ -45,5 +45,12 @@
         },
         "engines": {
                 "node": ">=22.0.0"
-        }
+        },
+        "browserslist": [
+                "> 0.5%",
+                "last 2 versions",
+                "Firefox ESR",
+                "safari >= 12",
+                "not dead"
+        ]
 }
