@@ -4,6 +4,10 @@ import debug from "debug";
 import { VTT_API } from "./api.js";
 import * as uiView from "./views/uiView.js";
 
+// New test debug statement
+const earlyDebug = debug("app:init-test");
+earlyDebug(">>> DEBUG LIBRARY TEST: This message should be visible if DEBUG=app:* is working. <<<");
+
 const d = debug("app:main");
 d("main.js module loaded");
 
