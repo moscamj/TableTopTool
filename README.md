@@ -2,7 +2,7 @@
 
 A web-based, generic, and extensible virtual tabletop (VTT) designed to support a wide array of tabletop games. This MVP version operates in an **offline-first, in-memory mode**, with all state managed locally and saved/loaded via JSON files. Firebase integration is stubbed for potential future use. The codebase has been recently updated to use modern ES6+ JavaScript syntax and features, enhancing readability and maintainability. It utilizes Tailwind CSS for styling.
 
-![Screenshot](docs/TTTScreenshot.png =x250)
+<img src="docs/TTTScreenshot.png" height="225" />
 [Screenshot](docs/TTTScreenshot.png)
 
 ## Prerequisites
